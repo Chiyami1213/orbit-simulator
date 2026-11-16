@@ -25,7 +25,7 @@ Milky Way sky map (assets/textures/sky_milkyway_8k.jpg and sky_milkyway_4k.jpg):
 "Deep Star Maps 2020" (https://svs.gsfc.nasa.gov/4851), starmap_2020_8k_gal.exr tone-mapped to JPEG (asinh stretch) and, for the 4k file, resampled. The map is built from ESA Gaia,
 Hipparcos and Tycho-2 star catalogues. NASA-produced material is generally free to use with credit; the terms of the underlying Gaia data still have to be confirmed for redistribution.
 
-Planet textures: Solar System Scope (2k maps), CC BY 4.0, https://www.solarsystemscope.com/textures/
+Planet textures: Solar System Scope (2k maps built in, 8k maps downloaded on request), CC BY 4.0, https://www.solarsystemscope.com/textures/
 
 Icons: Lucide (ISC licence, https://lucide.dev, partly derived from Feather, MIT); full text in LICENSES/lucide-ISC.txt. They are embedded in mathkit/ui/web/icons.js.
 

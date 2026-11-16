@@ -18,6 +18,24 @@ TEXTURES = {'Sun': '2k_sun.jpg', 'Moon': '2k_moon.jpg', 'Mercury': '2k_mercury.j
 REAL = {'Sun': 'star', 'Mercury': 'planet', 'Venus': 'planet', 'Earth': 'planet', 'Moon': 'moon', 'Mars': 'planet', 'Jupiter': 'planet', 'Saturn': 'planet', 'Uranus': 'planet',
         'Neptune': 'planet', 'Pluto': 'planet'}
 SMALL = {'Ceres': dict(mu=62.6284, R=469.7, a=413.7e6, e=0.0785, inc=10.6), 'Vesta': dict(mu=17.288, R=262.7, a=353.3e6, e=0.0887, inc=7.1)}
+# texture modes: a body that has several maps can be shown in different ways (chosen in the object panel)
+TEXMODES = {
+    'Earth': [('Day, Clouds and Night Lights', dict(texture='2k_earth_daymap.jpg', clouds='2k_earth_clouds.jpg', night='2k_earth_nightmap.jpg')),
+              ('Day Map Only', dict(texture='2k_earth_daymap.jpg', clouds=None, night=None)),
+              ('Night Lights Only', dict(texture='2k_earth_nightmap.jpg', clouds=None, night=None)),
+              ('Clouds Only', dict(texture=None, clouds='2k_earth_clouds.jpg', night=None))],
+    'Venus': [('Atmosphere (Cloud Tops)', dict(texture='2k_venus_atmosphere.jpg')), ('Surface (Radar Map)', dict(texture='2k_venus_surface.jpg'))],
+}
+
+
+def apply_texmode(body: dict, mode: str | None = None) -> dict:
+    grp = TEXMODES.get(body.get('texkey') or body.get('name'))
+    if not grp: return body
+    pick = next((m for m in grp if m[0] == mode), grp[0]); body['texkey'] = body.get('texkey') or body['name']; body['texmode'] = pick[0]
+    for k in ('texture', 'clouds', 'night'): body[k] = pick[1].get(k)
+    return body
+
+
 BODY_COLOR = {'Sun': '#ffd27a', 'Mercury': '#a79d93', 'Venus': '#e0c28b', 'Earth': '#4c8df6', 'Moon': '#bdbdbd', 'Mars': '#d1603d', 'Jupiter': '#d8b18c', 'Saturn': '#e3d3a2',
               'Uranus': '#9fd6e0', 'Neptune': '#5a7fe0', 'Pluto': '#c9b9a8', 'Ceres': '#9a948a', 'Vesta': '#b3a28c'}
 
@@ -27,6 +45,7 @@ def new_body(name: str, kind: str, mu: float, radius: float, r, v, **kw) -> dict
     body = dict(id=kw.pop('id', name), name=name, kind=kind, mu=float(mu), radius=float(radius), color=kw.pop('color', BODY_COLOR.get(name, KIND_COLOR.get(kind, '#8aa0c8'))),
                 texture=kw.pop('texture', TEXTURES.get(name)), r=[float(x) for x in r], v=[float(x) for x in v], gravity=kw.pop('gravity', mu > 0), visible=True, **kw)
     if shape: body['shape'] = shape                                                              # a chosen 3D model ('comsat' / 'probe' for spacecraft)
+    if name in TEXMODES and body.get('texture') == TEXTURES.get(name): apply_texmode(body)     # the default map set of Earth and Venus
     return body
 
 
@@ -204,6 +223,7 @@ def apply_edits(scene: dict, edits: list[dict], eph=None, consts: ConstantSet | 
             for k, v in e['fields'].items():
                 if k in ('mu', 'radius'): b[k] = max(float(v), 0.0)
                 elif k in ('r', 'v'): b[k] = [float(x) for x in v]
+                elif k == 'texmode': apply_texmode(b, v)
                 elif k in ('name', 'color', 'texture', 'gravity', 'visible', 'kind', 'shape'): b[k] = v
             if 'mu' in e['fields']: b['gravity'] = b['mu'] > 0 if 'gravity' not in e['fields'] else b['gravity']
         elif op == 'scale_mass': get(sc, e['id'])['mu'] *= float(e['factor'])

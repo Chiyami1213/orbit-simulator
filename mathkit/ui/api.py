@@ -340,6 +340,21 @@ def ephem_download(p: dict) -> dict:
     threading.Thread(target=work, daemon=True).start(); return dict(ok=True)
 
 
+def textures_status(p: dict) -> dict:
+    from .. import textures as TX
+    return dict(ok=True, **TX.status())
+
+
+def textures_download(p: dict) -> dict:
+    from .. import textures as TX
+    return TX.download()
+
+
+def textures_delete(p: dict) -> dict:
+    from .. import textures as TX
+    n = TX.delete_all(); return dict(ok=True, deleted=n, **TX.status())
+
+
 def licenses(p: dict) -> dict:
     """Third-party notices shown in Settings > About (the NOTICE file and the licence texts shipped with the program)."""
     import sys
@@ -616,6 +631,6 @@ def report_issue(p: dict) -> dict:
 
 ROUTES = {'meta': lambda p: meta(), 'visible': visible, 'solve': solve, 'progress': progress, 'mission_meta': mission_meta, 'mission_starter': mission_starter, 'mission_run': mission_run, 'mission_progress': mission_progress, 'mission_convert': mission_convert,
           'mission_compare': mission_compare, 'mission_script': mission_script, 'mission_import': mission_import, 'mission_from_module': mission_from_module, 'mission_save': mission_save,
-          'ephem_status': ephem_status, 'mission_porkchop': mission_porkchop, 'mission_cosmographia': mission_cosmographia, 'mission_node_preview': mission_node_preview, 'mission_node_insert': mission_node_insert, 'sandbox_meta': sandbox_meta, 'sandbox_new': sandbox_new, 'sandbox_run': sandbox_run, 'sandbox_edit': sandbox_edit, 'sandbox_panel': sandbox_panel, 'sandbox_to_mission': sandbox_to_mission, 'sandbox_save': sandbox_save, 'save_blob': save_blob, 'mission_import_trajectory': mission_import_trajectory, 'mission_from_porkchop': mission_from_porkchop, 'mission_trajectory': mission_trajectory, 'licenses': licenses, 'ephem_download': ephem_download, 'gmat_check': gmat_check, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
+          'ephem_status': ephem_status, 'mission_porkchop': mission_porkchop, 'mission_cosmographia': mission_cosmographia, 'mission_node_preview': mission_node_preview, 'mission_node_insert': mission_node_insert, 'sandbox_meta': sandbox_meta, 'sandbox_new': sandbox_new, 'sandbox_run': sandbox_run, 'sandbox_edit': sandbox_edit, 'sandbox_panel': sandbox_panel, 'sandbox_to_mission': sandbox_to_mission, 'sandbox_save': sandbox_save, 'save_blob': save_blob, 'mission_import_trajectory': mission_import_trajectory, 'mission_from_porkchop': mission_from_porkchop, 'mission_trajectory': mission_trajectory, 'licenses': licenses, 'ephem_download': ephem_download, 'textures_status': textures_status, 'textures_download': textures_download, 'textures_delete': textures_delete, 'gmat_check': gmat_check, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
           'fullscreen': fullscreen, 'open_folder': open_folder, 'export_save': export_save, 'report_issue': report_issue,
           'backup_create': _bk(_bk_create), 'backup_list': _bk(_bk_list), 'backup_restore': _bk(_bk_restore), 'backup_import': _bk(_bk_import), 'backup_delete': _bk(_bk_delete)}

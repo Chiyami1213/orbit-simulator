@@ -288,7 +288,7 @@ function spaceCard(r) {
   const host = el('div', { class: 'spaceview' }), bar = el('div', { class: 'spacebar' }), card = el('div', { class: 'cardx spacecard' }, el('h3', {}, el('b', {}, 'Space View'), el('span', { class: 'hint' }, ' · drag to orbit, scroll to zoom, right-drag to pan; time warp up to 10⁷×')), bar, host);
   setTimeout(async () => {
     if (MIS.space) { try { MIS.space.dispose(); } catch (e) { } MIS.space = null; }
-    let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(host, sp, { sky: SET.sky || 'milkyway', model: SET.model }); } catch (e) { host.replaceChildren(el('div', { class: 'empty' }, 'the space view needs WebGL: ' + e)); return; }
+    let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(host, sp, { sky: SET.sky || 'milkyway', model: SET.model, hires: texHires() }); } catch (e) { host.replaceChildren(el('div', { class: 'empty' }, 'the space view needs WebGL: ' + e)); return; }
     MIS.space = S3; const st = S3.state;
     const btn = (label, fn, title) => el('button', { class: 'btn small', title: title || '', onclick: fn }, label);
     const play = btn('▶ Play', () => { S3.play(); sync(); }), rev = btn('◀ Reverse', () => { st.dir = -st.dir; if (!st.playing) S3.play(true); sync(); }, 'play backwards');

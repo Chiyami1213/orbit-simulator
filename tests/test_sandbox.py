@@ -141,3 +141,38 @@ def test_placement_state_is_used_exactly(scene):
     sc = SM.apply_edits(scene, [dict(op='add', item=it, parent='Earth', orbit={}, place=dict(r=[1.0, 2.0, 3.0], v=[0.1, 0.2, 0.3]))], EPH)
     b = next(x for x in sc['bodies'] if x['name'] == 'Probe')
     assert b['r'] == [1.0, 2.0, 3.0] and b['v'] == [0.1, 0.2, 0.3]
+
+
+def test_texture_modes_for_earth_and_venus(scene):
+    earth = next(b for b in scene['bodies'] if b['id'] == 'Earth'); venus = next(b for b in scene['bodies'] if b['id'] == 'Venus')
+    assert earth['texmode'].startswith('Day, Clouds') and earth['clouds'] and earth['night'] and venus['texture'] == '2k_venus_atmosphere.jpg'
+    sc = SM.apply_edits(scene, [dict(op='set', id='Earth', fields=dict(texmode='Night Lights Only')), dict(op='set', id='Venus', fields=dict(texmode='Surface (Radar Map)'))], EPH)
+    e = next(b for b in sc['bodies'] if b['id'] == 'Earth'); v = next(b for b in sc['bodies'] if b['id'] == 'Venus')
+    assert e['texture'] == '2k_earth_nightmap.jpg' and e['clouds'] is None and v['texture'] == '2k_venus_surface.jpg'
+    out = SS.run(sc, '30 days'); eb = next(b for b in out['bodies'] if b['id'] == 'Earth'); assert eb['texmode'] == 'Night Lights Only' and eb['texture'] == '2k_earth_nightmap.jpg'
+    assert 'Earth' in SS.meta()['texmodes'] and len(SS.meta()['texmodes']['Earth']) == 4
+
+
+def test_texture_download_accepts_only_images(tmp_path, monkeypatch):
+    from mathkit import textures as TX
+    monkeypatch.setenv('ORBSIM_HOME', str(tmp_path)); monkeypatch.setattr(TX, 'HIRES', {'2k_a.jpg': '8k_a.jpg'})
+
+    class Resp:
+        def __init__(self, data): self.data = data; self.pos = 0
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self, n):
+            c = self.data[self.pos:self.pos + n]; self.pos += n; return c
+
+    def run(data):
+        monkeypatch.setattr(TX.urllib.request, 'urlopen', lambda req, timeout=0: Resp(data))
+        TX.PROG.update(state='idle'); TX.download()
+        import time
+        for _ in range(100):
+            if TX.PROG['state'] in ('done', 'error'): break
+            time.sleep(0.05)
+        return TX.status()
+    st = run(b'<html>' + b'x' * 200_000)
+    assert TX.PROG['state'] == 'error' and st['count'] == 0
+    st = run(b'\xff\xd8\xff\xe0' + b'x' * 200_000); assert TX.PROG['state'] == 'done' and st['count'] == 1 and st['map'] == {'2k_a.jpg': '8k_a.jpg'}
+    assert TX.delete_all() == 1 and TX.status()['count'] == 0

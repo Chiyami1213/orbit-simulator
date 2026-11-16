@@ -32,7 +32,7 @@ def meta(consts: ConstantSet | None = None) -> dict:
     cat = SM.catalog(consts)
     for c in cat: c['shape'] = shape_of(c['name'], c['kind'])
     markers = [dict(name='Galactic Center', ra=SK.GALACTIC_CENTER[0], dec=SK.GALACTIC_CENTER[1]), dict(name='North Galactic Pole', ra=SK.NORTH_GALACTIC_POLE[0], dec=SK.NORTH_GALACTIC_POLE[1])] + [dict(name=k, ra=r_, dec=d_) for k, (r_, d_) in SK.STARS.items()]
-    return dict(presets=SM.PRESETS, catalog=cat, categories=SM.CATEGORIES, horizons=list(HORIZONS), kinds=['star', 'planet', 'moon', 'small', 'spacecraft', 'custom'], models=models(), markers=markers)
+    return dict(texmodes={k: [m[0] for m in v] for k, v in SM.TEXMODES.items()}, presets=SM.PRESETS, catalog=cat, categories=SM.CATEGORIES, horizons=list(HORIZONS), kinds=['star', 'planet', 'moon', 'small', 'spacecraft', 'custom'], models=models(), markers=markers)
 
 
 def default_scene(eph, jd_utc: float | None = None, name: str | None = None, consts: ConstantSet | None = None) -> dict:
@@ -47,7 +47,7 @@ def run(scene: dict, horizon: str | tuple = '1 year', accuracy: float = 1e-11) -
     r = sim.simulate(scene, back, fwd, accuracy)
     bodies = []
     for b in scene['bodies']:
-        d = dict(id=b['id'], name=b['name'], kind=b['kind'], shape=b.get('shape') or shape_of(b['name'], b['kind']), mu=b['mu'], radius=b['radius'], color=b['color'], texture=b.get('texture'), gravity=b.get('gravity', True), visible=b.get('visible', True),
+        d = dict(id=b['id'], name=b['name'], kind=b['kind'], shape=b.get('shape') or shape_of(b['name'], b['kind']), mu=b['mu'], radius=b['radius'], color=b['color'], texture=b.get('texture'), clouds=b.get('clouds'), night=b.get('night'), texmode=b.get('texmode'), texkey=b.get('texkey'), gravity=b.get('gravity', True), visible=b.get('visible', True),
                  parent=SM.dominant_parent(scene, b['id']), path=dict(jd=r['jd'], r=r['bodies'][b['id']]))
         bodies.append(d)
     return dict(bodies=bodies, jd0=r['jd'][0], jd1=r['jd'][-1], epoch_jd=scene['epoch_jd'], energy_drift=r['energy_drift'], steps=r['steps'], status=r['status'], samples=len(r['jd']), limited_days=limited)

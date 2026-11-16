@@ -61,6 +61,13 @@ export function buildShape(shape, color, models, loader) {
   }
   return g;
 }
+const isStar = d => d.kind === 'star' || d.shape === 'star' || d.name === 'Sun';
+const ATMO = { 'Earth': ['#6bb3ff', 1.0], 'Venus': ['#ffd9a0', 0.9], 'Mars': ['#e0a27c', 0.35], 'Jupiter': ['#d8c0a0', 0.45], 'Saturn': ['#e8d8a8', 0.45], 'Uranus': ['#a8e8f0', 0.6], 'Neptune': ['#6a8cff', 0.6], 'Earth-like Planet': ['#7fd8ff', 0.9], 'Gas Giant': ['#d8c0a0', 0.45] };
+function atmoMat(hex, k) {                                                           // a thin glow around the limb, brighter on the lit side; one extra sphere, very cheap
+  return new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uColor: { value: new THREE.Color(hex) }, uSun: { value: new THREE.Vector3(1, 0, 0) }, uLit: { value: 1 }, uK: { value: k } },
+    vertexShader: '#include <common>\n#include <logdepthbuf_pars_vertex>\nvarying vec3 vN; varying vec3 vP; void main(){ vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vP = mv.xyz; gl_Position = projectionMatrix * mv;\n#include <logdepthbuf_vertex>\n}',
+    fragmentShader: '#include <logdepthbuf_pars_fragment>\nuniform vec3 uColor; uniform vec3 uSun; uniform float uLit; uniform float uK; varying vec3 vN; varying vec3 vP; void main(){\n#include <logdepthbuf_fragment>\n float rim = 1.0 - abs(dot(normalize(vN), normalize(-vP))); float a = pow(rim, 3.2) * uK; float lit = mix(1.0, smoothstep(-0.25, 0.35, dot(normalize(vN), uSun)), uLit); gl_FragColor = vec4(uColor, a * lit); }' });
+}
 let thumbRenderer = null;
 export function renderThumbs(list, models, size = 112) {                              // [{key, shape, color}] -> {key: dataURL}, drawn with one small off-screen renderer
   if (!thumbRenderer) { thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); thumbRenderer.setSize(size, size); }
@@ -78,11 +85,11 @@ export function createSpace(host, data, opts = {}) {
   host.replaceChildren(); host.classList.add('spacehost');
   const W = () => Math.max(300, host.clientWidth), H = () => Math.max(260, host.clientHeight);
   const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, preserveDrawingBuffer: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(W(), H()); host.append(renderer.domElement); renderer.domElement.className = 'spacecanvas';
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75)); renderer.setSize(W(), H()); host.append(renderer.domElement); renderer.domElement.className = 'spacecanvas';
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(50, W() / H(), 1e-3, 1e14); camera.up.set(0, 0, 1);
   const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.zoomSpeed = 1.2;
   const world = new THREE.Group(); scene.add(world);
-  const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 1.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1 };
+  const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 1.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1, light: 'even', atmo: true };
   const loader = new THREE.TextureLoader(), t0 = data.jd0, t1 = data.jd1, span = Math.max(1e-9, t1 - t0);
   let jd = t0, raf = 0, last = 0, flyTo = null;
   let ghostGrp = null, ghostMk = null;                                                  // the placement preview of the sandbox (marker, orbit ring, aim arrow)
@@ -104,20 +111,51 @@ export function createSpace(host, data, opts = {}) {
   setSky(state.sky);
 
   // ---- lights
-  scene.add(new THREE.AmbientLight(0xffffff, 0.45)); const sun = new THREE.DirectionalLight(0xffffff, 2.4); sun.position.set(1, 0.3, 0.4); world.add(sun); world.add(sun.target);
+  // Lighting: every star in the scene is a point light at its own position (up to two), so planets have a real day side, night side and terminator.
+  //   real = inverse-square fall-off (outer planets are dim), even = the same brightness everywhere but the true direction, full = no shading at all.
+  //   A scene without a star keeps one fixed sun light.
+  const ambient = new THREE.AmbientLight(0xffffff, 0.45), sun = new THREE.DirectionalLight(0xffffff, 2.4); scene.add(ambient); sun.position.set(1, 0.3, 0.4); world.add(sun); world.add(sun.target);
+  const starDefs = data.bodies.filter(d => d.visible !== false && isStar(d)).sort((a, b) => (b.mu || b.R || 0) - (a.mu || a.R || 0)).slice(0, 2), REFD = 1.496e8;
+  const starLights = starDefs.map(d => { const L = new THREE.PointLight(d.color || '#ffffff', 1, 0, 0); world.add(L); return { def: d, L, rel: Math.min(3, Math.max(0.03, Math.pow((d.mu || 1) / (starDefs[0].mu || 1), 3))) }; });
+  let litMode = '';
+  function applyLighting() {
+    litMode = state.light; const full = state.light === 'full', real = state.light === 'real';
+    ambient.intensity = full ? 3.2 : (starLights.length ? 0.28 : 0.45); sun.visible = !full && !starLights.length;
+    for (const s of starLights) { s.L.visible = !full; s.L.decay = real ? 2 : 0; s.L.intensity = (real ? 2.4 * REFD * REFD : 2.6) * s.rel; }
+  }
+  applyLighting();
+  // texture helpers: every map is kept as a slot so a sharper (downloaded) version can be swapped in for the body that is big on screen
+  const configTex = (tx, srgb) => { tx.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; tx.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); };
+  function loadSlot(slots, mat, prop, file, done, srgb = true) {
+    const sl = { mat, prop, file, baseTex: null, hiTex: null, loading: false }; slots.push(sl);
+    loader.load('/assets/textures/' + file, tx => { configTex(tx, srgb); sl.baseTex = tx; if (!sl.hiTex) mat[prop] = tx; mat.needsUpdate = true; if (done) done(tx); }); return sl;
+  }
 
   // ---- bodies
   const bodies = {}; const labelHost = el('div', { class: 'spacelabels' }); host.append(labelHost);
   const mkLabel = (text, color) => { const d = el('div', { class: 'slabel', style: `color:${color || '#fff'}` }, text); labelHost.append(d); return d; };
   for (const b of data.bodies) {
     if (b.visible === false) continue;
-    const mat = new THREE.MeshStandardMaterial({ color: b.color || '#6b7fb5', roughness: 1, metalness: 0 }); if (b.texture) loader.load('/assets/textures/' + b.texture, tx => { tx.colorSpace = THREE.SRGBColorSpace; mat.map = tx; mat.color.set('#ffffff'); mat.needsUpdate = true; });
+    const mat = new THREE.MeshStandardMaterial({ color: !b.texture && b.clouds ? '#0b1a33' : (b.color || '#6b7fb5'), roughness: 1, metalness: 0 }), slots = [];
+    if (b.texture) loadSlot(slots, mat, 'map', b.texture, () => mat.color.set('#ffffff'));
+    let nightU = null;
+    if (b.night) {                                                                     // city lights: only on the side that faces away from the star
+      nightU = { uSun: { value: new THREE.Vector3(1, 0, 0) }, uNight: { value: 1 } };
+      loadSlot(slots, mat, 'emissiveMap', b.night, () => { mat.emissive.set('#ffffff'); mat.emissiveIntensity = 1.5; });
+      mat.onBeforeCompile = sh => { sh.uniforms.uSun = nightU.uSun; sh.uniforms.uNight = nightU.uNight; sh.fragmentShader = 'uniform vec3 uSun; uniform float uNight;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance *= uNight * smoothstep(0.12, -0.2, dot(normalize(vNormal), uSun));'); };
+    }
     if (b.name === 'Sun') { mat.emissive = new THREE.Color('#ffd27a'); mat.emissiveIntensity = 1; mat.color.set('#ffd27a'); }
     let mesh; const shape = b.shape || (b.name === 'Sun' ? 'star' : 'sphere');
     if (shape === 'sphere' || shape === 'star' && false) { mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), mat); mesh.rotation.x = Math.PI / 2; }              // texture poles along z
     else { mesh = buildShape(shape, b.color, data.models, loader); const ball = mesh.userData.ball; if (ball) { ball.material = mat; ball.material.needsUpdate = true; } }
+    const shells = [];
+    if (shape === 'sphere') {
+      if (b.clouds) { const cm = new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, depthWrite: false, roughness: 1, metalness: 0 }); loadSlot(slots, cm, 'alphaMap', b.clouds, null, false); mesh.add(new THREE.Mesh(new THREE.SphereGeometry(1.012, 48, 32), cm)); }
+      const am = ATMO[b.name]; if (am) { const sh = new THREE.Mesh(new THREE.SphereGeometry(1.045, 48, 32), atmoMat(am[0], am[1])); mesh.add(sh); shells.push(sh); }
+      if (isStar(b)) mesh.add(glowSprite('#ffd27a', 4.5));
+    }
     world.add(mesh);
-    const o = { def: b, mesh, label: mkLabel(b.name, '#cfe0ff'), soi: null };
+    const o = { def: b, mesh, label: mkLabel(b.name, '#cfe0ff'), soi: null, slots, nightU, shells, hiOn: false };
     if (b.soi) { o.soi = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 20), new THREE.MeshBasicMaterial({ color: '#4c8df6', wireframe: true, transparent: true, opacity: 0.12 })); world.add(o.soi); }
     const par = b.parent ? data.bodies.find(x => x.name === b.parent) : null;                                      // orbit drawn relative to the parent, around its current position
     if (b.path && b.path.r.length > 1) {
@@ -162,9 +200,13 @@ export function createSpace(host, data, opts = {}) {
     const p = v3.clone().project(camera); if (p.z > 1 || p.z < -1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05) { el_.style.display = 'none'; return null; }
     el_.style.display = 'block'; el_.style.transform = `translate(${(p.x * 0.5 + 0.5) * W() + 8}px, ${(-p.y * 0.5 + 0.5) * H() - 8}px)`; return el_;
   };
+  const sl0pos = () => posOf(starLights[0].def.name);
   function layout() {
     const cp = camera.position.clone().add(world.position.clone().negate()), tgt = controls.target.clone();
     const tgtD = camera.position.distanceTo(controls.target), unit = tgtD * 0.012, placed = [];
+    camera.updateMatrixWorld(); if (litMode !== state.light) applyLighting();
+    for (const sl of starLights) sl.L.position.set(...posOf(sl.def.name));
+    const sp = starLights.length ? sl0pos() : sun.position.toArray(), dirV = new THREE.Vector3();
     if (ghostMk) ghostMk.scale.setScalar(unit * 0.9);
     for (const o of Object.values(bodies)) {
       const p = posOf(o.def.name); o.mesh.position.set(...p); const minS = o.mesh.userData.orient ? 3.5 : (o.def.shape === 'asteroid' || o.def.shape === 'comet' ? 1.1 : 0.6); const r = Math.max(o.def.R * state.exag, unit * minS); o.mesh.scale.setScalar(r);
@@ -173,7 +215,9 @@ export function createSpace(host, data, opts = {}) {
       if (o.mesh.userData.ring) o.mesh.userData.ring.quaternion.copy(camera.quaternion);
       if (o.soi) { o.soi.position.set(...p); o.soi.scale.setScalar(o.def.soi); o.soi.visible = state.soi; }
       if (o.line) { o.line.visible = state.paths; if (o.rel) o.line.position.set(...posOf(o.def.parent)); o.line.material.opacity = state.selected === o.def.name ? 1 : 0.45; } const l = label(o.label, o.mesh.position, true); if (l) placed.push(l);
-      if (o.def.name === 'Sun') { const c = o.mesh.position; sun.position.copy(c); sun.target.position.set(0, 0, 0); }
+      if (o.nightU || o.shells.length) { dirV.set(sp[0] - p[0], sp[1] - p[1], sp[2] - p[2]).transformDirection(camera.matrixWorldInverse); const lit = state.light === 'full' ? 0 : 1;
+        if (o.nightU) { o.nightU.uSun.value.copy(dirV); o.nightU.uNight.value = lit; } for (const sh of o.shells) { sh.visible = state.atmo; sh.material.uniforms.uSun.value.copy(dirV); sh.material.uniforms.uLit.value = lit; } }
+      if (o.def.name === 'Sun' && !starLights.length) { const c = o.mesh.position; sun.position.copy(c); sun.target.position.set(0, 0, 0); }
     }
     if (!bodies.Sun) sun.position.set(1e8, 3e7, 4e7);
     for (const t of tracks) {
@@ -193,6 +237,28 @@ export function createSpace(host, data, opts = {}) {
     if (state.hover && state.hover !== state.selected && bodies[state.hover]) { const o = bodies[state.hover], rr = Math.max(o.mesh.scale.x * 1.3, unit * 2.4); hring.visible = true; hring.position.copy(o.mesh.position); hring.quaternion.copy(camera.quaternion); hring.scale.setScalar(rr); } else hring.visible = false;
     for (const m of markers) { m.mk.visible = state.markers; const p = camera.position.clone().add(m.dir.clone().multiplyScalar(5e4)); m.mk.position.copy(p); m.mk.quaternion.copy(camera.quaternion); m.mk.scale.setScalar(900); label(m.label, p, state.markers); }
   }
+  // sharper maps (downloaded 8K / 4K): only the one body that is large on screen gets them, the rest keep the 2K maps, so GPU memory stays small
+  let hiMap = opts.hires || null; const gpu8k = renderer.capabilities.maxTextureSize >= 8192;
+  const hiNameFor = file => { const h = hiMap && hiMap[file]; return h && (gpu8k || !h.startsWith('8k_')) ? h : null; };
+  function ensureHi(o) {
+    o.hiOn = true;
+    for (const sl of o.slots) { const h = hiNameFor(sl.file); if (!h || sl.hiTex || sl.loading) continue; sl.loading = true;
+      loader.load('/usertex/' + h, tx => { sl.loading = false; configTex(tx, sl.prop !== 'alphaMap'); if (!o.hiOn) { tx.dispose(); return; } sl.hiTex = tx; sl.mat[sl.prop] = tx; sl.mat.needsUpdate = true; }, undefined, () => { sl.loading = false; }); }
+  }
+  function dropHi(o) { o.hiOn = false; for (const sl of o.slots) if (sl.hiTex) { sl.mat[sl.prop] = sl.baseTex; sl.hiTex.dispose(); sl.hiTex = null; sl.mat.needsUpdate = true; } }
+  function hiUpdate() {
+    const all = Object.values(bodies); if (!hiMap) { for (const o of all) if (o.hiOn) dropHi(o); return; }
+    const hpx = renderer.domElement.clientHeight || 600, cp = camera.position.clone().sub(world.position), tf = 2 * Math.tan(camera.fov * Math.PI / 360);
+    const best = all.filter(o => o.slots.some(sl => hiNameFor(sl.file))).map(o => ({ o, px: o.mesh.scale.x / (tf * Math.max(1e-9, cp.distanceTo(o.mesh.position))) * hpx })).filter(c => c.px > 110).sort((a, b) => b.px - a.px)[0];
+    for (const o of all) { if (best && o === best.o) { if (!o.hiOn) ensureHi(o); } else if (o.hiOn) dropHi(o); }
+  }
+  // keeps the frame rate up on weak graphics cards: the render resolution drops a little when frames get slow and comes back when they are fast again
+  const prBase = Math.min(window.devicePixelRatio || 1, 1.75); let pr = prBase, emaMs = 16.7, perfT = 0, lastNow = 0, frameN = 0;
+  function perf(now) {
+    const d = now - lastNow; lastNow = now; if (d > 0 && d < 500) emaMs = emaMs * 0.92 + d * 0.08;
+    if (document.hidden || now - perfT < 2500) return; perfT = now; const fps = 1000 / emaMs;
+    if (fps < 28 && pr > 0.6) { pr = Math.max(0.6, pr * 0.8); renderer.setPixelRatio(pr); } else if (fps > 55 && pr < prBase) { pr = Math.min(prBase, pr * 1.15); renderer.setPixelRatio(pr); }
+  }
   let preview = null, nodeMk = null;
   const clamp01 = x => Math.max(0, Math.min(1, x));
 
@@ -206,7 +272,7 @@ export function createSpace(host, data, opts = {}) {
   function frame(now) {
     raf = requestAnimationFrame(frame); const dt = last ? Math.min(0.1, (now - last) / 1000) : 0; last = now;
     if (state.playing) { jd += state.dir * dt * (state.rate != null ? state.rate : WARPS[state.warp]) / 86400; if (jd > t1) { jd = t1; state.playing = false; host.dispatchEvent(new CustomEvent('space-state')); } if (jd < t0) { jd = t0; state.playing = false; host.dispatchEvent(new CustomEvent('space-state')); } host.dispatchEvent(new CustomEvent('space-time')); }
-    followFocus(dt); controls.update(); layout(); skyMat.uniforms.gain.value = state.bright * skyScale; renderer.render(scene, camera);
+    followFocus(dt); controls.update(); layout(); if (++frameN % 24 === 0) hiUpdate(); perf(now); skyMat.uniforms.gain.value = state.bright * skyScale; renderer.render(scene, camera);
   }
   frame(0);
   const ro = new ResizeObserver(() => { renderer.setSize(W(), H()); camera.aspect = W() / H(); camera.updateProjectionMatrix(); }); ro.observe(host);
@@ -241,7 +307,7 @@ export function createSpace(host, data, opts = {}) {
       if (g.arrow) ghostGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(g.arrow.map(q => new THREE.Vector3(...q))), new THREE.LineBasicMaterial({ color: '#ffffff' })));
       world.add(ghostGrp);
     },
-    select(name) { state.selected = name; }, hover(name) { state.hover = name; }, setRate(r) { state.rate = r; }, getCamera() { return { p: camera.position.toArray(), t: controls.target.toArray() }; },
+    select(name) { state.selected = name; }, hover(name) { state.hover = name; }, setHires(m) { hiMap = m || null; hiUpdate(); },
     setCamera(c) { camera.position.fromArray(c.p); controls.target.fromArray(c.t); controls.update(); },
     pick(cx, cy) {                                                                    // nearest body to a screen point (within 18 px), preferring the larger on-screen body
       const rect = renderer.domElement.getBoundingClientRect(), x = cx - rect.left, y = cy - rect.top; let best = null, bd = 18;
@@ -257,6 +323,10 @@ export function createSpace(host, data, opts = {}) {
       if (on) { const stream = renderer.domElement.captureStream(30); const chunks = []; const rec = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm', videoBitsPerSecond: 8e6 });
         rec.ondataavailable = e => chunks.push(e.data); rec.onstop = () => done(new Blob(chunks, { type: 'video/webm' })); rec.start(250); this._rec = rec; } else if (this._rec) { this._rec.stop(); this._rec = null; }
     },
-    dispose() { cancelAnimationFrame(raf); ro.disconnect(); controls.dispose(); renderer.dispose(); host.replaceChildren(); }
+    dispose() {                                                                       // free the GPU memory (the sandbox rebuilds the view after every edit)
+      cancelAnimationFrame(raf); ro.disconnect(); controls.dispose();
+      for (const o of Object.values(bodies)) { dropHi(o); for (const sl of o.slots) if (sl.baseTex) sl.baseTex.dispose(); } if (skyMat.uniforms.map.value) skyMat.uniforms.map.value.dispose();
+      renderer.dispose(); try { renderer.forceContextLoss(); } catch (e) { } host.replaceChildren();
+    }
   };
 }

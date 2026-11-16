@@ -61,6 +61,11 @@ class Handler(BaseHTTPRequestHandler):
                 f = (base_dir() / 'assets' / 'textures' / pathlib.PurePosixPath(path[len('/assets/textures/'):]).name).resolve()
                 if f.suffix.lower() not in ('.jpg', '.png') or not f.is_file(): return self._send(404, b'not found', 'text/plain')
                 return self._send(200, f.read_bytes(), mimetypes.guess_type(str(f))[0] or 'image/jpeg')
+            if path.startswith('/usertex/'):                                           # sharper (downloaded) planet maps from the per-user folder, images only
+                from .. import textures as TX
+                f = (TX.folder() / pathlib.PurePosixPath(path[len('/usertex/'):]).name).resolve()
+                if f.parent != TX.folder().resolve() or f.suffix.lower() not in ('.jpg', '.png') or not f.is_file(): return self._send(404, b'not found', 'text/plain')
+                return self._send(200, f.read_bytes(), mimetypes.guess_type(str(f))[0] or 'image/jpeg', {'Cache-Control': 'max-age=86400'})
             if path in ('', '/'): path = '/index.html'
             f = (web_dir() / path.lstrip('/')).resolve()
             if web_dir().resolve() not in f.parents or not f.is_file(): return self._send(404, b'not found', 'text/plain')

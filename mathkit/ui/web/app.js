@@ -78,7 +78,7 @@ const FRAME_PRESETS = [[240, 'Low'], [480, 'Medium'], [1200, 'High'], [3000, 'Ul
 const fresh = o => JSON.parse(JSON.stringify(o));
 let META = null;
 let SET = { const: 'Course table', moonR: 2000, unit: 'km', appearance: 'dark', name: '', label: '', sliders: true, layout: {}, keys: {},
-  view: 'both', palette: 'prussian', repeat: true, convention: 'course', tourDone: false, ephemMode: 'auto', ephemPath: '', gmatPath: '', bodyNotation: 'symbol', frames: 480, textures: false, model: 'marker', fps: false };
+  view: 'both', palette: 'prussian', repeat: true, convention: 'course', tourDone: false, ephemMode: 'auto', ephemPath: '', gmatPath: '', bodyNotation: 'symbol', frames: 480, textures: false, model: 'marker', fps: false, texq: '2k' };
 const LAY = fresh(LAY_DEFAULT);
 const S = { mode: 'solve', page: '12', prev: '12', canon: {}, tab: 'Plots', scene: 0, res: null, seq: 0, tests: null, rebind: null, cache: new Map(), last: {}, setTab: 'Appearance', backups: null, gpu: '', focus: null, fshow: { menu: false, inputs: false, results: false } };
 const mod = () => META.modules.find(m => m.id === S.page);
@@ -316,8 +316,8 @@ function navGroup(key, label, icon, items, ids) {                               
 let peekTimer = null;
 function initNavPeek() {                                                           // a folded menu opens while the mouse is over it and folds again when the mouse leaves
   const nav = $('#nav'), app = $('#app');
-  nav.addEventListener('mouseenter', () => { clearTimeout(peekTimer); if (app.classList.contains('fold')) app.classList.add('peek'); });
-  nav.addEventListener('mouseleave', () => { clearTimeout(peekTimer); peekTimer = setTimeout(() => app.classList.remove('peek'), 180); });
+  nav.addEventListener('mouseenter', () => { clearTimeout(peekTimer); if (app.classList.contains('fold')) { app.classList.remove('closing'); app.classList.add('peek'); } });
+  nav.addEventListener('mouseleave', () => { clearTimeout(peekTimer); peekTimer = setTimeout(() => { app.classList.remove('peek'); app.classList.add('closing'); setTimeout(() => app.classList.remove('closing'), 260); }, 160); });
 }
 function buildNav() {
   $('#nav').replaceChildren(
@@ -824,6 +824,7 @@ function settingsPage(main) {
       setRow('Animation Resolution', 'frames per animation: higher is smoother but heavier on the graphics card', seg([...FRAME_PRESETS.map(([n, l]) => [n, l]), ['custom', 'Custom']], custom ? 'custom' : frames, v => { if (v !== 'custom') { SET.frames = v; saveSet(); reRender(); renderUtil(); } else renderUtil(); }),
         el('input', { type: 'number', min: 60, max: 6000, step: 60, value: frames, style: 'width:90px', title: 'frames (60 to 6000)', onchange: e => { SET.frames = clamp(Math.round(+e.target.value || 480), 60, 6000); saveSet(); reRender(); renderUtil(); } })),
       setRow('3D Bodies', 'plain color spheres, or real surface textures (sun, moon and the planets except pluto)', seg([[false, 'Plain Color'], [true, 'Real Textures']], !!SET.textures, v => { SET.textures = v; saveSet(); reRender(); })),
+      texQualityRows(),
       setRow('Spacecraft', 'a simple marker, or a 3d satellite model that points along the velocity', seg([['marker', 'Marker'], ['comsat', 'Satellite A'], ['probe', 'Satellite B']], SET.model, v => { SET.model = v; saveSet(); reRender(); })),
       setRow('Frame Rate Monitor', 'show frames per second for the page and the 3d animation', el('input', { type: 'checkbox', checked: SET.fps, onchange: e => { SET.fps = e.target.checked; saveSet(); redo3d(); showFps(); } })),
       el('div', { class: 'dim', style: 'margin:8px 0 0' }, 'planet textures: solar system scope (2k maps), cc by 4.0, https://www.solarsystemscope.com/textures/')),
@@ -907,9 +908,28 @@ document.addEventListener('keydown', e => { if (handleKey(keyName(e), e)) e.stop
 window.addEventListener('message', e => { if (e.data && e.data.orbitKey) handleKey(e.data.orbitKey, null); });          // keys pressed inside the 3-d frame
 
 /* ---------- boot ---------- */
+/* ---------- planet texture quality: 2K maps are built in; sharper (8K) maps are downloaded on request and used only for the body that fills the view ---------- */
+const texHires = () => (SET.texq === '8k' && S.tex && S.tex.map && Object.keys(S.tex.map).length ? S.tex.map : null);
+function applyTexQuality() { try { if (typeof EX !== 'undefined' && EX.space) EX.space.setHires(texHires()); if (typeof MIS !== 'undefined' && MIS.space) MIS.space.setHires(texHires()); } catch (e) { } }
+function texQualityRows() {
+  const host = el('div', {});
+  const draw = async () => {
+    const r = await api('textures_status', {}); if (r.ok) S.tex = r; const g = r.progress, have = r.count === r.total;
+    host.replaceChildren(
+      setRow('Space View Texture Quality', '2k maps are built in. 8k maps give sharper close-ups of the earth, moon, mars, the giant planets and more; they are loaded only for the one body that fills the view, so memory use stays low. applies to the sandbox and the design space view', seg([['2k', '2K (Built In)'], ['8k', '8K (Downloaded)']], SET.texq || '2k', v => { SET.texq = v; saveSet(); applyTexQuality(); draw(); })),
+      setRow('8K Texture Files', `${r.count} of ${r.total} downloaded${r.count ? ` (${r.size_mb} MB)` : ', about 100 MB in total'}. fetched from solarsystemscope.com (cc by 4.0) only when you press the button. stored in ${r.folder}`,
+        el('span', { style: 'display:flex;gap:8px;align-items:center' }, have ? el('b', {}, 'installed') : el('button', { class: 'btn pri', disabled: g.state === 'running', onclick: async () => {
+          if (!await askConfirm('download the sharper planet textures (about 100 MB) from solarsystemscope.com now?', 'Download', 'Download Textures')) return; await api('textures_download', {}); draw();
+          const t = setInterval(async () => { const q = await api('textures_status', {}); if (q.progress.state !== 'running') { clearInterval(t); if (q.progress.state === 'done') { SET.texq = '8k'; saveSet(); toast('textures downloaded', 'ok'); } S.tex = q; applyTexQuality(); draw(); } else draw(); }, 1500); } },
+          g.state === 'running' ? `downloading… ${g.done}/${g.total}` : (r.count ? 'Download The Rest' : 'Download 8K Textures')),
+          r.count ? el('button', { class: 'btn', onclick: async () => { if (!await askConfirm('delete the downloaded textures? the built-in 2k maps stay.', 'Delete', 'Delete Textures')) return; const q = await api('textures_delete', {}); S.tex = q; SET.texq = '2k'; saveSet(); applyTexQuality(); draw(); } }, 'Delete') : '')),
+      g.state === 'error' ? el('div', { class: 'chk err' }, el('span', { class: 'ic' }, '✕'), el('span', {}, 'download failed: ' + g.error)) : '');
+  };
+  draw(); return host;
+}
 async function boot() {
   requestAnimationFrame(splashTick); requestAnimationFrame(fpsLoop); splash(8, 'loading modules');
-  META = await api('meta');
+  META = await api('meta'); api('textures_status', {}).then(r => { if (r && r.ok) { S.tex = r; applyTexQuality(); } }).catch(() => { });
   Object.assign(SET, META.settings || {}); Object.assign(LAY, fresh(LAY_DEFAULT), SET.layout || {}); LAY.groups = { ...LAY_DEFAULT.groups, ...(LAY.groups || {}) }; SET.layout = LAY; splash(38, 'preparing the interface');
   document.querySelectorAll('[data-const]').forEach(b => b.onclick = () => setSet({ const: b.dataset.const }));
   $('#unitChip').onclick = () => setSet({ unit: { km: 'R_body', R_body: 'AU', AU: 'km' }[SET.unit] });

@@ -386,13 +386,18 @@ details.lic pre{max-height:360px;overflow:auto;font-size:12px;white-space:pre-wr
 .tilehead{display:flex;align-items:center;min-height:42px;padding:0 40px 0 38px;font-weight:700;font-size:14.5px;color:var(--text);flex:none}
 .xbottom{transition:padding .22s ease}.xp.lib-open .xbottom{padding-left:374px}.xp.panel-open .xbottom{padding-right:374px}
 
-/* ----- folded left menu in Solve mode: it opens as an overlay while the mouse is over it ----- */
-#app.fold.peek #nav{position:relative;width:285px;justify-self:start;z-index:40;box-shadow:10px 0 36px rgba(0,0,0,.5)}      /* stays in its 60px grid cell, so the page does not jump; it just draws wider on top */
-#app.fold.peek .lbl{display:block}#app.fold.peek nav h4{display:block}#app.fold.peek .chev{display:inline-flex}
-#app.fold.peek .nv{justify-content:flex-start;padding:0 12px;width:100%;margin:0 0 12px}#app.fold.peek .nv .n{width:34px}
-#app.fold.peek .navtop{justify-content:flex-end}#app.fold.peek .navlist{padding:18px 12px 12px}
-#app.fold.peek .nsub .nv{padding:0 12px 0 20px}#app.fold.peek .nsub{margin-left:22px}#app.fold.peek .nsub::before{display:block}
-#app.fold.peek .ngrp:hover>.nsub{position:relative;left:auto;background:transparent;border:0;padding:0;margin:2px 0 8px 22px;min-width:0}
+/* ----- folded left menu in Solve mode: it glides open as an overlay while the mouse is over it and glides shut when the mouse leaves ----- */
+#app.fold #nav{position:relative;justify-self:start;width:60px;z-index:30;transition:width .24s cubic-bezier(.22,.9,.3,1),box-shadow .24s ease}      /* stays in its 60px grid cell, so the page never jumps */
+#app.fold.peek #nav{width:285px;z-index:40;box-shadow:10px 0 36px rgba(0,0,0,.5)}
+#app.fold:is(.peek,.closing) #nav{overflow:hidden}
+#app.fold:is(.peek,.closing) .lbl{display:block}#app.fold:is(.peek,.closing) nav h4{display:block}#app.fold:is(.peek,.closing) .chev{display:inline-flex}
+#app.fold:is(.peek,.closing) .nv{justify-content:flex-start;padding:0 12px;width:100%;margin:0 0 12px}#app.fold:is(.peek,.closing) .nv .n{width:34px}
+#app.fold:is(.peek,.closing) .navtop{justify-content:flex-end}#app.fold:is(.peek,.closing) .navlist{padding:18px 12px 12px}
+#app.fold:is(.peek,.closing) .nsub .nv{padding:0 12px 0 20px}#app.fold:is(.peek,.closing) .nsub{margin-left:22px}#app.fold:is(.peek,.closing) .nsub::before{display:block}
+#app.fold:is(.peek,.closing) .ngrp:hover>.nsub{position:relative;left:auto;background:transparent;border:0;padding:0;margin:2px 0 8px 22px;min-width:0}
+#app.fold.peek .lbl,#app.fold.peek nav h4,#app.fold.peek .chev{animation:navfade .26s ease .05s both}
+@keyframes navfade{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#app.fold #nav{transition:none}#app.fold.peek .lbl,#app.fold.peek nav h4,#app.fold.peek .chev{animation:none}}
 
 /* ----- dropdown lists use the theme colours (they showed pale text on a white list) ----- */
 select{color-scheme:dark}body[data-theme=light] select{color-scheme:light}
