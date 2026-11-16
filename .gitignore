@@ -12,3 +12,4 @@ packaging/icon.png
 packaging/icon.icns
 packaging/wizard/
 !mathkit/assets/textures/*.png
+!docs/gallery/*.png

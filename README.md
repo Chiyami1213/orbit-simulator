@@ -3,8 +3,6 @@
 A desktop app for **orbit-mechanics problems**: it solves the standard two-body / patched-conic problem types step by step, draws annotated 2-D figures
 and an interactive 3-D animation, and checks itself against hundreds of published homework and exam answers.
 
-![3D and 2D views of a Lambert transfer](docs/screenshot-3d-2d.png)
-
 > **Version 1.0.0.** Installers are not published yet; they will appear on the [Releases](https://github.com/Chiyami1213/orbit-simulator/releases) page.
 
 ## What it does
@@ -30,12 +28,6 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 * **Homework presets:** every problem with printed answers (HW 3–10, Fall 2024 Exams 1–2, lecture-note examples) loads as a preset, and the *Test Cases* page compares
   computed and printed values. Known errors in the printed solutions are corrected and documented.
 * Light / dark / device appearance, rebindable keys, resizable panels, backup & restore of your data, built-in issue reporting.
-
-<details><summary>More screenshots</summary>
-
-![2D figure](docs/screenshot-2d.png)
-![Settings, light theme](docs/screenshot-settings-light.png)
-</details>
 
 ## Installation
 
@@ -116,3 +108,13 @@ and *Settings → Local Files* opens the folders. Uninstalling keeps this folder
 * Planet texture maps in `mathkit/assets/textures` appear to be **Solar System Scope** 2k textures (CC BY 4.0, <https://www.solarsystemscope.com/textures/>); attribution is required and the licence should be confirmed by the project owner before redistribution.
 * Equations follow Bate, Mueller & White, *Fundamentals of Astrodynamics*, and the course notes the homework was set from.
 * **No licence has been chosen for this project yet**, so by default all rights are reserved. Add a `LICENSE` file before accepting contributions or redistributing.
+
+## Gallery
+
+| | |
+|---|---|
+| <a href="docs/gallery/01-textured-3d.png"><img src="docs/gallery/01-textured-3d.png" width="100%" alt="Animated 3D view with a real Earth texture and a satellite model"></a><br><sub>Animated 3D view with a real Earth texture and a satellite model</sub> | <a href="docs/gallery/02-gravity-assist.png"><img src="docs/gallery/02-gravity-assist.png" width="100%" alt="Gravity assist at Venus: both pass senses, new orbit and equivalent impulse"></a><br><sub>Gravity assist at Venus: both pass senses, new orbit and equivalent impulse</sub> |
+| <a href="docs/gallery/03-hyperbolic-flyby.png"><img src="docs/gallery/03-hyperbolic-flyby.png" width="100%" alt="Hyperbolic flyby geometry: asymptotes, aim point and turn angle"></a><br><sub>Hyperbolic flyby geometry: asymptotes, aim point and turn angle</sub> | <a href="docs/gallery/04-single-impulse.png"><img src="docs/gallery/04-single-impulse.png" width="100%" alt="Single-impulse maneuver: every orbit intersection, minimum Δv highlighted"></a><br><sub>Single-impulse maneuver: every orbit intersection, minimum Δv highlighted</sub> |
+| <a href="docs/gallery/05-lambert-2d.png"><img src="docs/gallery/05-lambert-2d.png" width="100%" alt="Lambert transfer with burns, vacant focus and LaTeX labels"></a><br><sub>Lambert transfer with burns, vacant focus and LaTeX labels</sub> | <a href="docs/gallery/06-step-by-step.png"><img src="docs/gallery/06-step-by-step.png" width="100%" alt="Step-by-step results with the equation behind every value"></a><br><sub>Step-by-step results with the equation behind every value</sub> |
+| <a href="docs/gallery/07-body-constants.png"><img src="docs/gallery/07-body-constants.png" width="100%" alt="Body constants with astronomical symbols (⊕ for Earth)"></a><br><sub>Body constants with astronomical symbols (⊕ for Earth)</sub> | <a href="docs/gallery/08-settings.png"><img src="docs/gallery/08-settings.png" width="100%" alt="Settings: animation resolution, textures, satellite models, symbol or name notation"></a><br><sub>Settings: animation resolution, textures, satellite models, symbol or name notation</sub> |
+| <a href="docs/gallery/09-test-cases.png"><img src="docs/gallery/09-test-cases.png" width="100%" alt="Test cases: computed values against the printed homework and exam answers"></a><br><sub>Test cases: computed values against the printed homework and exam answers</sub> | <a href="docs/gallery/10-light-theme.png"><img src="docs/gallery/10-light-theme.png" width="100%" alt="Light theme: Hohmann transfer"></a><br><sub>Light theme: Hohmann transfer</sub> |
