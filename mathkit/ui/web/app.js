@@ -421,11 +421,23 @@ function progressStart() {
 }
 function askDialog({ title, lines, intro, actions }) {
   return new Promise(res => {
-    const done = v => { ov.remove(); res(v); };
+    const done = v => { document.removeEventListener('keydown', esc, true); ov.remove(); res(v); };
+    const esc = e => { if (e.key === 'Escape') { e.stopPropagation(); done(actions[actions.length - 1].value); } }; document.addEventListener('keydown', esc, true);
     const ov = el('div', { class: 'modalov', onclick: e => { if (e.target === ov) done(actions[actions.length - 1].value); } },
       el('div', { class: 'modal', role: 'alertdialog' }, el('h3', {}, title), intro ? el('p', {}, intro) : '', lines && lines.length ? el('ul', {}, ...lines.map(l => el('li', {}, l))) : '',
         el('div', { class: 'btnrow' }, ...actions.map(a => el('button', { class: 'btn' + (a.pri ? ' pri' : ''), onclick: () => done(a.value) }, a.label)))));
     document.body.append(ov); const b = ov.querySelector('button.pri') || ov.querySelector('button'); if (b) b.focus();
+  });
+}
+/** In-app replacements for the browser's confirm() and prompt() (the browser versions show "127.0.0.1:port says" in the packaged app). */
+const askConfirm = (message, okLabel = 'OK', title = 'Please Confirm') => askDialog({ title, intro: message, actions: [{ label: okLabel, value: true, pri: true }, { label: 'Cancel', value: false }] });
+function askText(message, { title = 'Enter a Value', placeholder = '', okLabel = 'OK' } = {}) {
+  return new Promise(res => {
+    const inp = el('input', { type: 'text', class: 'wide', placeholder, onkeydown: e => { if (e.key === 'Enter') done(inp.value.trim()); if (e.key === 'Escape') { e.stopPropagation(); done(null); } } });
+    const done = v => { ov.remove(); res(v); };
+    const ov = el('div', { class: 'modalov', onclick: e => { if (e.target === ov) done(null); } }, el('div', { class: 'modal', role: 'dialog' }, el('h3', {}, title), el('p', {}, message), inp,
+      el('div', { class: 'btnrow' }, el('button', { class: 'btn pri', onclick: () => done(inp.value.trim()) }, okLabel), el('button', { class: 'btn', onclick: () => done(null) }, 'Cancel'))));
+    document.body.append(ov); inp.focus();
   });
 }
 async function solveNow(live = false, explicit = false) {
@@ -762,9 +774,9 @@ function backupPage() {
   } });
   const rows = S.backups.map(b => [b.name, b.modified, b.invalid ? 'not a valid backup' : `${b.files} files`, `${(b.size / 1024).toFixed(0)} kb`,
     el('span', { class: 'btnrow', style: 'margin:0;gap:6px' },
-      el('button', { class: 'btn', disabled: !!b.invalid, onclick: async () => { if (!confirm(`restore "${b.name}"? your current data is backed up first.`)) return; const r = await api('backup_restore', { name: b.name }); if (r.ok) { afterRestore(r); toast(`restored ${r.restored} files (safety backup: ${r.safety})`, 'ok'); } else toast(r.error, 'err'); } }, 'Restore'),
+      el('button', { class: 'btn', disabled: !!b.invalid, onclick: async () => { if (!await askConfirm(`restore "${b.name}"? your current data is backed up first.`, 'Restore', 'Restore Backup')) return; const r = await api('backup_restore', { name: b.name }); if (r.ok) { afterRestore(r); toast(`restored ${r.restored} files (safety backup: ${r.safety})`, 'ok'); } else toast(r.error, 'err'); } }, 'Restore'),
       el('a', { class: 'btn', href: '/backup/' + encodeURIComponent(b.name), download: '' }, 'Save Copy'),
-      el('button', { class: 'btn', onclick: async () => { if (!confirm(`delete "${b.name}"?`)) return; const r = await api('backup_delete', { name: b.name }); if (r.ok) { S.backups = r.backups; renderUtil(); } else toast(r.error, 'err'); } }, 'Delete'))]);
+      el('button', { class: 'btn', onclick: async () => { if (!await askConfirm(`delete "${b.name}"?`, 'Delete', 'Delete Backup')) return; const r = await api('backup_delete', { name: b.name }); if (r.ok) { S.backups = r.backups; renderUtil(); } else toast(r.error, 'err'); } }, 'Delete'))]);
   return el('div', {},
     el('div', { class: 'sheet' },
       setRow('Create a Backup', 'zips your settings, exports and screenshots into the backups folder', el('button', { class: 'btn pri', onclick: async () => { const r = await api('backup_create', {}); if (r.ok) { S.backups = r.backups; renderUtil(); toast('backup saved to ' + r.path, 'ok'); } else toast(r.error, 'err'); } }, 'Create Backup')),
@@ -915,7 +927,7 @@ function ephemPage() {
       setRow('Source', 'auto uses the DE440s kernel when it is present; built-in always uses the offline analytic model', seg([['auto', 'Auto'], ['analytic', 'Built-in']], SET.ephemMode || 'auto', v => { SET.ephemMode = v; saveSet(); MIS.meta = null; draw(); })),
       setRow('DE440s Kernel', `JPL planetary ephemeris, 1849–2150, about ${(k.expected_size / 1e6).toFixed(0)} MB, downloaded from ${k.url} only when you press the button. stored in ${k.folder}`,
         k.path ? el('span', {}, el('b', {}, 'installed'), el('span', { class: 'dim' }, ` ${(k.size / 1e6).toFixed(1)} MB`)) : el('button', { class: 'btn pri', disabled: g.state === 'running' || !k.jplephem, onclick: async () => {
-          if (!confirm(`download the DE440s kernel (${(k.expected_size / 1e6).toFixed(0)} MB) from NASA/JPL NAIF now?`)) return; await api('ephem_download', {}); draw(); const t = setInterval(async () => { const q = await api('ephem_status', {}); if (q.progress.state !== 'running') { clearInterval(t); MIS.meta = null; draw(); } else { host.querySelector('.dlp')?.replaceChildren(`${(q.progress.done / 1e6).toFixed(1)} / ${(q.progress.total / 1e6).toFixed(1)} MB`); } }, 700); } }, 'Download DE440s')),
+          if (!await askConfirm(`download the DE440s kernel (${(k.expected_size / 1e6).toFixed(0)} MB) from NASA/JPL NAIF now?`, 'Download', 'Download Ephemeris')) return; await api('ephem_download', {}); draw(); const t = setInterval(async () => { const q = await api('ephem_status', {}); if (q.progress.state !== 'running') { clearInterval(t); MIS.meta = null; draw(); } else { host.querySelector('.dlp')?.replaceChildren(`${(q.progress.done / 1e6).toFixed(1)} / ${(q.progress.total / 1e6).toFixed(1)} MB`); } }, 700); } }, 'Download DE440s')),
       g.state === 'running' ? el('div', { class: 'dim dlp' }, 'starting…') : '', g.state === 'error' ? el('div', { class: 'chk err' }, el('span', { class: 'ic' }, '✕'), el('span', {}, 'download failed: ' + g.error)) : '',
       g.state === 'done' ? el('div', { class: 'dim' }, 'downloaded; sha-256 ' + g.sha256) : '', !k.jplephem ? el('div', { class: 'chk warn' }, el('span', { class: 'ic' }, '!'), el('span', {}, 'the jplephem package is not available in this installation, so only the built-in ephemeris can be used')) : '',
       setRow('My Own Kernel', 'path to a .bsp file (for example de440s.bsp or a mission kernel); leave empty to use the downloaded one', el('input', { type: 'text', value: SET.ephemPath || '', style: 'width:300px', placeholder: 'C:\\path\\de440s.bsp', onchange: e => { SET.ephemPath = e.target.value.trim(); saveSet(); MIS.meta = null; draw(); } })),

@@ -154,8 +154,9 @@ export function createSpace(host, data, opts = {}) {
   const ext = data.extent || 1e5;
   camera.position.set(ext * 1.6, -ext * 1.6, ext * 1.1); controls.target.set(0, 0, 0); controls.update();
 
-  state.selected = null;
+  state.selected = null; state.hover = null;
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.94, 1, 64), new THREE.MeshBasicMaterial({ color: '#ffffff', side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.9 })); ring.renderOrder = 6; ring.visible = false; scene.add(ring);
+  const hring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 64), new THREE.MeshBasicMaterial({ color: '#ffd27a', side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.95 })); hring.renderOrder = 6; hring.visible = false; scene.add(hring);       // the circle that shows what a click would pick
   const label = (el_, v3, show) => {                                             // project a label; hide it when it falls off screen
     if (!show || !state.labels) { el_.style.display = 'none'; return null; }
     const p = v3.clone().project(camera); if (p.z > 1 || p.z < -1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05) { el_.style.display = 'none'; return null; }
@@ -189,6 +190,7 @@ export function createSpace(host, data, opts = {}) {
     const boxes = []; for (const el_ of placed) { const b = el_.getBoundingClientRect(); if (boxes.some(q => !(b.right < q.left || b.left > q.right || b.bottom < q.top || b.top > q.bottom))) el_.style.display = 'none'; else boxes.push(b); }
     skyMesh.position.copy(camera.position); skyMesh.scale.setScalar(1e5);
     if (state.selected && bodies[state.selected]) { const o = bodies[state.selected], rr = Math.max(o.mesh.scale.x * 1.25, unit * 1.6); ring.visible = true; ring.position.copy(o.mesh.position); ring.quaternion.copy(camera.quaternion); ring.scale.setScalar(rr); } else ring.visible = false;
+    if (state.hover && state.hover !== state.selected && bodies[state.hover]) { const o = bodies[state.hover], rr = Math.max(o.mesh.scale.x * 1.3, unit * 2.4); hring.visible = true; hring.position.copy(o.mesh.position); hring.quaternion.copy(camera.quaternion); hring.scale.setScalar(rr); } else hring.visible = false;
     for (const m of markers) { m.mk.visible = state.markers; const p = camera.position.clone().add(m.dir.clone().multiplyScalar(5e4)); m.mk.position.copy(p); m.mk.quaternion.copy(camera.quaternion); m.mk.scale.setScalar(900); label(m.label, p, state.markers); }
   }
   let preview = null, nodeMk = null;
@@ -239,7 +241,7 @@ export function createSpace(host, data, opts = {}) {
       if (g.arrow) ghostGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(g.arrow.map(q => new THREE.Vector3(...q))), new THREE.LineBasicMaterial({ color: '#ffffff' })));
       world.add(ghostGrp);
     },
-    select(name) { state.selected = name; }, setRate(r) { state.rate = r; }, getCamera() { return { p: camera.position.toArray(), t: controls.target.toArray() }; },
+    select(name) { state.selected = name; }, hover(name) { state.hover = name; }, setRate(r) { state.rate = r; }, getCamera() { return { p: camera.position.toArray(), t: controls.target.toArray() }; },
     setCamera(c) { camera.position.fromArray(c.p); controls.target.fromArray(c.t); controls.update(); },
     pick(cx, cy) {                                                                    // nearest body to a screen point (within 18 px), preferring the larger on-screen body
       const rect = renderer.domElement.getBoundingClientRect(), x = cx - rect.left, y = cy - rect.top; let best = null, bd = 18;

@@ -14,7 +14,7 @@ const CAT_ICON = { 'All': 'grid', 'Solar System': 'star', 'Planets': 'globe', 'M
 const MASS_UNITS = [['Earth masses', 5.9722e24], ['Moon masses', 7.342e22], ['Jupiter masses', 1.8982e27], ['Solar masses', 1.98847e30], ['kg', 1]];
 const RAD_UNITS = [['km', 1], ['Earth radii', 6378.137], ['Moon radii', 1737.4], ['Jupiter radii', 71492], ['Solar radii', 695700]];
 const G_KM = 6.6743e-20, KIND_NAME = { star: 'Star', planet: 'Planet', moon: 'Moon', small: 'Small Body', spacecraft: 'Spacecraft', custom: 'Custom Body' };
-const EX = { scene: null, sim: null, sel: null, space: null, undo: [], redo: [], cat: 'All', q: '', libOpen: true, panelOpen: true, tab: 'Basic', meta: null, horizon: '1 year', busy: false, rateExp: 6.0, playing: false,
+const EX = { scene: null, sim: null, sel: null, space: null, undo: [], redo: [], cat: 'All', q: '', libOpen: true, panelOpen: true, tab: 'Basic', meta: null, horizon: '1 year', busy: false, rateExp: 6.0, playing: true,
   view: { labels: true, paths: true, axes: false, ecl: false, markers: false }, thumbs: {}, mu: 'Earth masses', ru: 'km', pd: null, live: null, pop: null, sky: 'milkyway', bright: 1.0, exag: 1 };
 
 function exDispose() { EX.placing = null; EX.anchor = null; if (EX.live) { clearInterval(EX.live); EX.live = null; } if (EX.space) { try { EX.space.dispose(); } catch (e) { } EX.space = null; } closePop(); }
@@ -29,6 +29,40 @@ async function exThumbs() {                                                     
   try { EX.thumbs = mod.renderThumbs(list, EX.meta.models, 160); } catch (e) { EX.thumbs = {}; } exLib();
 }
 
+/* ---- the date button opens a calendar that slides up: pick the year, month and day (and the time), and the simulation jumps there ---- */
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const jdOfDate = (y, m, d, hh = 0, mm = 0, ss = 0) => { const t = new Date(0); t.setUTCFullYear(y, m, d); t.setUTCHours(hh, mm, ss, 0); return t.getTime() / 86400000 + 2440587.5; };
+const dateOfJd = jd => new Date((jd - 2440587.5) * 86400000);
+async function exGoTo(jd) {                                                        // inside the simulated span: just move there; outside it: advance the scene to that date and simulate again from there
+  if (!EX.space || EX.busy || !EX.sim) return;
+  if (jd >= EX.sim.jd0 && jd <= EX.sim.jd1) { EX.space.setJD(jd); exTime(); return; }
+  EX.busy = true; exBusy(true); const r = await api('sandbox_edit', { scene: EX.scene, jd, edits: [], horizon: EX.horizon, constants: SET.const }); EX.busy = false; exBusy(false);
+  if (!r.ok) { toast(r.error, 'err'); return; } EX.scene = r.scene; EX.sim = r.sim; await exBuild(true);
+}
+function calPop(anchor) {
+  if (EX.pop === 'cal') { closePop(); return; } closePop(); if (!EX.space) return; EX.pop = 'cal';
+  const r = anchor.getBoundingClientRect(), cur = dateOfJd(EX.space.jd); let Y = cur.getUTCFullYear(), M = cur.getUTCMonth(); const sel = { y: Y, m: M, d: cur.getUTCDate() }, T = [cur.getUTCHours(), cur.getUTCMinutes(), cur.getUTCSeconds()];
+  const box = el('div', { class: 'xpop calpop', style: `left:${Math.max(8, Math.min(innerWidth - 330, r.left))}px;bottom:${innerHeight - r.top + 10}px` }); document.body.append(box);
+  const go = (y, m, d) => { closePop(); exGoTo(jdOfDate(y, m, d, ...T)); };
+  const step = k => { M += k; if (M < 0) { M = 11; Y--; } else if (M > 11) { M = 0; Y++; } draw(); };
+  function draw() {
+    const first = dateOfJd(jdOfDate(Y, M, 1)).getUTCDay(), n = dateOfJd(jdOfDate(Y, M + 1, 0)).getUTCDate(), cells = [];
+    for (let i = 0; i < first; i++) cells.push(el('span', { class: 'cd empty' }));
+    for (let d = 1; d <= n; d++) cells.push(el('button', { class: 'cd' + (Y === sel.y && M === sel.m && d === sel.d ? ' on' : ''), onclick: () => go(Y, M, d) }, String(d)));
+    const tin = i => el('input', { type: 'number', min: 0, max: i ? 59 : 23, value: String(T[i]).padStart(2, '0'), onchange: e => { T[i] = Math.max(0, Math.min(i ? 59 : 23, Math.round(+e.target.value) || 0)); e.target.value = String(T[i]).padStart(2, '0'); } });
+    box.replaceChildren(
+      el('div', { class: 'calhead' }, el('button', { class: 'xib', title: 'previous month', onclick: () => step(-1) }, '‹'),
+        el('select', { class: 'calm', onchange: e => { M = +e.target.value; draw(); } }, ...MONTHS.map((n2, i) => el('option', { value: i, selected: i === M }, n2))),
+        el('input', { type: 'number', class: 'caly', value: Y, step: 1, title: 'year', onchange: e => { const v = Math.round(+e.target.value); if (Number.isFinite(v)) { Y = Math.max(-9999, Math.min(9999, v)); } draw(); } }),
+        el('button', { class: 'xib', title: 'next month', onclick: () => step(1) }, '›')),
+      el('div', { class: 'calgrid' }, ...['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(w => el('span', { class: 'cw' }, w)), ...cells),
+      el('div', { class: 'caltime' }, el('span', {}, 'Time (UTC)'), tin(0), ':', tin(1), ':', tin(2)),
+      el('div', { class: 'calfoot' }, el('button', { class: 'btn small', title: 'back to the date the scene started at', onclick: () => { closePop(); exGoTo(EX.scene.epoch_jd); } }, 'Scene Start'),
+        el('button', { class: 'btn small', title: 'jump to the day shown, at the time above', onclick: () => go(sel.y, sel.m, sel.d) }, 'Go')));
+  }
+  draw();
+}
+
 /* ---- popovers (view / more / actions) ---- */
 function closePop() { document.querySelectorAll('.xpop').forEach(e => e.remove()); EX.pop = null; }
 function openPop(name, anchor, ...kids) {
@@ -41,11 +75,11 @@ document.addEventListener('click', e => { if (EX.pop && !e.target.closest('.xpop
 async function exNew(name) {                                                          // start a scene: the real Solar System unless another one is chosen from the scenes menu
   const pr = name && EX.meta.presets.find(p => p.name === name); if (pr && pr.horizon) EX.horizon = pr.horizon; else if (!pr && EX.horizon !== '1 year') EX.horizon = '1 year';
   EX.busy = true; exBusy(true); const r = await api('sandbox_new', { horizon: EX.horizon, preset: name || 'Solar System', constants: SET.const }); EX.busy = false; exBusy(false);
-  if (!r.ok) { toast(r.error, 'err'); return; } EX.scene = r.scene; EX.sim = r.sim; EX.undo = []; EX.redo = []; EX.sel = null; EX.placing = null; EX.anchor = null; exPlaceUI(); if (pr) EX.rateExp = pr.rate; await exBuild(false); exLib(); exBottom();
+  if (!r.ok) { toast(r.error, 'err'); return; } EX.scene = r.scene; EX.sim = r.sim; EX.undo = []; EX.redo = []; EX.sel = null; EX.placing = null; EX.anchor = null; exPlaceUI(); if (pr) EX.rateExp = pr.rate; EX.playing = true; await exBuild(false); exLib(); exBottom();
 }
 function scenePop(anchor) {                                                           // the scenes menu: pick what the sandbox starts with
   if (EX.pop === 'scenes') { closePop(); return; } closePop(); EX.pop = 'scenes'; const r = anchor.getBoundingClientRect(), cur = EX.scene && EX.scene.name;
-  const pick = async p => { closePop(); if (EX.undo.length && !confirm('replace the current scene with "' + p.name + '"? your changes will be lost (save the scene first if you want to keep them).')) return; await exNew(p.name); };
+  const pick = async p => { closePop(); if (EX.undo.length && !await askConfirm('replace the current scene with "' + p.name + '"? your changes will be lost (save the scene first if you want to keep them).', 'Replace Scene', 'Change Scene')) return; await exNew(p.name); };
   const d = el('div', { class: 'xpop scenepop', style: `left:${Math.max(8, r.left)}px;top:${r.bottom + 8}px` }, el('div', { class: 'xph' }, 'Scenes'),
     ...EX.meta.presets.map(p => el('button', { class: 'xscene' + (p.name === cur ? ' on' : ''), onclick: () => pick(p) }, el('b', {}, p.name), el('span', {}, p.desc))));
   document.body.append(d);
@@ -80,8 +114,10 @@ async function exBuild(keepCam) {
   if (EX.sim.status && EX.sim.status !== 'done') toast('the simulation stopped early (a very close encounter or too violent a change); everything up to that moment is shown. undo or move the bodies apart.', 'err');
   EX.space = S3; Object.assign(S3.state, EX.view, { bright: EX.bright, exag: EX.exag, focus: heavy ? heavy.id : 'Sun' }); S3.setJD(EX.scene.epoch_jd); S3.setRate(10 ** EX.rateExp); S3.play(EX.playing); S3.select(EX.sel);
   if (cam) S3.setCamera(cam); else if (!EX.scene.name || EX.scene.name === 'Solar System') S3.setCamera({ p: [2.6e8, -2.6e8, 1.7e8], t: [0, 0, 0] }); else S3.setCamera({ p: [ext * 1.7, -ext * 1.7, ext * 1.1], t: [0, 0, 0] });
-  S3.canvas.addEventListener('pointermove', e => { if (EX.placing) exPlaceHover(e.clientX, e.clientY); });
-  S3.onPick((name, ev) => { if (EX.placing) { exPlaceClick(ev.clientX, ev.clientY); return; } EX.sel = name; S3.select(name); if (name) { EX.panelOpen = true; S3.state.focus = S3.state.focus; } exPanel(); });
+  let hoverQ = 0; S3.canvas.addEventListener('pointermove', e => { if (EX.placing) { exPlaceHover(e.clientX, e.clientY); return; } if (e.buttons) { S3.hover(null); return; }
+    cancelAnimationFrame(hoverQ); hoverQ = requestAnimationFrame(() => { const n = S3.pick(e.clientX, e.clientY); S3.hover(n); S3.canvas.style.cursor = n ? 'pointer' : ''; }); });
+  S3.canvas.addEventListener('pointerleave', () => S3.hover(null));
+  S3.onPick((name, ev) => { if (EX.placing) { exPlaceClick(ev.clientX, ev.clientY); return; } EX.sel = name; S3.select(name); if (name) { EX.panelOpen = true; S3.focus(name); } exPanel(); });                      // a click picks the body and flies the camera in to it
   inner.addEventListener('space-time', exTime); inner.addEventListener('space-state', syncPlay); exTime(); syncPlay(); exPanel();
   if (!EX.live) EX.live = setInterval(exLive, 500);
 }
@@ -223,7 +259,7 @@ async function exPanel() {
   else body = [el('div', { class: 'xbtns col' }, el('button', { class: 'btn', onclick: () => { EX.space.focus(sel.id); } }, 'Focus the Camera Here'),
     el('button', { class: 'btn', onclick: () => exEdit([{ op: 'add', item: EX.meta.catalog.find(c => c.name === 'Spacecraft'), parent: sel.id, orbit: {} }], 'last') }, 'Add a Spacecraft in Orbit'),
     el('button', { class: 'btn', onclick: async () => { const x = await api('sandbox_to_mission', { scene: EX.scene, id: sel.id, constants: SET.const }); if (!x.ok) { toast(x.error, 'err'); return; } MIS.m = x.mission; MIS.res = null; MIS.cmp = null; misTouch(); MIS.tab = 'Sequence'; go('mission'); } }, 'Send to Design (Mission)'),
-    el('button', { class: 'btn danger', onclick: async () => { if (confirm(`delete ${sel.name}?`)) { EX.sel = null; await exEdit([{ op: 'remove', id: sel.id }]); } } }, 'Delete'))];
+    el('button', { class: 'btn danger', onclick: async () => { if (await askConfirm(`delete ${sel.name}?`, 'Delete', 'Delete Object')) { EX.sel = null; await exEdit([{ op: 'remove', id: sel.id }]); } } }, 'Delete'))];
   P.replaceChildren(el('div', { class: 'xhead' }, el('b', {}, pd.name), el('span', { class: 'xsp' }), el('button', { class: 'xib', title: 'hide the panel', onclick: () => { EX.panelOpen = false; exPanel(); } }, ico('close'))),
     el('div', { class: 'xprev' }, el('span', { class: 'xball', style: thumbStyle(sel) }), el('span', { class: 'xkind' }, KIND_NAME[sel.kind] || sel.kind)),
     el('div', { class: 'xtabs' }, ...tabs.map(([t, ic]) => el('button', { class: 'xtab' + (EX.tab === t ? ' on' : ''), onclick: () => { EX.tab = t; exPanel(); } }, ico(ic), el('span', {}, t)))), el('div', { class: 'xbody' }, ...body));
@@ -237,7 +273,7 @@ function exBottom() {
   const chk = (k, label) => el('label', { class: 'mcheck' }, el('input', { type: 'checkbox', checked: !!EX.view[k], onchange: e => { EX.view[k] = e.target.checked; if (EX.space) EX.space.set(k, e.target.checked); } }), label);
   B.replaceChildren(el('button', { class: 'xplay', id: 'xplay', title: 'play / pause', onclick: () => { if (EX.space) { EX.space.play(); syncPlay(); } } }, ico(EX.playing ? 'pause' : 'play')),
     el('button', { class: 'xtool', title: 'run time backwards', onclick: () => { if (EX.space) { EX.space.state.dir = -EX.space.state.dir; toast(EX.space.state.dir < 0 ? 'time runs backwards' : 'time runs forwards'); } } }, ico('rev')),
-    el('span', { class: 'xdate', id: 'xdate' }, '–'), el('span', { class: 'xrateWrap' }, rate, rl), el('span', { class: 'xsp' }),
+    el('button', { class: 'xdate', id: 'xdate', 'data-pop': '1', title: 'click to pick a date', onclick: e => calPop(e.currentTarget) }, '–'), el('span', { class: 'xrateWrap' }, rate, rl), el('span', { class: 'xsp' }),
     tool('addc', 'library: add bodies', e => { EX.libOpen = !EX.libOpen; exLib(); }, EX.libOpen),
     tool('eye', 'view options', e => openPop('view', e.currentTarget, el('div', { class: 'xpt' }, 'View'), chk('labels', 'Labels'), chk('paths', 'Orbits'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic plane'), chk('markers', 'Sky markers (check the sky orientation)'),
       el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Look Toward'), el('select', { onchange: e => { const v = e.target.value; if (v && EX.space) { EX.view.markers = true; EX.space.set('markers', true); EX.space.look(...v.split(',').map(Number)); } e.target.value = ''; } }, el('option', { value: '' }, '…'), ...(EX.meta.markers || []).map(m => el('option', { value: m.ra + ',' + m.dec }, m.name)))))),
@@ -251,7 +287,7 @@ function exBottom() {
     tool('bolt', 'actions', e => openPop('actions', e.currentTarget, el('div', { class: 'xpt' }, 'Actions'),
       el('button', { class: 'btn small', disabled: !EX.undo.length, onclick: () => { closePop(); exHistory(-1); } }, '↶ Undo'), el('button', { class: 'btn small', disabled: !EX.redo.length, onclick: () => { closePop(); exHistory(1); } }, '↷ Redo'),
       el('button', { class: 'btn small', onclick: async () => { closePop(); const x = await api('sandbox_save', { scene: EX.scene }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); } }, 'Save Scene'),
-      el('button', { class: 'btn small', onclick: () => { closePop(); if (confirm('replace the current scene with the real Solar System?')) exNew(); } }, 'New Solar System'))),
+      el('button', { class: 'btn small', onclick: async () => { closePop(); if (await askConfirm('replace the current scene with the real Solar System?', 'Replace Scene', 'New Solar System')) exNew(); } }, 'New Solar System'))),
     el('span', { class: 'xsp' }), tool('info', 'show or hide the side panels', () => { EX.panelOpen = !EX.panelOpen; EX.libOpen = !EX.libOpen; exLib(); exPanel(); }),
     tool('search', 'search the library', () => { EX.libOpen = true; exLib(); setTimeout(() => $('#xq') && $('#xq').focus(), 50); }),
     tool('camera', 'save a picture of the view', async () => { if (!EX.space) return; const x = await api('save_blob', { kind: 'png', name: 'explore', data: EX.space.png() }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); }));

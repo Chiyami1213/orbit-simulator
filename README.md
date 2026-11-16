@@ -12,8 +12,8 @@ OrbSim has three modes, chosen with the switch at the top left:
 | Mode | What you do |
 |---|---|
 | **Solve** | compute homework and exam answers with the twelve course modules, plus the reference tools (Julian date, body constants, test cases) |
-| **Sandbox** | a live 3D sandbox in the style of Universe Sandbox: the real Solar System, a library to add planets, moons, asteroids and spacecraft, a side panel to edit mass, radius, motion and orbit, N-body physics, time warp forwards and backwards |
 | **Design** | GMAT-style mission planning: resources, a command sequence, numerical propagation, comparison with the course answer, GMAT script import and export |
+| **Sandbox** | a live 3D sandbox in the style of Universe Sandbox: start from the real Solar System or another ready-made scene, a library to add planets, moons, asteroids and spacecraft, a side panel to edit mass, radius, motion and orbit, N-body physics, time warp forwards and backwards |
 
 ### Solve
 
@@ -29,15 +29,15 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 | 6 | Elements ⇄ 3-D state with quadrant checks | 12 | Lambert / two-position problems (both p roots) |
 
 * **Step-by-step tables** with the symbol, equation and units of every intermediate value, plus the quadrant and sanity checks that were performed.
-* **2-D figures** in the homework style (Cartesian, equal axes, label collision avoidance, your name and the problem label in the title), exported at 300 dpi.
+* **2-D figures** in the homework style (Cartesian, equal axes, label collision avoidance, your name and the problem label in the title), exported at 300 dpi. Scroll to zoom the plot, drag to pan, double-click to reset.
 * **3-D animation** with play/pause, 0.1×–10× speed, scrubber, view presets, auto-rotate, label and legend toggles, live readout, optional real planet textures
-  and 3-D satellite models. Frames are uniform in *time* (Kepler's equation), so the motion is physically correct.
+  and 3-D satellite models. You can rotate and zoom the view while the animation keeps playing. Frames are uniform in *time* (Kepler's equation), so the motion is physically correct.
 * **LaTeX everywhere in figures and exports:** labels such as $a_{\mathrm{tot}}$, $\bar v_\infty$, $\theta^{*}$ are typeset with real sub/superscripts; celestial bodies can be shown
   as symbols (R⊕) or as name subscripts ($R_{\mathrm{earth}}$).
 * **Export** figures as PNG / PDF, a standalone 3-D page, or a **Python (matplotlib)** or **MATLAB** script that redraws the plots.
 * **Homework presets:** every problem with printed answers (HW 3–10, Fall 2024 Exams 1–2, lecture-note examples) loads as a preset, and the *Test Cases* page compares
   computed and printed values. Known errors in the printed solutions are corrected and documented.
-* **Sandbox:** the real Solar System at any epoch from the ephemeris, textured bodies on a Milky Way sky, a library (planets, moons, small bodies, spacecraft, custom bodies, scene edits such as removing Jupiter or a rogue planet flyby), live N-body physics with time warp up to 100 years per second in either direction, undo and redo, saved scenes, and **Send to Design** to turn a spacecraft into a mission.
+* **Sandbox:** a live N-body sandbox. Pick a starting scene from the scenes menu (the real Solar System from the ephemeris is the default; also the inner Solar System, the gas giants, Earth and Moon, Earth with satellites, Jupiter and its moons, Sun and Earth, a binary star, or a single star). Textured bodies float on a Milky Way sky. Click an object in the library and move the mouse over the scene to **preview where it goes**, then place it on a circular orbit, launch it along a trajectory you aim, or drop it at rest and let gravity move it. Hover a body to see a circle around it and click it to fly closer and open its panel (mass, radius, motion, orbit, forces, actions). Click the date to open a **calendar** and jump to any year, month, day and time. Time warp runs up to 100 years per second in either direction; undo and redo, saved scenes, and **Send to Design** turns a spacecraft into a mission.
 * **Design (GMAT-style missions):** define spacecraft, coordinate systems, propagators, impulsive burns, report files and a command sequence
   (`Propagate`, `Maneuver`, `Report`, `Toggle`, with several stop conditions and `Synchronized`), then run it. Propagation is numerical (Verner RK 8(9),
   Prince–Dormand 7(8) and 4(5), or the exact Kepler solution) with the central body alone, selected point masses (Moon, Sun, planets), the whole Solar System,
@@ -115,7 +115,7 @@ Everything the program writes on your computer goes to your per-user application
 | Linux | `~/.local/share/OrbSim/` |
 
 It contains `settings.json`, `screenshots/`, `exports/`, `backups/` and `logs/`. *Settings → Backup* creates, restores and **imports** backup archives (a safety backup is made before every restore),
-and *Settings → Local Files* opens the folders. Uninstalling keeps this folder.
+and *Settings → Local Files* opens the folders. Uninstalling keeps this folder. (Versions before the rename to OrbSim used `Orbit Simulator` as the folder name; it is renamed automatically on first start.)
 
 ### Reporting a problem
 
