@@ -4,13 +4,23 @@
    applied centrally by restyle(), so any string added later follows the same rules.
    Local data (settings, screenshots, exports, backups) is written by the backend to the per-user app data folder, never by this file. */
 const $ = (s, r = document) => r.querySelector(s);
+/* labels like r_p, v_D, TOF_min, Δv_A are shown with real subscripts (not in code, text boxes or option lists) */
+const SUBRE = /(^|[^A-Za-z0-9_.\/\\])((?:[A-Za-z\u0391-\u03c9]\u0304?\*?){1,3})_([A-Za-z0-9\u0391-\u03c9]{1,6})(?![A-Za-z0-9_])/g;
+const NOSUB = new Set(['CODE', 'PRE', 'TEXTAREA', 'OPTION', 'SCRIPT', 'STYLE', 'TITLE', 'INPUT', 'KBD']);
+function subText(str) {
+  if (str.indexOf('_') < 0) return document.createTextNode(str);
+  const f = document.createDocumentFragment(); let last = 0, m, any = false; SUBRE.lastIndex = 0;
+  while ((m = SUBRE.exec(str))) { any = true; const cut = m.index + m[1].length + m[2].length; f.append(str.slice(last, cut)); const sb = document.createElement('sub'); sb.textContent = m[3]; f.append(sb); last = m.index + m[0].length; }
+  if (!any) return document.createTextNode(str); f.append(str.slice(last)); return f;
+}
 const el = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
     if (k === 'class') e.className = v; else if (k === 'html') e.innerHTML = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
     else if (v !== false && v != null) e.setAttribute(k, v === true ? '' : v);
   }
-  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(c));
+  const subs = !NOSUB.has(tag.toUpperCase());
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : (subs && typeof c === 'string' ? subText(c) : document.createTextNode(c)));
   return e;
 };
 const api = async (name, payload = {}) => {
@@ -63,7 +73,7 @@ const KEY_INFO = {
   reset: ['Reset Panels', 'puts every panel back in the default arrangement and brings back closed panels'],
   focus: ['Maximise Plot', 'hides every panel except the 3d or 2d view; esc leaves. bring panels back with the buttons in the plot header']
 };
-const LAY_DEFAULT = { dock: null, navw: 285, subw: 275, panelw: 384, f3d: 0.56, plotsh: 0, fold: false, hidden: false, sub: false, groups: { modules: true, utilities: true }, closed: [] };
+const LAY_DEFAULT = { dock: null, navw: 285, subw: 275, panelw: 384, f3d: 0.56, plotsh: 0, fold: false, hidden: false, sub: false, groups: {}, pins: {}, closed: [] };
 const FRAME_PRESETS = [[240, 'Low'], [480, 'Medium'], [1200, 'High'], [3000, 'Ultra']];
 const fresh = o => JSON.parse(JSON.stringify(o));
 let META = null;
@@ -178,8 +188,8 @@ function menuDefs() {
     'Help': [
       { label: 'Start Tutorial', key: K.tour, run: () => startTour() },
       { sep: 1 },
-      { label: 'Help and Feedback', run: () => goto('settings', 'Help and Feedback') },
-      { label: 'Report an Issue', run: () => goto('settings', 'Help and Feedback') },
+      { label: 'Help Page', run: () => goto('settings', 'Help') },
+      { label: 'Report an Issue', run: () => goto('settings', 'Help') },
       { label: 'Key Bindings', run: () => goto('settings', 'Key Bindings') },
       { sep: 1 },
       { label: 'About and Licenses', run: () => goto('settings', 'About') }]
@@ -221,6 +231,14 @@ function buildModeSwitch() {
   $('#modesw').replaceChildren(...MODES.map(([id, label, tip]) => el('button', { 'data-mode': id, title: tip, class: id === S.mode ? 'on' : '', onclick: () => setMode(id) }, label)));
 }
 
+/* ---------- every slider: double-click puts it back to its default value ---------- */
+document.addEventListener('dblclick', e => {
+  const r = e.target.closest && e.target.closest('input[type=range]'); if (!r) return;
+  const d = r.dataset.default !== undefined ? r.dataset.default : r.defaultValue; if (d === '' || d == null) return;
+  r.value = d; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true }));
+});
+document.addEventListener('mouseover', e => { const r = e.target; if (r && r.matches && r.matches('input[type=range]') && !r.title) r.title = 'double-click to reset'; });
+
 /* ---------- loading screen ---------- */
 const SPLASH = { t0: performance.now(), real: 0, done: false };
 function splashTick() {
@@ -261,19 +279,19 @@ function syncChrome() {
 function navItem(id, label, iconNode, tip, on) {
   return el('button', { class: 'nv' + ((on ?? S.page === id) ? ' on' : ''), title: tip || label, onclick: () => go(id) }, el('span', { class: 'n' }, iconNode), el('span', { class: 'lbl' }, label));
 }
-function navGroup(key, label, icon, items) {
-  const open = LAY.groups[key] !== false;
-  return el('div', { class: 'ngrp' },
-    el('button', { class: 'nv grp', title: label, 'aria-expanded': String(open), onclick: () => { LAY.groups[key] = !open; saveSet(); buildNav(); } },
-      el('span', { class: 'n' }, ico(icon)), el('span', { class: 'lbl' }, label), el('span', { class: 'chev' }, ico(open ? 'down' : 'rc'))),
-    open ? el('div', { class: 'nsub' }, ...items) : null);
+function navGroup(key, label, icon, items, ids) {                                    // sub-items appear while the mouse is over the group and fold when it leaves; a click pins a group open
+  LAY.pins = LAY.pins || {}; const pinned = !!LAY.pins[key], act = (ids || []).includes(S.page);
+  return el('div', { class: 'ngrp' + (pinned ? ' pinned' : '') + (act ? ' hasact' : '') },
+    el('button', { class: 'nv grp', title: label + ' (hover to show, click to keep open)', 'aria-expanded': String(pinned), onclick: () => { LAY.pins[key] = !pinned; saveSet(); buildNav(); } },
+      el('span', { class: 'n' }, ico(icon)), el('span', { class: 'lbl' }, label), el('span', { class: 'chev' }, ico('rc'))),
+    el('div', { class: 'nsub' }, ...items));
 }
 function buildNav() {
   $('#nav').replaceChildren(
     el('div', { class: 'navtop' }, el('button', { class: 'navtoggle', title: LAY.fold ? 'expand menu' : 'collapse menu', onclick: () => { LAY.fold = !LAY.fold; applyLayout(); buildNav(); saveSet(); } }, ico(LAY.fold ? 'right' : 'left'))),
     el('div', { class: 'navlist' },
-      navGroup('modules', 'Modules', 'grid', META.modules.map(m => navItem(m.id, m.short, ico(MOD_ICO[m.id]), m.short))),
-      navGroup('utilities', 'Reference', 'tools', UTIL.map(([id, name, ic]) => navItem(id, name, ico(ic))))),
+      navGroup('modules', 'Modules', 'grid', META.modules.map(m => navItem(m.id, m.short, ico(MOD_ICO[m.id]), m.short)), META.modules.map(m => m.id)),
+      navGroup('utilities', 'Reference', 'tools', UTIL.map(([id, name, ic]) => navItem(id, name, ico(ic))), UTIL.map(u => u[0]))),
     '');                                                                                 // settings now live in the top bar
 }
 async function go(page) {
@@ -336,7 +354,7 @@ function fieldEl(m, f, c, fac) {
   } else {                                    // float / int
     const k = f.dist ? factor(m) : 1; const useSlider = f.rng && SET.sliders && f.kind === 'float';
     const num = el('input', { type: 'text', class: 'num', inputmode: 'decimal', value: clean(c[f.key] / k) });
-    const rng = useSlider ? el('input', { type: 'range', min: f.rng[0], max: f.rng[1], step: f.rng[2] }) : null;
+    const rng = useSlider ? el('input', { type: 'range', min: f.rng[0], max: f.rng[1], step: f.rng[2], 'data-default': f.default }) : null;
     const pct = () => { if (rng) rng.style.setProperty('--pct', clamp(100 * (c[f.key] - f.rng[0]) / (f.rng[1] - f.rng[0]), 0, 100) + '%'); };
     if (rng) { rng.value = c[f.key]; pct(); rng.oninput = () => { c[f.key] = +rng.value; num.value = clean(rng.value); num.classList.remove('bad'); pct(); changed(m, f, true); }; rng.onchange = () => changed(m, f); }
     num.oninput = () => { const v = Number(num.value.replace(',', '.')); const ok = num.value.trim() !== '' && Number.isFinite(v); num.classList.toggle('bad', !ok); if (ok) { c[f.key] = f.kind === 'int' ? Math.round(v) : v * k; if (rng) { rng.value = c[f.key]; pct(); } changed(m, f); } };
@@ -443,7 +461,7 @@ function renderMain() {
   const vis = visibleTiles();
   $('#tile-v3d .tbody').replaceChildren(...(vis.has('v3d') ? [card3d(sc)] : []));
   $('#tile-v2d .tbody').replaceChildren(...(vis.has('v2d') ? [card2d(sc)] : []));
-  $('#tile-results .tbody').replaceChildren(cardsEl(r.cards), ...r.figs.map(f => el('div', { class: 'cardx', style: 'margin-top:14px;padding:12px;flex:none' }, el('div', { class: 'svgw', html: f.svg }))));
+  $('#tile-results .tbody').replaceChildren(el('div', { class: 'tilehead' }, 'Results'), cardsEl(r.cards), ...r.figs.map(f => el('div', { class: 'cardx', style: 'margin-top:14px;padding:12px;flex:none' }, el('div', { class: 'svgw', html: f.svg }))));
   layoutDock();
 }
 function cardsEl(cards) {
@@ -486,7 +504,7 @@ function visibleTiles() {
 }
 function closeTile(id) { if (S.focus) setFocus(null); LAY.closed = [...new Set([...(LAY.closed || []), id])]; saveSet(); renderMain(); }
 function openTile(id) { LAY.closed = (LAY.closed || []).filter(x => x !== id); saveSet(); renderMain(); }
-function resetPanels() { setFocus(null); LAY.dock = fresh(DOCK_DEFAULT); LAY.closed = []; saveSet(); if (S.tab === 'Plots' && isMod()) renderMain(); toast('panels reset to the default arrangement'); }
+function resetPanels() { if (S.page === 'mission' && typeof DDOCK !== 'undefined') { DDOCK.reset(); toast('panels reset to the default arrangement'); return; } setFocus(null); LAY.dock = fresh(DOCK_DEFAULT); LAY.closed = []; saveSet(); if (S.tab === 'Plots' && isMod()) renderMain(); toast('panels reset to the default arrangement'); }
 const prune = (n, vis) => {
   if (n.t === 't') return vis.has(n.id) ? n : null;
   const a = prune(n.a, vis), b = prune(n.b, vis); if (!a) return b; if (!b) return a; return { t: 's', d: n.d, r: n.r, a, b, src: n.src || n };
@@ -695,7 +713,7 @@ function showTests(t) {
 /* ---------- settings page ---------- */
 const seg = (opts, cur, pick) => { const w = el('div', { class: 'seg' }); opts.forEach(([v, label]) => w.append(el('button', { class: v === cur ? 'on' : '', onclick: () => { pick(v); w.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', opts[i][0] === v)); } }, label))); return w; };
 const setRow = (title, desc, ...ctl) => el('div', { class: 'setrow' }, el('div', { class: 'lt' }, el('div', { class: 't' }, title), desc ? el('div', { class: 'dim' }, desc) : null), el('div', { class: 'ctl' }, ...ctl));
-const SET_TABS = ['Appearance', 'Figures and Animation', 'Figure Title', 'Constants and Units', 'Conventions', 'Ephemeris and GMAT', 'Inputs', 'Key Bindings', 'Layout', 'Backup', 'Local Files', 'Help and Feedback', 'About'];
+const SET_TABS = ['Appearance', 'Figures and Animation', 'Figure Title', 'Constants and Units', 'Conventions', 'Ephemeris and GMAT', 'Inputs', 'Key Bindings', 'Layout', 'Backup', 'Local Files', 'Help', 'About'];
 const redo3d = () => { S.cache.clear(); S.last = {}; };
 async function refreshBackups() { const r = await api('backup_list'); S.backups = r.ok ? r.backups : []; if (S.page === 'settings' && S.setTab === 'Backup') renderUtil(); }
 function afterRestore(r) {
@@ -795,7 +813,7 @@ function settingsPage(main) {
       setRow('App Data Folder', 'settings, screenshots, exports, backups and logs are stored here and never uploaded', el('span', { class: 'path' }, META.paths.root), el('button', { class: 'btn', onclick: () => api('open_folder', { which: 'root' }) }, 'Open')),
       setRow('Screenshots', 'saved by the screenshot key', el('span', { class: 'path' }, META.paths.screenshots), el('button', { class: 'btn', onclick: () => api('open_folder', { which: 'screenshots' }) }, 'Open')),
       setRow('Exports', 'png, pdf, 3d pages, python and matlab scripts saved from the export tab', el('span', { class: 'path' }, META.paths.exports), el('button', { class: 'btn', onclick: () => api('open_folder', { which: 'exports' }) }, 'Open'))),
-    'Help and Feedback': helpPage,
+    'Help': helpPage,
     'About': () => aboutPage()
   };
   main.append(el('div', { class: 'setp' }, el('div', { class: 'sh1' }, 'Settings'),

@@ -138,8 +138,8 @@ kbd.wait{border-color:var(--orange);color:var(--orange)}
 /* ----- settings: large title, section tabs, appearance cards ----- */
 .setp{width:100%;max-width:none}
 .sh1{font-size:34px;font-weight:700;margin:4px 0 18px}
-.stabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:24px}
-.stab{background:none;border:0;border-bottom:2px solid transparent;color:var(--text2);padding:12px 16px;cursor:pointer;font-size:16px;margin-bottom:-1px}
+.stabs{display:flex;gap:2px;flex-wrap:nowrap;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:24px;scrollbar-width:thin}
+.stab{background:none;border:0;border-bottom:2px solid transparent;color:var(--text2);padding:12px 11px;cursor:pointer;font-size:15px;margin-bottom:-1px;white-space:nowrap;flex:none}
 .stab:hover{color:var(--text)}.stab.on{color:var(--text);font-weight:700;border-bottom-color:var(--orange)}
 .sh2{font-size:28px;font-weight:700;margin:0 0 16px}
 .acards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
@@ -210,7 +210,7 @@ body.plotfocus:not(.fshow-menu) #app{--navw:0px;--subw:0px;grid-template-rows:0 
 body.plotfocus:not(.fshow-menu) header#top,body.plotfocus:not(.fshow-menu) #nav,body.plotfocus:not(.fshow-menu) #sp1{display:none}
 body.plotfocus main#main{padding:8px}
 body.plotfocus #tabhost,body.plotfocus #scenehost{display:none}
-#tile-results .tbody{padding-top:22px}#tile-results .grip{top:0;left:6px}
+#tile-results .tbody{padding-top:0}#tile-results .grip{top:0;left:6px}
 
 /* ----- solve progress bar and the problem dialog ----- */
 .pbar{display:none;margin:10px 0 2px}.pbar.on{display:block}
@@ -293,7 +293,7 @@ details.lic pre{max-height:360px;overflow:auto;font-size:12px;white-space:pre-wr
 .tbtns{display:flex;gap:10px;justify-content:flex-end}
 
 /* ----- space view ----- */
-.spacecard{display:flex;flex-direction:column;gap:8px;padding-bottom:12px}
+.spacecard{display:flex;flex-direction:column;gap:10px;padding:14px 18px 16px}.spacecard>h3{padding:0}
 .spaceview{position:relative;height:560px;border-radius:10px;overflow:hidden;background:#000}.spacecanvas{display:block;width:100%;height:100%}
 .spacelabels{position:absolute;inset:0;pointer-events:none;overflow:hidden}.slabel{position:absolute;left:0;top:0;font-size:12px;font-weight:600;white-space:nowrap;text-shadow:0 0 4px #000,0 0 2px #000;will-change:transform}
 .spacebar{display:flex;flex-direction:column;gap:8px}.srow{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 12px}.sslider{flex:1;min-width:260px}.sdate{font-variant-numeric:tabular-nums;color:var(--text2)}
@@ -344,3 +344,44 @@ details.lic pre{max-height:360px;overflow:auto;font-size:12px;white-space:pre-wr
 .xbottom{background:transparent;border-top:0;backdrop-filter:none}.xbottom .xdate,.xbottom .xrate{text-shadow:0 0 6px #000,0 0 3px #000}
 .xbottom .xtool,.xbottom .xplay{text-shadow:none;filter:drop-shadow(0 0 3px rgba(0,0,0,.9))}
 .xside{bottom:0}
+
+/* ----- design mode dock ----- */
+.dock2{position:relative;overflow:hidden;width:100%}.dock2.stacked{overflow:auto}.dock2 .dockin{position:relative;width:100%}
+.dropov{position:absolute;inset:0;z-index:60;pointer-events:none}
+.dock2 .tile>.tbody{overflow:auto}.dock2 .tile .spacecard,.dock2 .tile .nodecard{height:100%;margin:0;overflow:auto}
+.dock2 .tile .spacecard>h3,.dock2 .tile .nodecard>h3{padding-left:30px;padding-right:34px}
+.dock2 .tile .spaceview{flex:1;height:auto;min-height:160px}
+.dock2 [data-dt=tables]>.tbody{padding-top:22px}.dock2 [data-dt=tables] .grip{top:0;left:6px}.dock2 [data-dt=tables] .trash{top:0;right:6px}
+.dock2 [data-dt=tables]>.tbody>.sheet{margin-bottom:12px}
+.dock2 .tile .cardx.c3d,.dock2 .tile .cardx.c2d{flex:1;min-height:0}
+
+/* ----- sequence as a chain-style timeline: numbered circles on a vertical line ----- */
+.seq{position:relative;display:flex;flex-direction:column;padding:6px 0 6px}
+.sitem{position:relative;display:flex;gap:18px;padding-bottom:20px;--kc:var(--blue)}.sitem.orange{--kc:var(--orange)}.sitem.green{--kc:var(--green)}.sitem.amber{--kc:var(--amber)}.sitem.start,.sitem.end{--kc:var(--muted)}
+.sitem::before{content:"";position:absolute;left:25px;top:52px;bottom:-4px;width:4px;border-radius:2px;background:var(--line)}.sitem.end::before{display:none}.sitem.start::before{top:36px}
+.snode{position:relative;flex:none;width:54px;height:54px;border-radius:50%;border:4px solid var(--kc);background:var(--panel);display:flex;align-items:center;justify-content:center;color:var(--kc);z-index:1}
+.snode svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.snode i{position:absolute;right:-6px;top:-6px;min-width:22px;height:22px;border-radius:11px;background:var(--kc);color:#fff;font-style:normal;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px}
+.snode.small{width:34px;height:34px;margin:10px 10px;border-width:3px}.snode.small svg{width:16px;height:16px}.sitem.start .snode.small,.sitem.end .snode.small{margin-left:10px}
+.scard{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--kc);border-radius:12px;padding:0}.scard.slabel{background:transparent;border:0;color:var(--muted);font-size:13px;align-self:center;padding:0}
+.shead{display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;flex-wrap:wrap}.shead:hover{background:rgba(255,255,255,.03)}.shead b{font-size:15px}.shead code{color:var(--muted);font-size:12.5px;flex:1;min-width:160px;overflow-wrap:anywhere}
+.schev{display:inline-flex;width:18px;height:18px;color:var(--muted)}.schev svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2.2}
+.sbody{padding:2px 16px 16px;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line)}.sitem.off .scard{opacity:.5}
+
+.sitem.start,.sitem.end{align-items:center;padding-bottom:4px}.sitem.start .scard.slabel,.sitem.end .scard.slabel{margin:0;align-self:center}
+
+/* ----- panel headers: grip, title and trash share one centred row (grip top 10px + 22px => centre at 21px) ----- */
+.tile .cardx>h3{display:flex;align-items:center;min-height:42px;margin:0;padding:0 40px 0 38px;font-size:14.5px}
+.tile .cardx{padding-top:0}
+#tile-inputs section#panel{padding:0 18px 24px}
+#tile-inputs #panel h2{display:flex;align-items:center;min-height:42px;margin:0 0 6px;padding:0 30px 0 20px;font-size:21px}
+.dock2 .tile .spacecard,.dock2 .tile .nodecard{padding-top:0}.dock2 .tile .spacecard>h3,.dock2 .tile .nodecard>h3{padding:0 30px 0 20px;min-height:42px}
+
+/* ----- left menu groups: open while hovered, folded otherwise (click pins) ----- */
+.ngrp>.nsub{display:none}.ngrp:hover>.nsub,.ngrp.pinned>.nsub{display:block}
+.ngrp .chev svg{transition:transform .15s}.ngrp:hover .chev svg,.ngrp.pinned .chev svg{transform:rotate(90deg)}
+.ngrp.hasact>.nv.grp{color:var(--text)}.ngrp.hasact>.nv.grp .n{color:var(--orange)}
+#app.fold .ngrp:hover>.nsub{position:absolute;left:60px;z-index:20;background:var(--nav);border:1px solid var(--line);border-radius:10px;padding:6px;margin:0;min-width:220px}
+
+.tilehead{display:flex;align-items:center;min-height:42px;padding:0 40px 0 38px;font-weight:700;font-size:14.5px;color:var(--text);flex:none}
+.xbottom{transition:padding .22s ease}.xp.lib-open .xbottom{padding-left:374px}.xp.panel-open .xbottom{padding-right:374px}

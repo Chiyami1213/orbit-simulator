@@ -102,7 +102,7 @@ def test_api_routes_round_trip():
     bad = api.sandbox_edit({'scene': sc, 'jd': jd, 'edits': [{'op': 'remove', 'id': 'Nope'}]}); assert not bad['ok'] and 'Nope' in bad['error']
     mm = api.sandbox_to_mission({'scene': e['scene'], 'id': 'Spacecraft'}); assert mm['ok'] and mm['mission']['spacecraft'][0]['state_type'] == 'Cartesian'
     out = api.sandbox_save({'scene': e['scene']}); assert out['ok'] and json.loads(pathlib.Path(out['path']).read_text(encoding='utf-8'))['format'] == 'orbitscene'
-    assert api.sandbox_run({'scene': e['scene'], 'horizon': '30 days'})['ok'] and 'catalog' in api.sandbox_meta({}) and 'What If' in api.sandbox_meta({})['categories']
+    assert api.sandbox_run({'scene': e['scene'], 'horizon': '30 days'})['ok'] and 'catalog' in api.sandbox_meta({}) and 'Scene' in api.sandbox_meta({})['categories']
 
 
 def test_three_modes_are_wired_in_the_front_end():
@@ -124,3 +124,13 @@ def test_nothing_orbits_a_massless_body(scene):
     two = SM.apply_edits(sc, [{'op': 'add', 'item': sat_item, 'parent': sat}], EPH); a, b = two['bodies'][-1], SM.get(two, 'Earth')
     assert 1e4 < np.linalg.norm(np.array(a['r']) - np.array(b['r'])) < 3e4                       # it went into orbit about Earth, the spacecraft's own parent
     with pytest.raises(ValueError): SM.apply_edits(sc, [{'op': 'orbit', 'id': 'Moon', 'parent': sat, 'elements': dict(SMA=1000, ECC=0, INC=0, RAAN=0, AOP=0, TA=0)}])
+
+
+def test_coincident_bodies_give_a_clear_error_not_an_index_error(scene):
+    sc = copy.deepcopy(scene); sc['bodies'].append(SM.new_body('Twin', 'small', 1e-3, 1.0, SM.get(sc, 'Earth')['r'], SM.get(sc, 'Earth')['v'], id='Twin'))        # exactly on top of Earth
+    try:
+        r = sim.simulate(sc, 5, 5); assert r['jd'] and len(r['bodies']['Twin']) == len(r['jd'])                                                            # either a partial run ...
+    except ValueError as ex:
+        assert 'could not take a single step' in str(ex) or 'invalid' in str(ex)                                                                      # ... or a readable message, never IndexError
+    out = api.sandbox_edit({'scene': scene, 'jd': scene['epoch_jd'], 'edits': [{'op': 'add', 'item': {'name': 'X', 'kind': 'small', 'mu': 1e-3, 'radius': 1.0, 'real': False, 'orbit': {'a': 1e-3}}, 'parent': 'Earth', 'orbit': {'a': 1e-3}}], 'horizon': '30 days'})
+    assert out['ok'] or 'IndexError' not in out['error']

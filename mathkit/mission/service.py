@@ -334,7 +334,8 @@ def space_payload(m: Mission, res: RunResult, eph, refs: list | None = None, cap
             except Exception: lagr = []
     from .. import sky as SK
     markers = [dict(name='Galactic Center', ra=SK.GALACTIC_CENTER[0], dec=SK.GALACTIC_CENTER[1]), dict(name='North Galactic Pole', ra=SK.NORTH_GALACTIC_POLE[0], dec=SK.NORTH_GALACTIC_POLE[1])] + [dict(name=k, ra=r_, dec=d_) for k, (r_, d_) in SK.STARS.items()]
-    return dict(markers=markers, center=center, jd0=float(jd0), jd1=float(jd1), tracks=tracks, bodies=bodies, events=ev, lagrange=lagr, extent=ext,
+    from ..view3d.models import spacecraft_mesh
+    return dict(models={k: spacecraft_mesh(k) for k in ('comsat', 'probe')}, markers=markers, center=center, jd0=float(jd0), jd1=float(jd1), tracks=tracks, bodies=bodies, events=ev, lagrange=lagr, extent=ext,
                 refs=[dict(name=r_['name'], r=[x for x in np.array(r_['r'])[_thin(len(r_['r']), cap)].tolist()]) for r_ in (refs or []) if r_.get('center') == center])
 
 

@@ -1,5 +1,5 @@
 /* ---------- Mission workspace: GMAT-style resources + command sequence, propagation, comparison, GMAT script import / export ---------- */
-const MIS = { space: null, refs: [], m: null, tab: 'Resources', res: null, cmp: null, script: null, busy: false, stale: true, meta: null, err: '' };
+const MIS = { open: new Set(), space: null, refs: [], m: null, tab: 'Resources', res: null, cmp: null, script: null, busy: false, stale: true, meta: null, err: '' };
 const MIS_TABS = ['Resources', 'Sequence', 'Plots', 'Reports', 'Compare', 'Porkchop', 'GMAT Script'];
 const PK = { origin: 'Earth', target: 'Mars', dep_start: '2026-09-01', dep_days: 200, arr_start: '2027-05-01', arr_days: 250, n: 30, res: null, busy: false };
 const KEP = ['SMA', 'ECC', 'INC', 'RAAN', 'AOP', 'TA'], CART = ['X', 'Y', 'Z', 'VX', 'VY', 'VZ'];
@@ -131,21 +131,37 @@ function cmdCard(c, i) {
     mfield('Parameters', '', el('input', { type: 'text', style: 'width:min(520px,100%)', value: c.params.join(' '), onchange: e => { c.params = e.target.value.split(/[\s,]+/).filter(Boolean); misTouch(true); } })))];
   else body = [mrow(mfield('Report File', '', (() => { const s = el('select', {}, ...m.reports.map(b => el('option', { value: b.name, selected: b.name === c.report }, b.name))); s.onchange = () => { c.report = s.value; misTouch(true); }; if (!c.report && m.reports[0]) c.report = m.reports[0].name; return s; })()),
     el('label', { class: 'mcheck' }, el('input', { type: 'checkbox', checked: c.on, onchange: e => { c.on = e.target.checked; misTouch(true); } }), 'on'))];
-  return el('div', { class: 'mcard cmd' + (c.enabled ? '' : ' off') }, el('div', { class: 'mhead' }, el('b', {}, `${i + 1}. ${c.kind}`), el('code', {}, txt),
-    el('span', { class: 'mctl' }, el('label', { class: 'mcheck', title: 'disabled commands are skipped (and written as comments in the GMAT script)' }, el('input', { type: 'checkbox', checked: c.enabled, onchange: e => { c.enabled = e.target.checked; misTouch(true); } }), 'enabled'),
+  const open = MIS.open.has(i), kc = { Propagate: 'blue', Maneuver: 'orange', Report: 'green', Toggle: 'amber' }[c.kind] || 'blue', ik = { Propagate: 'orb2', Maneuver: 'bolt', Report: 'basic', Toggle: 'forces' }[c.kind] || 'orb2';
+  const ctlNode = el('span', { class: 'mctl' }, el('label', { class: 'mcheck', title: 'disabled commands are skipped (and written as comments in the GMAT script)' }, el('input', { type: 'checkbox', checked: c.enabled, onchange: e => { c.enabled = e.target.checked; misTouch(true); } }), 'enabled'),
       el('button', { class: 'mdel', title: 'move up', onclick: () => move(-1) }, '↑'), el('button', { class: 'mdel', title: 'move down', onclick: () => move(1) }, '↓'),
       el('button', { class: 'mdel', title: 'insert a copy after this command', onclick: () => { m.commands.splice(i + 1, 0, fresh(c)); misTouch(true); } }, '⧉'),
-      el('button', { class: 'mdel', title: 'delete', onclick: () => { m.commands.splice(i, 1); misTouch(true); } }, ico('trash')))), ...body);
+      el('button', { class: 'mdel', title: 'delete', onclick: () => { m.commands.splice(i, 1); misTouch(true); } }, ico('trash')));
+  return el('div', { class: 'sitem ' + kc + (c.enabled ? '' : ' off') + (open ? ' open' : '') }, el('div', { class: 'snode', title: c.kind }, ico(ik), el('i', {}, String(i + 1))),
+    el('div', { class: 'scard' }, el('div', { class: 'shead', onclick: () => { MIS.open.has(i) ? MIS.open.delete(i) : MIS.open.add(i); renderMission(); } }, el('span', { class: 'schev' }, ico(open ? 'down' : 'rc')), el('b', {}, c.kind), el('code', {}, txt), ctlNode),
+      open ? el('div', { class: 'sbody' }, ...body) : ''));
 }
 function sequenceTab() {
   const m = MIS.m;
-  return el('div', { class: 'mwrap' }, el('div', { class: 'dim' }, 'commands run top to bottom after BeginMissionSequence. a propagate command stops at the first of its stop conditions.'),
-    ...m.commands.map(cmdCard),
+  return el('div', { class: 'mwrap' }, el('div', { class: 'dim' }, 'commands run top to bottom after BeginMissionSequence. a propagate command stops at the first of its stop conditions. click a step to open it.'),
+    el('div', { class: 'btnrow', style: 'margin:0' }, mbtn('Expand All', () => { m.commands.forEach((_, i) => MIS.open.add(i)); renderMission(); }), mbtn('Collapse All', () => { MIS.open.clear(); renderMission(); })),
+    el('div', { class: 'seq' }, el('div', { class: 'sitem start' }, el('div', { class: 'snode small' }, ico('play')), el('div', { class: 'scard slabel' }, 'BeginMissionSequence')), ...m.commands.map(cmdCard), el('div', { class: 'sitem end' }, el('div', { class: 'snode small' }, ico('check2')), el('div', { class: 'scard slabel' }, 'End of the sequence'))),
     el('div', { class: 'btnrow' }, ...['Propagate', 'Maneuver', 'Report', 'Toggle'].map(k => mbtn('+ ' + k, () => { const c = cmd0(k); if (k === 'Propagate') { c.items = [[m.propagators[0]?.name, [m.spacecraft[0]?.name]]]; c.stops = [`${m.spacecraft[0]?.name}.ElapsedSecs = 3600`]; } m.commands.push(c); misTouch(true); }))));
 }
 
 /* ---- results ---- */
 const fmtN = (x, d = 8) => (typeof x === 'number' ? (Number.isFinite(x) ? (Math.abs(x) >= 1e-3 || x === 0 ? +x.toPrecision(d) : x.toExponential(4)) : '–') : (x ?? '–'));
+/* ---- the Plots tab is a dock: space view, maneuver planner, 3D, 2D and the tables can be dragged anywhere, resized and closed ---- */
+const DDOCK = makeDock({ key: 'ddock', closedKey: 'dclosed', ids: ['space', 'planner', 'v3d', 'v2d', 'tables'],
+  names: { space: 'Space View', planner: 'Maneuver Planner', v3d: '3D View', v2d: '2D View', tables: 'Tables and Exports' },
+  min: { space: [420, 340], planner: [360, 240], v3d: [340, 280], v2d: [320, 280], tables: [360, 150] }, stackH: { space: 640, planner: 520, v3d: 520, v2d: 520, tables: 460 },
+  height: 'max(1100px, calc(100vh - 230px))', minHeight: 700,
+  def: { t: 's', d: 'v', r: 0.74, a: { t: 's', d: 'h', r: 0.6, a: { t: 's', d: 'v', r: 0.72, a: { t: 't', id: 'space' }, b: { t: 't', id: 'planner' } }, b: { t: 's', d: 'v', r: 0.5, a: { t: 't', id: 'v3d' }, b: { t: 't', id: 'v2d' } } }, b: { t: 't', id: 'tables' } },
+  onChange: () => refreshDesignChips() });
+const DCHIPS = { el: null };
+function refreshDesignChips() {
+  if (!DCHIPS.el) return; const c = DDOCK.closed();
+  DCHIPS.el.replaceChildren(...c.map(id => el('button', { class: 'chip', onclick: () => DDOCK.open(id) }, '+ ' + DDOCK.names[id])), ...(c.length ? [] : []));
+}
 function plotsTab() {
   const r = MIS.res; if (!r) return el('div', { class: 'empty' }, 'press run mission to propagate the sequence');
   const sc = r.scene, fr = el('iframe'); fr.srcdoc = sc.html3d || '';
@@ -154,11 +170,11 @@ function plotsTab() {
   const burnRows = r.burns.map(b => [b.when, b.sat, b.burn, fmtN(b.dv), conv ? `E1 ${fmtN(b.vnb[0], 7)} · E2 ${fmtN(b.vnb[1], 7)} · E3 ${fmtN(b.vnb[2], 7)} (VNB)` : `α ${fmtN(b.alpha, 6)}° · β ${fmtN(b.beta, 6)}°`, conv ? `course: α ${fmtN(b.alpha, 6)}°, β ${fmtN(b.beta, 6)}°` : `GMAT VNB: ${b.vnb.map(x => fmtN(x, 7)).join(', ')}`]);
   const fin = r.final.map(f => [f.sat, f.epoch, fmtN(f.elapsed, 10) + ' s', ...(conv ? [`SMA ${fmtN(f.values.SMA, 9)} · ECC ${fmtN(f.values.ECC, 8)} · INC ${fmtN(f.values.INC, 8)}°`, `TA ${fmtN(f.values.TA, 8)}° · VFPA ${fmtN(f.values.VFPA, 8)}° (course γ ${fmtN(f.values.HFPA, 8)}°)`, `r ${fmtN(f.values.RMAG, 9)} km · v ${fmtN(f.values.VMAG, 9)} km/s · C3 ${fmtN(f.values.C3Energy, 8)} km²/s²`]
     : [`a ${fmtN(f.values.SMA, 9)} km · e ${fmtN(f.values.ECC, 8)} · i ${fmtN(f.values.INC, 8)}°`, `θ* ${fmtN(f.values.TA, 8)}° · γ ${fmtN(f.values.gamma, 8)}°`, `r ${fmtN(f.values.RMAG, 9)} km · v ${fmtN(f.values.VMAG, 9)} km/s · ε ${fmtN(f.values.Energy, 8)} km²/s²`])]);
-  return el('div', { class: 'mwrap' }, ...(r.warnings.length ? [el('div', { class: 'chk warn' }, el('span', { class: 'ic' }, '!'), el('span', {}, r.warnings.join(' · ')))] : []),
-    spaceCard(r),
-    plannerCard(r),
-    el('div', { class: 'mplots' }, el('div', { class: 'cardx c3d' }, el('h3', {}, el('b', {}, '3D View'), el('span', { class: 'hint' }, ' · ' + r.ephemeris)), el('div', { class: 'body' }, fr)),
-      el('div', { class: 'cardx c2d' }, el('h3', {}, el('b', {}, '2D View')), el('div', { class: 'body' }, el('div', { class: 'svgw', html: sc.svg })))),
+  const DK = DDOCK.mount();
+  DK.bodies.space.append(spaceCard(r)); DK.bodies.planner.append(plannerCard(r));
+  DK.bodies.v3d.append(el('div', { class: 'cardx c3d' }, el('h3', {}, el('b', {}, '3D View'), el('span', { class: 'hint' }, ' · ' + r.ephemeris)), el('div', { class: 'body' }, fr)));
+  DK.bodies.v2d.append(el('div', { class: 'cardx c2d' }, el('h3', {}, el('b', {}, '2D View')), el('div', { class: 'body' }, el('div', { class: 'svgw', html: sc.svg }))));
+  DK.bodies.tables.append(
     el('div', { class: 'sheet' }, el('h3', {}, 'Final States'), table(['Spacecraft', 'Epoch (UTC)', 'Elapsed', 'Elements', 'Angles', 'Magnitudes'], fin)),
     r.burns.length ? el('div', { class: 'sheet' }, el('h3', {}, 'Maneuvers'), table(['When', 'Spacecraft', 'Burn', 'Δv (km·s⁻¹)', conv ? 'GMAT ImpulsiveBurn' : 'Course form', 'Other form'], burnRows)) : '',
     el('div', { class: 'sheet' }, el('h3', {}, 'Events'), table(['When (UTC)', 'Spacecraft', 'Event'], evRows)),
@@ -170,6 +186,8 @@ function plotsTab() {
       ...(MIS.refs.length ? [table(['Imported', 'Centre', 'Points', 'Max difference (km)', 'RMS (km)', 'At the end (km)'], MIS.refs.map((rf, i) => { const d = (r.ref_diff || []).find(x => x.name === rf.name) || {}; return [rf.name, rf.center, rf.jd.length, d.points ? fmtN(d.max_km, 6) : '–', d.points ? fmtN(d.rms_km, 6) : '–', d.points ? fmtN(d.end_km, 6) : (d.error || 'run the mission')]; }))] : [])),
     el('div', { class: 'btnrow' }, ...MIS.m.spacecraft.flatMap(sc => [['csv', 'CSV'], ['oem', 'CCSDS OEM'], ['cosmo', 'Cosmographia SPK']].map(([k, l]) => mbtn(`${sc.name} Trajectory (${l})`, async () => { const x = k === 'cosmo' ? await api('mission_cosmographia', { mission: MIS.m, sat: sc.name }) : await api('mission_trajectory', { mission: MIS.m, sat: sc.name, kind: k }); toast(x.ok ? 'saved to ' + (x.path || x.spk) : x.error, x.ok ? 'ok' : 'err'); })))),
     el('div', { class: 'dim' }, `ephemeris: ${r.ephemeris} — ${r.ephemeris_accuracy}`));
+  const chips = el('div', { class: 'closedchips', id: 'dchips' }); DCHIPS.el = chips; refreshDesignChips();
+  return el('div', { class: 'mwrap' }, ...(r.warnings.length ? [el('div', { class: 'chk warn' }, el('span', { class: 'ic' }, '!'), el('span', {}, r.warnings.join(' · ')))] : []), chips, DK.el);
 }
 function porkchopTab() {
   const o = Object.keys(META.bodies).filter(b => b !== 'Sun' && b !== 'Moon'); const host = el('div', { class: 'mwrap' });
@@ -270,12 +288,12 @@ function spaceCard(r) {
   const host = el('div', { class: 'spaceview' }), bar = el('div', { class: 'spacebar' }), card = el('div', { class: 'cardx spacecard' }, el('h3', {}, el('b', {}, 'Space View'), el('span', { class: 'hint' }, ' · drag to orbit, scroll to zoom, right-drag to pan; time warp up to 10⁷×')), bar, host);
   setTimeout(async () => {
     if (MIS.space) { try { MIS.space.dispose(); } catch (e) { } MIS.space = null; }
-    let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(host, sp, { sky: SET.sky || 'milkyway' }); } catch (e) { host.replaceChildren(el('div', { class: 'empty' }, 'the space view needs WebGL: ' + e)); return; }
+    let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(host, sp, { sky: SET.sky || 'milkyway', model: SET.model }); } catch (e) { host.replaceChildren(el('div', { class: 'empty' }, 'the space view needs WebGL: ' + e)); return; }
     MIS.space = S3; const st = S3.state;
     const btn = (label, fn, title) => el('button', { class: 'btn small', title: title || '', onclick: fn }, label);
     const play = btn('▶ Play', () => { S3.play(); sync(); }), rev = btn('◀ Reverse', () => { st.dir = -st.dir; if (!st.playing) S3.play(true); sync(); }, 'play backwards');
-    const date = el('span', { class: 'sdate' }), slider = el('input', { type: 'range', min: 0, max: 10000, value: 0, class: 'sslider', oninput: e => S3.setJD(S3.t0 + (S3.t1 - S3.t0) * e.target.value / 10000) });
-    const warp = el('input', { type: 'range', min: 0, max: 7, step: 1, value: st.warp, oninput: e => { S3.setWarp(+e.target.value); sync(); } }), wl = el('b', {});
+    const date = el('span', { class: 'sdate' }), slider = el('input', { type: 'range', min: 0, max: 10000, value: 0, 'data-default': 0, class: 'sslider', oninput: e => S3.setJD(S3.t0 + (S3.t1 - S3.t0) * e.target.value / 10000) });
+    const warp = el('input', { type: 'range', min: 0, max: 7, step: 1, value: st.warp, 'data-default': 3, oninput: e => { S3.setWarp(+e.target.value); sync(); } }), wl = el('b', {});
     const focus = el('select', { onchange: e => S3.focus(e.target.value) }, ...S3.names().map(n => el('option', { value: n, selected: n === st.focus }, n)));
     const chk = (k, label, tip) => el('label', { class: 'mcheck', title: tip || '' }, el('input', { type: 'checkbox', checked: !!st[k], onchange: e => S3.set(k, e.target.checked) }), label);
     const skysel = el('select', { onchange: e => { SET.sky = e.target.value; saveSet(); S3.setSky(e.target.value); } }, ...[['milkyway', 'Milky Way'], ['stars', 'Stars Only'], ['theme', 'Theme Color'], ['black', 'Black']].map(([v, l]) => el('option', { value: v, selected: (SET.sky || 'milkyway') === v }, l)));
@@ -287,10 +305,11 @@ function spaceCard(r) {
       el('div', { class: 'srow' }, el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Focus'), focus), btn('Top', () => S3.view('top')), btn('Isometric', () => S3.view('iso')), btn('Side', () => S3.view('side')),
         chk('labels', 'Labels'), chk('paths', 'Orbits'), chk('soi', 'SOI'), chk('lag', 'Lagrange'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic'),
         el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Background'), skysel),
-        el('label', { class: 'mf', title: 'draw bodies larger than life' }, el('span', { class: 'ml' }, 'Body Size'), el('input', { type: 'range', min: 1, max: 100, value: 1, oninput: e => S3.set('exag', +e.target.value) })),
-        el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Sky Brightness'), el('input', { type: 'range', min: 0, max: 40, value: 10, oninput: e => S3.set('bright', e.target.value / 10) })),
+        el('label', { class: 'mf', title: 'draw bodies larger than life' }, el('span', { class: 'ml' }, 'Body Size'), el('input', { type: 'range', min: 1, max: 100, value: 1, 'data-default': 1, oninput: e => S3.set('exag', +e.target.value) })),
+        el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Sky Brightness'), el('input', { type: 'range', min: 0, max: 40, value: 10, 'data-default': 10, oninput: e => S3.set('bright', e.target.value / 10) })),
         chk('markers', 'Sky Markers', 'label the galactic centre, Polaris and bright stars on the sky (checks the sky orientation)'),
         el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Look Toward'), el('select', { onchange: e => { if (e.target.value) { st.markers = true; S3.look(...e.target.value.split(',').map(Number)); } e.target.value = ''; } }, el('option', { value: '' }, '…'), ...sp.markers.map(mk => el('option', { value: mk.ra + ',' + mk.dec }, mk.name)))),
+        el('label', { class: 'mf', title: 'how spacecraft are drawn (also under settings → figures and animation)' }, el('span', { class: 'ml' }, 'Spacecraft Model'), el('select', { onchange: e => { SET.model = e.target.value; saveSet(); S.cache.clear(); renderMission(); } }, ...[['marker', 'Simple Marker'], ['comsat', 'Satellite A'], ['probe', 'Satellite B (Probe)']].map(([v, l]) => el('option', { value: v, selected: (SET.model || 'marker') === v }, l)))),
         rec, btn('Save Image', async () => { const x = await api('save_blob', { kind: 'png', name: MIS.m.name + '_space', data: S3.png() }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); })));
   }, 0);
   return card;
@@ -305,9 +324,9 @@ function plannerCard(r) {
   const out = el('div', { class: 'nodeout' }), card = el('div', { class: 'cardx nodecard' }, el('h3', {}, el('b', {}, 'Maneuver Planner'), el('span', { class: 'hint' }, ' · place a burn anywhere on the trajectory and see where it leads')));
   const sat = el('select', { onchange: e => { NODE.sat = e.target.value; NODE.pos = 0; NODE.e = [0, 0, 0]; renderMission(); } }, ...sp.tracks.map(t => el('option', { value: t.name, selected: t.name === NODE.sat }, t.name)));
   const when = el('span', { class: 'dim' });
-  const pos = el('input', { type: 'range', min: 0, max: trk.idx.length - 1, value: NODE.pos, class: 'sslider', oninput: e => { NODE.pos = +e.target.value; preview(); } });
+  const pos = el('input', { type: 'range', min: 0, max: trk.idx.length - 1, value: NODE.pos, 'data-default': 0, class: 'sslider', oninput: e => { NODE.pos = +e.target.value; preview(); } });
   const rng = 3.0, mk = (label, tip, k) => { const num = el('input', { type: 'number', step: 'any', value: NODE.e[k], style: 'width:110px', onchange: e => { NODE.e[k] = +e.target.value; sl.value = NODE.e[k]; preview(); } });
-    const sl = el('input', { type: 'range', min: -rng, max: rng, step: 0.001, value: NODE.e[k], class: 'sslider', oninput: e => { NODE.e[k] = +e.target.value; num.value = NODE.e[k]; previewSoon(); } });
+    const sl = el('input', { type: 'range', min: -rng, max: rng, step: 0.001, value: NODE.e[k], 'data-default': 0, class: 'sslider', oninput: e => { NODE.e[k] = +e.target.value; num.value = NODE.e[k]; previewSoon(); } });
     return el('div', { class: 'srow', title: tip }, el('span', { class: 'ml', style: 'width:150px' }, label), sl, num, el('span', { class: 'dim' }, 'km/s')); };
   let timer = null; const previewSoon = () => { clearTimeout(timer); timer = setTimeout(preview, 220); };
   async function preview() {

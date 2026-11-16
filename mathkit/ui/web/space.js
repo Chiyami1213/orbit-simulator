@@ -88,17 +88,18 @@ export function createSpace(host, data, opts = {}) {
 
   // ---- sky: a sphere that follows the camera, sampling the galactic map along the ICRF direction
   const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, depthTest: false,
-    uniforms: { map: { value: null }, gal: { value: new THREE.Matrix3().set(...GAL) }, gain: { value: state.bright }, mode: { value: 0 }, flip: { value: 1 } },
+    uniforms: { map: { value: null }, gal: { value: new THREE.Matrix3().set(...GAL) }, gain: { value: state.bright }, mode: { value: 0 }, flip: { value: 1 }, themeColor: { value: new THREE.Vector3(0.06, 0.09, 0.16) } },
     vertexShader: 'varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position = p.xyww; }',
-    fragmentShader: 'uniform sampler2D map; uniform mat3 gal; uniform float gain; uniform float mode; uniform float flip; varying vec3 vDir; const float PI = 3.14159265359;' +
-      'void main(){ if (mode > 1.5) { gl_FragColor = vec4(0.0,0.0,0.0,1.0); return; } vec3 g = gal * normalize(vDir); float l = atan(g.y, g.x); float b = asin(clamp(g.z,-1.0,1.0));' +
-      'vec2 uv = vec2(0.5 - l/(2.0*PI), 0.5 + flip * b/PI); vec3 c = texture2D(map, uv).rgb * gain; if (mode > 0.5) c = vec3(0.02,0.03,0.07) + c; gl_FragColor = vec4(c,1.0); }' });
+    fragmentShader: 'uniform sampler2D map; uniform mat3 gal; uniform float gain; uniform float mode; uniform float flip; uniform vec3 themeColor; varying vec3 vDir; const float PI = 3.14159265359;' +
+      'void main(){ if (mode > 1.5) { gl_FragColor = vec4(0.0,0.0,0.0,1.0); return; } if (mode > 0.5) { gl_FragColor = vec4(themeColor, 1.0); return; } vec3 g = gal * normalize(vDir); float l = atan(g.y, g.x); float b = asin(clamp(g.z,-1.0,1.0));' +
+      'vec2 uv = vec2(0.5 - l/(2.0*PI), 0.5 + flip * b/PI); vec3 c = texture2D(map, uv).rgb * gain; gl_FragColor = vec4(c,1.0); }' });
   const skyMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), skyMat); skyMesh.renderOrder = -10; skyMesh.frustumCulled = false; scene.add(skyMesh);
   // NASA SVS "Deep Star Maps 2020" (galactic, latitude up, display-referred): 8k when the GPU allows it, else 4k. The older 2k star map has latitude downward and needs a gain.
   const big = renderer.capabilities.maxTextureSize >= 8192; let skyScale = 1;
   const loadSky = (name, legacy) => loader.load('/assets/textures/' + name, tx => { tx.generateMipmaps = false; tx.minFilter = THREE.LinearFilter; tx.colorSpace = legacy ? THREE.SRGBColorSpace : THREE.NoColorSpace; skyMat.uniforms.map.value = tx; });
   const setSky = k => { state.sky = k; skyMat.uniforms.mode.value = k === 'black' ? 2 : k === 'theme' ? 1 : 0; const legacy = k === 'stars'; skyMat.uniforms.flip.value = legacy ? -1 : 1; skyScale = legacy ? 3 : 1;
-    if (k !== 'black') loadSky(legacy ? '2k_stars.jpg' : (big ? 'sky_milkyway_8k.jpg' : 'sky_milkyway_4k.jpg'), legacy); };
+    if (k === 'theme') { const hex = (getComputedStyle(document.body).getPropertyValue('--bg') || '#0f1628').trim().replace('#', ''); const n = parseInt(hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex, 16); skyMat.uniforms.themeColor.value.set(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); }       // the app's background colour, flat: no stars, no galaxy
+    if (k !== 'black' && k !== 'theme') loadSky(legacy ? '2k_stars.jpg' : (big ? 'sky_milkyway_8k.jpg' : 'sky_milkyway_4k.jpg'), legacy); };
   setSky(state.sky);
 
   // ---- lights
@@ -131,7 +132,8 @@ export function createSpace(host, data, opts = {}) {
     const pts = tr.r.map(p => new THREE.Vector3(...p)); const g = new THREE.BufferGeometry().setFromPoints(pts);
     const full = new THREE.Line(g, new THREE.LineBasicMaterial({ color: tr.color, transparent: true, opacity: 0.35 })); world.add(full);
     const g2 = new THREE.BufferGeometry().setFromPoints(pts); const done = new THREE.Line(g2, new THREE.LineBasicMaterial({ color: tr.color })); world.add(done);
-    const mk = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: tr.color })); world.add(mk);
+    const model = opts.model && opts.model !== 'marker' && data.models && data.models[opts.model] ? opts.model : null;                    // 'comsat' | 'probe' (the same models as the 3d plots) or a plain marker
+    const mk = model ? buildShape(model, tr.color, data.models, loader) : new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: tr.color })); world.add(mk);
     return { def: tr, full, done, mk, label: mkLabel(tr.name, tr.color), n: pts.length };
   });
   const refs = (data.refs || []).map(rf => { const g = new THREE.BufferGeometry().setFromPoints(rf.r.map(p => new THREE.Vector3(...p))); const l = new THREE.Line(g, new THREE.LineDashedMaterial({ color: '#b37bf0', dashSize: 1, gapSize: 1 })); l.computeLineDistances(); world.add(l); return l; });
@@ -172,7 +174,8 @@ export function createSpace(host, data, opts = {}) {
     }
     if (!bodies.Sun) sun.position.set(1e8, 3e7, 4e7);
     for (const t of tracks) {
-      const p = interp(t.def, jd); t.mk.position.set(...p); t.mk.scale.setScalar(unit * 0.9); const f = Math.max(2, Math.floor(t.n * clamp01((jd - t.def.jd[0]) / Math.max(1e-9, t.def.jd[t.def.jd.length - 1] - t.def.jd[0]))));
+      const p = interp(t.def, jd); t.mk.position.set(...p); t.mk.scale.setScalar(unit * (t.mk.userData.orient ? 3.5 : 0.9));
+      if (t.mk.userData.orient) { const q = interp(t.def, Math.min(t.def.jd[t.def.jd.length - 1], jd + 0.01)), q0 = interp(t.def, Math.max(t.def.jd[0], jd - 0.01)), v = new THREE.Vector3(q[0] - q0[0], q[1] - q0[1], q[2] - q0[2]); if (v.length() > 0) t.mk.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), v.normalize()); } const f = Math.max(2, Math.floor(t.n * clamp01((jd - t.def.jd[0]) / Math.max(1e-9, t.def.jd[t.def.jd.length - 1] - t.def.jd[0]))));
       t.done.geometry.setDrawRange(0, f); t.full.visible = t.done.visible = state.paths; const l = label(t.label, t.mk.position, true); if (l) placed.push(l);
     }
     for (const l of lag) { l.mk.position.set(...interp(l.def, jd)); l.mk.scale.setScalar(unit * 0.8); l.mk.visible = state.lag; label(l.label, l.mk.position, state.lag); }

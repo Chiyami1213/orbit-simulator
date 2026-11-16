@@ -10,7 +10,7 @@ Object.assign(ICO, {
   rocks: '<circle cx="9" cy="14" r="3.8"/><circle cx="17" cy="7" r="2.2"/><circle cx="18" cy="17" r="1.7"/>', sat: '<rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 12H2.5M15 12h6.5M4 8.5v7M20 8.5v7M12 9V5M12 19v-4"/>',
   whatif: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17v.5"/>', star: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>'
 });
-const CAT_ICON = { 'All': 'grid', 'Solar System': 'star', 'Planets': 'globe', 'Moons': 'moon', 'Small Bodies': 'rocks', 'Spacecraft': 'sat', 'Custom': 'addc', 'What If': 'whatif' };
+const CAT_ICON = { 'All': 'grid', 'Solar System': 'star', 'Planets': 'globe', 'Moons': 'moon', 'Small Bodies': 'rocks', 'Spacecraft': 'sat', 'Custom': 'addc', 'Scene': 'scene' };
 const MASS_UNITS = [['Earth masses', 5.9722e24], ['Moon masses', 7.342e22], ['Jupiter masses', 1.8982e27], ['Solar masses', 1.98847e30], ['kg', 1]];
 const RAD_UNITS = [['km', 1], ['Earth radii', 6378.137], ['Moon radii', 1737.4], ['Jupiter radii', 71492], ['Solar radii', 695700]];
 const G_KM = 6.6743e-20, KIND_NAME = { star: 'Star', planet: 'Planet', moon: 'Moon', small: 'Small Body', spacecraft: 'Spacecraft', custom: 'Custom Body' };
@@ -69,6 +69,7 @@ async function exBuild(keepCam) {
   const heavy = EX.sim.bodies.slice().sort((a, b) => b.mu - a.mu)[0];
   const data = { center: heavy ? heavy.id : 'Sun', jd0: EX.sim.jd0, jd1: EX.sim.jd1, bodies, tracks: [], extent: ext, events: [], lagrange: [], refs: [], markers: EX.meta.markers || [], models: EX.meta.models };
   let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(inner, data, { sky: EX.sky }); } catch (e) { inner.replaceChildren(el('div', { class: 'empty' }, 'the sandbox needs WebGL: ' + e)); return; }
+  if (EX.sim.status && EX.sim.status !== 'done') toast('the simulation stopped early (a very close encounter or too violent a change); everything up to that moment is shown. undo or move the bodies apart.', 'err');
   EX.space = S3; Object.assign(S3.state, EX.view, { bright: EX.bright, exag: EX.exag, focus: heavy ? heavy.id : 'Sun' }); S3.setJD(EX.scene.epoch_jd); S3.setRate(10 ** EX.rateExp); S3.play(EX.playing); S3.select(EX.sel);
   if (cam) S3.setCamera(cam); else S3.setCamera({ p: [2.6e8, -2.6e8, 1.7e8], t: [0, 0, 0] });
   S3.onPick(name => { EX.sel = name; S3.select(name); if (name) { EX.panelOpen = true; S3.state.focus = S3.state.focus; } exPanel(); });
@@ -85,18 +86,18 @@ function exLive() {                                                             
 
 /* ---- left drawer: the library ---- */
 function exLib() {
-  const L = $('#xleft'); if (!L) return; L.classList.toggle('shut', !EX.libOpen);
-  const items = EX.meta.catalog.filter(it => (EX.cat === 'All' || it.cat === EX.cat) && (!EX.q || it.name.toLowerCase().includes(EX.q.toLowerCase())));
+  const L = $('#xleft'); if (!L) return; L.classList.toggle('shut', !EX.libOpen); const xp = $('.xp'); if (xp) xp.classList.toggle('lib-open', !!EX.libOpen);
+  const items = EX.meta.catalog.filter(it => (EX.cat === 'All' ? it.cat !== 'Scene' : it.cat === EX.cat) && (!EX.q || it.name.toLowerCase().includes(EX.q.toLowerCase())));
   const inScene = it => EX.scene && EX.scene.bodies.some(b => b.name === it.name);
   const file = el('input', { type: 'file', accept: '.orbitscene,.json', style: 'display:none', onchange: async e => { const f = e.target.files[0]; if (!f) return; try { const o = JSON.parse(await f.text()); EX.scene = o.scene; EX.undo = []; EX.redo = []; EX.sel = null; await exRerunFromScene(); } catch (x) { toast('not a valid scene file', 'err'); } e.target.value = ''; } });
   L.replaceChildren(el('div', { class: 'xhead' }, el('b', {}, 'Add'), el('span', { class: 'xsp' }), el('button', { class: 'xib', title: 'new Solar System', onclick: () => { if (confirm('replace the current scene with the real Solar System?')) exNew(); } }, ico('orb2')),
       el('button', { class: 'xib', title: 'open a saved scene', onclick: () => file.click() }, ico('basic')), file, el('button', { class: 'xib', title: 'close', onclick: () => { EX.libOpen = false; exLib(); } }, ico('close'))),
     el('div', { class: 'xsearch' }, ico('search'), el('input', { id: 'xq', type: 'text', placeholder: 'search bodies', value: EX.q, oninput: e => { EX.q = e.target.value; exLibGrid(); } })),
-    el('div', { class: 'xcats' }, ...EX.meta.categories.map(c => el('button', { class: 'xcat' + (EX.cat === c ? ' on' : ''), title: c, 'aria-label': c, onclick: () => { EX.cat = c; exLib(); } }, ico(CAT_ICON[c] || 'grid')))), el('div', { class: 'xcatname' }, EX.cat),
+    el('div', { class: 'xcats' }, ...EX.meta.categories.map(c => el('button', { class: 'xcat' + (EX.cat === c ? ' on' : ''), title: c, 'aria-label': c, onclick: () => { EX.cat = c; exLib(); } }, ico(CAT_ICON[c] || 'grid')))), el('div', { class: 'xcatname' }, EX.cat === 'Scene' ? 'Scene · edits that change the whole scene, not objects to add' : EX.cat),
     el('div', { class: 'xgrid', id: 'xgrid' }));
   exLibGrid(); function exLibGrid() {
-    const g = $('#xgrid'); if (!g) return; const its = EX.meta.catalog.filter(it => (EX.cat === 'All' || it.cat === EX.cat) && (!EX.q || it.name.toLowerCase().includes(EX.q.toLowerCase())));
-    g.replaceChildren(...its.map(it => el('button', { class: 'xitem' + (EX.sel && EX.scene && EX.scene.bodies.some(b => b.id === EX.sel && b.name === it.name) ? ' sel' : ''), title: it.whatif ? 'a what-if edit of the current scene' : (it.real ? 'real body from the ephemeris' : 'add on an orbit about the selected body'), onclick: () => exAdd(it) },
+    const g = $('#xgrid'); if (!g) return; const its = EX.meta.catalog.filter(it => (EX.cat === 'All' ? it.cat !== 'Scene' : it.cat === EX.cat) && (!EX.q || it.name.toLowerCase().includes(EX.q.toLowerCase())));
+    g.replaceChildren(...its.map(it => el('button', { class: 'xitem' + (EX.sel && EX.scene && EX.scene.bodies.some(b => b.id === EX.sel && b.name === it.name) ? ' sel' : ''), title: it.whatif ? 'changes the whole scene (undo is under the lightning-bolt button)' : (it.real ? 'real body from the ephemeris' : 'add on an orbit about the selected body'), onclick: () => exAdd(it) },
       el('span', { class: 'xthumb', style: it.whatif ? 'background:linear-gradient(135deg,#ff6b4a,#9b8cf2);box-shadow:none' : thumbStyle(it) }, it.whatif ? el('i', {}, '?') : ''), el('span', { class: 'xname' }, it.name))));
     if (!its.length) g.append(el('div', { class: 'dim', style: 'padding:14px' }, 'nothing matches'));
   }
@@ -111,7 +112,7 @@ async function exAdd(it) {
 /* ---- right drawer: the object panel ---- */
 async function exPanel() {
   const P = $('#xright'); if (!P) return; const sel = EX.sel && EX.scene && EX.scene.bodies.find(b => b.id === EX.sel);
-  P.classList.toggle('shut', !sel || !EX.panelOpen); if (!sel) { P.replaceChildren(); return; }
+  P.classList.toggle('shut', !sel || !EX.panelOpen); const xp = $('.xp'); if (xp) xp.classList.toggle('panel-open', !!sel && !!EX.panelOpen); if (!sel) { P.replaceChildren(); return; }
   const r = await api('sandbox_panel', { scene: EX.scene, id: sel.id, jd: EX.space ? EX.space.jd : EX.scene.epoch_jd }); if (!r.ok) { P.replaceChildren(el('div', { class: 'dim', style: 'padding:16px' }, r.error)); return; }
   const pd = EX.pd = r.panel, tabs = [['Basic', 'basic'], ['Motion', 'motion'], ['Orbit', 'orbitt'], ['Forces', 'forces'], ['Actions', 'actions']];
   const row = (label, ...ctl) => el('div', { class: 'xrow' }, el('span', { class: 'xl' }, label), el('span', { class: 'xc' }, ...ctl));
@@ -124,7 +125,7 @@ async function exPanel() {
     row('Mass', num(+(pd.mass_kg / mu[1]).toPrecision(6), v => apply({ mu: v * mu[1] * G_KM })), sel2(MASS_UNITS, EX.mu, v => { EX.mu = v; exPanel(); })),
     row('Radius', num(+(pd.radius / ru[1]).toPrecision(6), v => apply({ radius: v * ru[1] })), sel2(RAD_UNITS, EX.ru, v => { EX.ru = v; exPanel(); })),
     row('Density', el('span', { class: 'xv' }, pd.density_gcc ? fmtNum(pd.density_gcc, 4) + ' g/cm³' : '–')), row('Color', el('input', { type: 'color', value: sel.color || '#8aa0c8', onchange: e => apply({ color: e.target.value }) })),
-    row('Type', sel2([...Object.entries(KIND_NAME).map(([k, v]) => [k])], sel.kind, v => apply({ kind: v })))];
+    row('Type', sel2([...Object.entries(KIND_NAME).map(([k, v]) => [k])], sel.kind, v => apply({ kind: v })))].concat(sel.kind === 'spacecraft' ? [row('3D Model', el('select', { onchange: e => apply({ shape: e.target.value }) }, ...[['comsat', 'Satellite A'], ['probe', 'Satellite B (Probe)']].map(([v, l]) => el('option', { value: v, selected: (pd.shape || EX.sim.bodies.find(b => b.id === sel.id)?.shape) === v }, l))))] : []);
   else if (EX.tab === 'Motion') body = [row('Distance to ' + (pd.parent || 'origin'), el('span', { class: 'xv' }, el('b', { id: 'lv-dist' }, '–'), ' km')), row('Total Velocity', el('span', { class: 'xv' }, el('b', { id: 'lv-speed' }, fmtNum(pd.speed)), ' km/s')),
     ...['x', 'y', 'z'].map((a, i) => row('Position ' + a.toUpperCase(), num(+pd.r[i].toPrecision(10), v => { const r2 = pd.r.slice(); r2[i] = v; apply({ r: r2 }); }, 150), el('span', { class: 'xu' }, 'km'))),
     ...['x', 'y', 'z'].map((a, i) => row('Velocity ' + a.toUpperCase(), num(+pd.v[i].toPrecision(9), v => { const v2 = pd.v.slice(); v2[i] = v; apply({ v: v2 }); }, 150), el('span', { class: 'xu' }, 'km/s'))),
@@ -153,7 +154,7 @@ async function exPanel() {
 /* ---- bottom bar ---- */
 function exBottom() {
   const B = $('#xbottom'); if (!B) return; const tool = (icon, tip, fn, on) => el('button', { class: 'xtool' + (on ? ' on' : ''), title: tip, onclick: fn }, ico(icon));
-  const rate = el('input', { type: 'range', min: 0, max: 100, value: EX.rateExp / 9.5 * 100, oninput: e => { EX.rateExp = e.target.value * 0.095; if (EX.space) EX.space.setRate(10 ** EX.rateExp); rl.textContent = fmtRate(10 ** EX.rateExp) + ' / s'; }, title: 'simulated time per real second' });
+  const rate = el('input', { type: 'range', min: 0, max: 100, value: EX.rateExp / 9.5 * 100, 'data-default': 6.0 / 9.5 * 100, oninput: e => { EX.rateExp = e.target.value * 0.095; if (EX.space) EX.space.setRate(10 ** EX.rateExp); rl.textContent = fmtRate(10 ** EX.rateExp) + ' / s'; }, title: 'simulated time per real second' });
   const rl = el('span', { class: 'xrate' }, fmtRate(10 ** EX.rateExp) + ' / s');
   const chk = (k, label) => el('label', { class: 'mcheck' }, el('input', { type: 'checkbox', checked: !!EX.view[k], onchange: e => { EX.view[k] = e.target.checked; if (EX.space) EX.space.set(k, e.target.checked); } }), label);
   B.replaceChildren(el('button', { class: 'xplay', id: 'xplay', title: 'play / pause', onclick: () => { if (EX.space) { EX.space.play(); syncPlay(); } } }, ico(EX.playing ? 'pause' : 'play')),
@@ -163,11 +164,11 @@ function exBottom() {
     tool('eye', 'view options', e => openPop('view', e.currentTarget, el('div', { class: 'xpt' }, 'View'), chk('labels', 'Labels'), chk('paths', 'Orbits'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic plane'), chk('markers', 'Sky markers (check the sky orientation)'),
       el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Look Toward'), el('select', { onchange: e => { const v = e.target.value; if (v && EX.space) { EX.view.markers = true; EX.space.set('markers', true); EX.space.look(...v.split(',').map(Number)); } e.target.value = ''; } }, el('option', { value: '' }, '…'), ...(EX.meta.markers || []).map(m => el('option', { value: m.ra + ',' + m.dec }, m.name)))))),
     tool('orb2', 'show or hide orbits', e => { EX.view.paths = !EX.view.paths; if (EX.space) EX.space.set('paths', EX.view.paths); }, EX.view.paths),
-    tool('palette', 'background: Milky Way, stars, black', () => { const o = ['milkyway', 'stars', 'black']; EX.sky = o[(o.indexOf(EX.sky) + 1) % o.length]; if (EX.space) EX.space.setSky(EX.sky); toast('background: ' + EX.sky.replace('milkyway', 'milky way')); }),
+    tool('palette', 'background: Milky Way, stars, theme color, black', () => { const o = ['milkyway', 'stars', 'theme', 'black']; EX.sky = o[(o.indexOf(EX.sky) + 1) % o.length]; if (EX.space) EX.space.setSky(EX.sky); toast('background: ' + EX.sky.replace('milkyway', 'milky way').replace('theme', 'theme color')); }),
     tool('dots', 'more', e => openPop('more', e.currentTarget, el('div', { class: 'xpt' }, 'Simulation and Display'),
       el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Simulation Length (each way)'), el('select', { onchange: e2 => { EX.horizon = e2.target.value; exRerun(); } }, ...EX.meta.horizons.map(h => el('option', { value: h, selected: h === EX.horizon }, h)))),
-      el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Body Size'), el('input', { type: 'range', min: 1, max: 100, value: EX.exag, oninput: e2 => { EX.exag = +e2.target.value; if (EX.space) EX.space.set('exag', EX.exag); } })),
-      el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Sky Brightness'), el('input', { type: 'range', min: 0, max: 80, value: EX.bright * 10, oninput: e2 => { EX.bright = e2.target.value / 10; if (EX.space) EX.space.set('bright', EX.bright); } })),
+      el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Body Size'), el('input', { type: 'range', min: 1, max: 100, value: EX.exag, 'data-default': 1, oninput: e2 => { EX.exag = +e2.target.value; if (EX.space) EX.space.set('exag', EX.exag); } })),
+      el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Sky Brightness'), el('input', { type: 'range', min: 0, max: 80, value: EX.bright * 10, 'data-default': 10, oninput: e2 => { EX.bright = e2.target.value / 10; if (EX.space) EX.space.set('bright', EX.bright); } })),
       el('button', { class: 'btn small', onclick: () => exRecord() }, 'Record Video'))),
     tool('bolt', 'actions', e => openPop('actions', e.currentTarget, el('div', { class: 'xpt' }, 'Actions'),
       el('button', { class: 'btn small', disabled: !EX.undo.length, onclick: () => { closePop(); exHistory(-1); } }, '↶ Undo'), el('button', { class: 'btn small', disabled: !EX.redo.length, onclick: () => { closePop(); exHistory(1); } }, '↷ Redo'),

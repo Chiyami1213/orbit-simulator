@@ -37,7 +37,7 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 * **Export** figures as PNG / PDF, a standalone 3-D page, or a **Python (matplotlib)** or **MATLAB** script that redraws the plots.
 * **Homework presets:** every problem with printed answers (HW 3–10, Fall 2024 Exams 1–2, lecture-note examples) loads as a preset, and the *Test Cases* page compares
   computed and printed values. Known errors in the printed solutions are corrected and documented.
-* **Explore (sandbox):** the real Solar System at any epoch from the ephemeris, textured bodies on a Milky Way sky, a library (planets, moons, small bodies, spacecraft, custom bodies, "what if" edits such as removing Jupiter or a rogue planet flyby), live N-body physics with time warp up to 100 years per second in either direction, undo and redo, saved scenes, and **Send to Design** to turn a spacecraft into a mission.
+* **Explore (sandbox):** the real Solar System at any epoch from the ephemeris, textured bodies on a Milky Way sky, a library (planets, moons, small bodies, spacecraft, custom bodies, scene edits such as removing Jupiter or a rogue planet flyby), live N-body physics with time warp up to 100 years per second in either direction, undo and redo, saved scenes, and **Send to Design** to turn a spacecraft into a mission.
 * **Design (GMAT-style missions):** define spacecraft, coordinate systems, propagators, impulsive burns, report files and a command sequence
   (`Propagate`, `Maneuver`, `Report`, `Toggle`, with several stop conditions and `Synchronized`), then run it. Propagation is numerical (Verner RK 8(9),
   Prince–Dormand 7(8) and 4(5), or the exact Kepler solution) with the central body alone, selected point masses (Moon, Sun, planets), the whole Solar System,
@@ -46,7 +46,7 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 * **GMAT compatibility:** every module result and every mission can be exported as a **GMAT R2022a `.script`**; scripts can be imported back (a subset; anything unsupported is
   listed, never fatal). Parameters use GMAT's names (`Sat.Earth.SMA`, `VFPA`, `UTCModJulian` …). **Open in Mission** turns a module result into the matching mission.
   If you have GMAT installed, set its folder under *Settings → Ephemeris and GMAT* and the comparison also runs your script in GMAT.
-* **Guided tutorial:** a short tour of the window starts on your first launch and can be run again any time from *Help → Start Tutorial*, *Settings → Help and Feedback*, or `F1`.
+* **Guided tutorial:** a short tour of the window starts on your first launch and can be run again any time from *Help → Start Tutorial*, *Settings → Help*, or `F1`.
 * **Maneuver planner:** place a burn anywhere on a trajectory, shape it with Prograde / Normal / Radial sliders, watch the predicted path in the 3D space view and the new orbit elements, then insert it into the command sequence.
 * **Cosmographia export:** with the optional `spiceypy` package installed, a trajectory can be written as an SPK kernel plus a catalogue for NAIF's Cosmographia.
 * **Patched conics and imports:** a patched-conic model with sphere-of-influence hand-offs; reference trajectories (CSV, CCSDS OEM, SPK kernels) can be imported, drawn next to a mission and compared with it; porkchop plots for transfer windows.
@@ -87,7 +87,7 @@ The installer is per-user by default (no administrator rights needed) and can be
 | **Network** | not needed (everything runs and renders offline) | — |
 
 The 3-D view and animation depend on the graphics card (WebGL). The app can show a frame-rate monitor (*Settings → Figures and Animation → Frame Rate Monitor*) and your graphics card
-name (*Settings → Help and Feedback*). If the 3-D view is slow, lower *Animation Resolution*, switch *3D Bodies* to *Plain Color*, or choose *2D* only.
+name (*Settings → Help*). If the 3-D view is slow, lower *Animation Resolution*, switch *3D Bodies* to *Plain Color*, or choose *2D* only.
 *These figures are estimates; the program has not been benchmarked on low-end hardware.*
 
 ## Using it
@@ -119,7 +119,7 @@ and *Settings → Local Files* opens the folders. Uninstalling keeps this folder
 
 ### Reporting a problem
 
-*Settings → Help and Feedback → Report an Issue* opens a pre-filled GitHub issue (version, OS, graphics card, last log lines with your user name removed). You review it and press submit yourself; nothing is sent automatically.
+*Settings → Help → Report an Issue* opens a pre-filled GitHub issue (version, OS, graphics card, last log lines with your user name removed). You review it and press submit yourself; nothing is sent automatically.
 
 ## Known limitations
 

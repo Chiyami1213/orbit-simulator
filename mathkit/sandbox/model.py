@@ -23,8 +23,11 @@ BODY_COLOR = {'Sun': '#ffd27a', 'Mercury': '#a79d93', 'Venus': '#e0c28b', 'Earth
 
 
 def new_body(name: str, kind: str, mu: float, radius: float, r, v, **kw) -> dict:
-    return dict(id=kw.pop('id', name), name=name, kind=kind, mu=float(mu), radius=float(radius), color=kw.pop('color', BODY_COLOR.get(name, KIND_COLOR.get(kind, '#8aa0c8'))),
+    shape = kw.pop('shape', None)
+    body = dict(id=kw.pop('id', name), name=name, kind=kind, mu=float(mu), radius=float(radius), color=kw.pop('color', BODY_COLOR.get(name, KIND_COLOR.get(kind, '#8aa0c8'))),
                 texture=kw.pop('texture', TEXTURES.get(name)), r=[float(x) for x in r], v=[float(x) for x in v], gravity=kw.pop('gravity', mu > 0), visible=True, **kw)
+    if shape: body['shape'] = shape                                                              # a chosen 3D model ('comsat' / 'probe' for spacecraft)
+    return body
 
 
 def unique_id(scene: dict, base: str) -> str:
@@ -107,14 +110,14 @@ def catalog(consts: ConstantSet | None = None) -> list[dict]:
               dict(cat='Custom', name='Gas Giant', kind='custom', mu=consts.mu('Jupiter'), radius=consts.R('Jupiter'), real=False, color='#d8a56b', texture=None),
               dict(cat='Custom', name='Sun-like Star', kind='star', mu=consts.mu('Sun'), radius=consts.R('Sun'), real=False, color='#ffd27a', texture=None),
               dict(cat='Custom', name='Black Hole (10 solar masses)', kind='star', mu=10 * consts.mu('Sun'), radius=30.0, real=False, color='#111111', texture=None),
-              dict(cat='What If', name='Rogue Planet Flyby', kind='custom', mu=consts.mu('Jupiter'), radius=consts.R('Jupiter'), real=False, color='#b37bf0', texture=None, whatif='rogue'),
-              dict(cat='What If', name='Double the Moon', kind='moon', mu=0, radius=0, real=False, whatif='double_moon'),
-              dict(cat='What If', name='Remove Jupiter', kind='planet', mu=0, radius=0, real=False, whatif='remove_jupiter'),
-              dict(cat='What If', name='Remove the Moon', kind='moon', mu=0, radius=0, real=False, whatif='remove_moon')]
+              dict(cat='Scene', name='Rogue Planet Flyby', kind='custom', mu=consts.mu('Jupiter'), radius=consts.R('Jupiter'), real=False, color='#b37bf0', texture=None, whatif='rogue'),
+              dict(cat='Scene', name='Double the Moon', kind='moon', mu=0, radius=0, real=False, whatif='double_moon'),
+              dict(cat='Scene', name='Remove Jupiter', kind='planet', mu=0, radius=0, real=False, whatif='remove_jupiter'),
+              dict(cat='Scene', name='Remove the Moon', kind='moon', mu=0, radius=0, real=False, whatif='remove_moon')]
     return items
 
 
-CATEGORIES = ['All', 'Solar System', 'Planets', 'Moons', 'Small Bodies', 'Spacecraft', 'Custom', 'What If']
+CATEGORIES = ['All', 'Solar System', 'Planets', 'Moons', 'Small Bodies', 'Spacecraft', 'Custom', 'Scene']        # 'Scene' holds edits of the whole scene, not objects to add
 
 
 def add_item(scene: dict, item: dict, eph=None, consts: ConstantSet | None = None, parent: str | None = None, orbit: dict | None = None) -> dict:
@@ -143,7 +146,7 @@ def add_item(scene: dict, item: dict, eph=None, consts: ConstantSet | None = Non
     else:
         a = o.get('a') or (1.5e8 if par['kind'] == 'star' else max(3.0 * par['radius'], par['radius'] + 400.0))
         r, v = orbit_state(par, item['mu'], a, o.get('e', 0.0), o.get('inc', 0.0), o.get('raan', 0.0), o.get('aop', 0.0), o.get('ta', 0.0))
-        bd = new_body(name, item['kind'], item['mu'], item['radius'], r, v, id=unique_id(scene, name), color=item.get('color'), texture=item.get('texture'))
+        bd = new_body(name, item['kind'], item['mu'], item['radius'], r, v, id=unique_id(scene, name), color=item.get('color'), texture=item.get('texture'), shape=item.get('shape') if item['kind'] == 'spacecraft' else None)
     scene['bodies'].append(bd); return bd
 
 
@@ -157,7 +160,7 @@ def apply_edits(scene: dict, edits: list[dict], eph=None, consts: ConstantSet | 
             for k, v in e['fields'].items():
                 if k in ('mu', 'radius'): b[k] = max(float(v), 0.0)
                 elif k in ('r', 'v'): b[k] = [float(x) for x in v]
-                elif k in ('name', 'color', 'texture', 'gravity', 'visible', 'kind'): b[k] = v
+                elif k in ('name', 'color', 'texture', 'gravity', 'visible', 'kind', 'shape'): b[k] = v
             if 'mu' in e['fields']: b['gravity'] = b['mu'] > 0 if 'gravity' not in e['fields'] else b['gravity']
         elif op == 'scale_mass': get(sc, e['id'])['mu'] *= float(e['factor'])
         elif op == 'remove':

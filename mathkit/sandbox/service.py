@@ -47,7 +47,7 @@ def run(scene: dict, horizon: str | tuple = '1 year', accuracy: float = 1e-11) -
     r = sim.simulate(scene, back, fwd, accuracy)
     bodies = []
     for b in scene['bodies']:
-        d = dict(id=b['id'], name=b['name'], kind=b['kind'], shape=shape_of(b['name'], b['kind']), mu=b['mu'], radius=b['radius'], color=b['color'], texture=b.get('texture'), gravity=b.get('gravity', True), visible=b.get('visible', True),
+        d = dict(id=b['id'], name=b['name'], kind=b['kind'], shape=b.get('shape') or shape_of(b['name'], b['kind']), mu=b['mu'], radius=b['radius'], color=b['color'], texture=b.get('texture'), gravity=b.get('gravity', True), visible=b.get('visible', True),
                  parent=SM.dominant_parent(scene, b['id']), path=dict(jd=r['jd'], r=r['bodies'][b['id']]))
         bodies.append(d)
     return dict(bodies=bodies, jd0=r['jd'][0], jd1=r['jd'][-1], epoch_jd=scene['epoch_jd'], energy_drift=r['energy_drift'], steps=r['steps'], status=r['status'], samples=len(r['jd']), limited_days=limited)

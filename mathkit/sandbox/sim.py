@@ -75,13 +75,15 @@ def simulate(scene: dict, days_back: float = 0.0, days_forward: float = 365.25, 
         if span <= 0: continue
         sol = propagate(f, y0, 0.0, sgn * span * DAY, accuracy=accuracy, h0=3600.0, h_min=1e-3, h_max=5 * DAY, record=True)
         steps += sol.n_steps; status = sol.status if sol.status not in ('done', 'event') else status
-        T = sol.t; Y = sol.y.reshape(len(T), n, 6); grid = np.arange(0.0, sgn * span * DAY, sgn * dt_s)[1:]
-        if len(grid) == 0 or grid[-1] != sgn * span * DAY: grid = np.append(grid, sgn * span * DAY)
+        if len(sol.t) < 2: raise ValueError('the simulation could not take a single step: two bodies are at the same place, or the motion is too violent for these masses and distances. undo the last change or move the bodies apart.')
+        T = sol.t; Y = sol.y.reshape(len(T), n, 6); reached = min(abs(T[-1]), span * DAY)               # an early stop (a very close encounter) keeps everything up to that moment
+        grid = np.arange(0.0, sgn * reached, sgn * dt_s)[1:]
+        if len(grid) == 0 or abs(grid[-1]) < reached - 1e-9: grid = np.append(grid, sgn * reached)
         pos = np.empty((len(grid), n, 3)); k = 0
         for gi, tg in enumerate(grid):
             while k < len(T) - 2 and (T[k + 1] - tg) * sgn < 0: k += 1
             f0 = Y[k][:, 3:]
-            f1 = Y[k + 1][:, 3:]; h = T[k + 1] - T[k]; s = (tg - T[k]) / h; s2, s3 = s * s, s * s * s
+            f1 = Y[k + 1][:, 3:]; h = T[k + 1] - T[k] or 1.0; s = (tg - T[k]) / h; s2, s3 = s * s, s * s * s
             pos[gi] = (2 * s3 - 3 * s2 + 1) * Y[k][:, :3] + (s3 - 2 * s2 + s) * h * f0 + (-2 * s3 + 3 * s2) * Y[k + 1][:, :3] + (s3 - s2) * h * f1
         out_jd += (jd0 + grid / DAY).tolist(); out_r += list(pos); final[sgn] = Y[-1]
     order = np.argsort(out_jd); jd = np.array(out_jd)[order]; R = np.array(out_r)[order]

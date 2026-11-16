@@ -1,4 +1,4 @@
-/* ---------- guided tour: starts on the first launch, and any time from Help → Start Tutorial, Settings → Help and Feedback, or F1 ---------- */
+/* ---------- guided tour: starts on the first launch, and any time from Help → Start Tutorial, Settings → Help, or F1 ---------- */
 const TOUR = { i: 0, steps: [], on: false };
 const TOUR_STEPS = () => [
   { title: 'Welcome to Orbit Simulator', text: 'a one-minute tour of the window. you can leave at any time with esc, and start it again whenever you like from the help menu, from settings → help and feedback, or with F1.' },
