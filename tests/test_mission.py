@@ -378,3 +378,52 @@ def test_sky_map_pixels_hit_the_bright_stars():
         assert a[max(0, y - 6):y + 7, max(0, x - 6):x + 7].max() >= 10, name
     x, y = sky.pixel(sky.radec_to_vec(*sky.STARS['Polaris']), W, H); assert 0 <= y < H                         # Polaris is a debug marker only (too faint to test)
     x0, y0 = sky.pixel(sky.radec_to_vec(*sky.GALACTIC_CENTER), W, H); assert abs(x0 - W / 2) < 1 and abs(y0 - H / 2) < 1
+
+
+@pytest.mark.spice
+@pytest.mark.skipif(__import__('importlib').util.find_spec('spiceypy') is None, reason='spiceypy not installed')
+def test_cosmographia_spk_reads_back_with_spice(tmp_path):
+    import spiceypy as sp
+    from mathkit.mission import cosmographia as CG
+    m = MS.starter('LEO to GEO Hohmann transfer'); res = run(m, None); out = CG.export(res, 'Sat', tmp_path, m.name)
+    cat = json.loads(pathlib.Path(out['catalog']).read_text(encoding='utf-8')); assert cat['items'][0]['class'] == 'spacecraft' and cat['spiceKernels'] == ['Sat.bsp']
+    sp.furnsh(out['spk']); sm = res.samples['Sat']
+    try:
+        for k in (5, 300, len(sm['jd']) - 5):
+            et = (TU.utc_to_tdb(sm['jd'][k]) - TU.JD_J2000) * 86400; st, _ = sp.spkgeo(-999000, et, 'J2000', 399)
+            assert np.linalg.norm(np.array(st[:3]) - sm['r'][k]) < 1e-6 and np.linalg.norm(np.array(st[3:]) - sm['v'][k]) < 1e-9
+    finally: sp.unload(out['spk'])
+
+
+def test_cosmographia_export_explains_a_missing_spiceypy(monkeypatch):
+    from mathkit.mission import cosmographia as CG
+    monkeypatch.setattr(CG, 'available', lambda: False)
+    with pytest.raises(ValueError, match='spiceypy'): CG.export(run(MS.starter('LEO to GEO Hohmann transfer'), None), 'Sat', '.')
+
+
+# -------------------------------------------------------------------------------------------------------- maneuver-node planner
+def _planner_setup():
+    d = MS.starter('LEO to GEO Hohmann transfer').to_dict()
+    out = MS.run_mission(d, {'skip3d': True, 'theme': 'dark'}, lambda n, sc, th, u, w3, o: dict(name=n, svg='', html3d='', overlaps=0, has_anim=False, notes=[], is3d=False), None)
+    return d, out['space']['tracks'][0]
+
+
+def test_node_preview_matches_the_inserted_burn():
+    d, trk = _planner_setup(); assert len(trk['idx']) == len(trk['cmd']) == len(trk['tc']) > 100
+    idx = trk['idx'][len(trk['idx']) // 4]; e = [0.3, 0.05, -0.1]
+    pv = MS.preview_node(d, None, 'Sat', idx, e); assert pv['ok'] and pv['after']['SMA'] != pv['before']['SMA'] and pv['dv'] == pytest.approx(np.linalg.norm(e))
+    new = Mission.from_dict(MS.insert_node(d, None, 'Sat', idx, e)); res = run(new, None)
+    k = next(i for i, c in enumerate(new.commands) if c.kind == 'Maneuver' and c.burn == 'Node1')
+    assert [c.kind for c in new.commands][k - 1:k + 2] == ['Propagate', 'Maneuver', 'Propagate']
+    sm = res.samples['Sat']; j = next(i for i in range(len(sm['jd'])) if sm['cmd'][i] == k)                      # first sample recorded by the node burn (after the burn)
+    el = MP.keplerian(MU_E, sm['r'][j], sm['v'][j]); assert el['SMA'] == pytest.approx(pv['after']['SMA'], rel=1e-6) and el['ECC'] == pytest.approx(pv['after']['ECC'], abs=1e-7)
+    assert np.linalg.norm(sm['r'][j] - np.array(pv['node']['r'])) < 1.0                                         # the burn happens exactly where the node was placed
+
+
+def test_node_insertion_edge_cases():
+    d, trk = _planner_setup(); first = Mission.from_dict(MS.insert_node(d, None, 'Sat', trk['idx'][0], [0.1, 0, 0]))
+    assert first.commands[0].kind == 'Maneuver' and first.burns[-1].name == 'Node1'                              # sample 0 is the start of the first command's burn: node goes after it
+    last = trk['idx'][-10]; late = Mission.from_dict(MS.insert_node(d, None, 'Sat', last, [0.0, 0.2, 0.0]))
+    stops = [c.stops for c in late.commands if c.kind == 'Propagate']; assert stops[-1][0].startswith('Sat.ElapsedSecs = ') and float(stops[-1][0].split('=')[1]) < 86164 - 80000        # the remainder of the original stop
+    assert 'Node1' in late.notes[-1] and run(late, None).final['Sat'].central == 'Earth'
+    assert not MS.preview_node(d, None, 'Sat', trk['idx'][5], [0, 0, 0])['dv']

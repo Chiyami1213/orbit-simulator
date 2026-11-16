@@ -6,13 +6,16 @@ Object.assign(ICO, {
   search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/>', camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', close: '<path d="M6 6l12 12M18 6L6 18"/>',
   undo: '<path d="M9 7 4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12"/>', redo: '<path d="M15 7l5 5-5 5"/><path d="M20 12H10a6 6 0 0 0 0 12"/>', rev: '<path d="M17 4.5v15L5 12z"/>',
   basic: '<path d="M7 4h10v17l-5-3.5L7 21z"/>', motion: '<circle cx="8" cy="12" r="3"/><path d="M13 12h8M18 8l3 4-3 4"/>', orbitt: '<ellipse cx="12" cy="12" rx="9.5" ry="5" transform="rotate(-25 12 12)"/><circle cx="12" cy="12" r="1.8"/>', forces: '<path d="M12 3v18M3 12h18M7 7l10 10M17 7 7 17"/>',
-  actions: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>'
+  actions: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  rocks: '<circle cx="9" cy="14" r="3.8"/><circle cx="17" cy="7" r="2.2"/><circle cx="18" cy="17" r="1.7"/>', sat: '<rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 12H2.5M15 12h6.5M4 8.5v7M20 8.5v7M12 9V5M12 19v-4"/>',
+  whatif: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17v.5"/>', star: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>'
 });
+const CAT_ICON = { 'All': 'grid', 'Solar System': 'star', 'Planets': 'globe', 'Moons': 'moon', 'Small Bodies': 'rocks', 'Spacecraft': 'sat', 'Custom': 'addc', 'What If': 'whatif' };
 const MASS_UNITS = [['Earth masses', 5.9722e24], ['Moon masses', 7.342e22], ['Jupiter masses', 1.8982e27], ['Solar masses', 1.98847e30], ['kg', 1]];
 const RAD_UNITS = [['km', 1], ['Earth radii', 6378.137], ['Moon radii', 1737.4], ['Jupiter radii', 71492], ['Solar radii', 695700]];
 const G_KM = 6.6743e-20, KIND_NAME = { star: 'Star', planet: 'Planet', moon: 'Moon', small: 'Small Body', spacecraft: 'Spacecraft', custom: 'Custom Body' };
 const EX = { scene: null, sim: null, sel: null, space: null, undo: [], redo: [], cat: 'All', q: '', libOpen: true, panelOpen: true, tab: 'Basic', meta: null, horizon: '1 year', busy: false, rateExp: 6.0, playing: false,
-  view: { labels: true, paths: true, axes: false, ecl: false }, mu: 'Earth masses', ru: 'km', pd: null, live: null, pop: null, sky: 'milkyway', bright: 3.0, exag: 1 };
+  view: { labels: true, paths: true, axes: false, ecl: false, markers: false }, thumbs: {}, mu: 'Earth masses', ru: 'km', pd: null, live: null, pop: null, sky: 'milkyway', bright: 3.0, exag: 1 };
 
 function exDispose() { if (EX.live) { clearInterval(EX.live); EX.live = null; } if (EX.space) { try { EX.space.dispose(); } catch (e) { } EX.space = null; } closePop(); }
 const fmtNum = (x, d = 6) => (Number.isFinite(x) ? (Math.abs(x) >= 1e-3 && Math.abs(x) < 1e9 || x === 0 ? +x.toPrecision(d) : x.toExponential(4)) : '–');
@@ -20,7 +23,11 @@ function fmtRate(sec) {
   const U = [['years', 31557600], ['days', 86400], ['hours', 3600], ['minutes', 60], ['seconds', 1]];
   for (const [n, s] of U) if (sec >= s * 0.999) { const v = sec / s; return `${v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2)} ${n}`; } return '1 second';
 }
-const thumbStyle = b => b.texture ? `background-image:url(/assets/textures/${b.texture});background-size:cover;background-position:center` : `background:radial-gradient(circle at 35% 30%, ${b.color || '#8aa0c8'}, #0b0f1c 120%)`;
+const thumbStyle = b => EX.thumbs[b.name] && !b.texture ? `background-image:url(${EX.thumbs[b.name]});background-size:contain;background-repeat:no-repeat;background-position:center;box-shadow:none;${['sphere', 'star'].includes(b.shape) ? '' : 'border-radius:16px'}` : b.texture ? `background-image:url(/assets/textures/${b.texture});background-size:cover;background-position:center` : `background:radial-gradient(circle at 35% 30%, ${b.color || '#8aa0c8'}, #0b0f1c 120%)`;
+async function exThumbs() {                                                          // real 3D shapes drawn once into small images for the library and the panel
+  if (!EX.meta || EX.meta.thumbsDone) return; EX.meta.thumbsDone = true; const mod = await import('/space.js'); const list = EX.meta.catalog.filter(c => !c.texture && !c.whatif).map(c => ({ key: c.name, shape: c.shape, color: c.color }));
+  try { EX.thumbs = mod.renderThumbs(list, EX.meta.models, 160); } catch (e) { EX.thumbs = {}; } exLib();
+}
 
 /* ---- popovers (view / more / actions) ---- */
 function closePop() { document.querySelectorAll('.xpop').forEach(e => e.remove()); EX.pop = null; }
@@ -41,6 +48,7 @@ async function exEdit(edits, selectAfter) {
   const jd = EX.space ? EX.space.jd : EX.scene.epoch_jd; const r = await api('sandbox_edit', { scene: EX.scene, jd, edits, horizon: EX.horizon, constants: SET.const }); EX.busy = false; exBusy(false);
   if (!r.ok) { toast(r.error, 'err'); return false; }
   EX.undo.push(EX.scene); if (EX.undo.length > 30) EX.undo.shift(); EX.redo = []; EX.scene = r.scene; EX.sim = r.sim;
+  if (r.sim.limited_days) toast(`a fast orbit is in the scene, so the simulation covers ±${r.sim.limited_days} days (the longer lengths would take far too many steps)`, 'ok');
   if (selectAfter) { const ids = r.scene.bodies.map(b => b.id); EX.sel = selectAfter === 'last' ? ids[ids.length - 1] : (ids.includes(EX.sel) ? EX.sel : null); } else if (EX.sel && !r.scene.bodies.some(b => b.id === EX.sel)) EX.sel = null;
   await exBuild(true); return true;
 }
@@ -56,10 +64,10 @@ async function exBuild(keepCam) {
   const host = $('#xview'); if (!host || !EX.sim) return; const cam = keepCam && EX.space ? EX.space.getCamera() : null;
   if (EX.space) { try { EX.space.dispose(); } catch (e) { } EX.space = null; }
   const inner = el('div', { class: 'xin' }); host.replaceChildren(inner);
-  const bodies = EX.sim.bodies.map(b => ({ name: b.id, R: b.radius, texture: b.texture, color: b.color, path: b.path, parent: b.parent, visible: b.visible, orbitColor: b.color }));
+  const bodies = EX.sim.bodies.map(b => ({ name: b.id, R: b.radius, texture: b.texture, color: b.color, path: b.path, parent: b.parent, visible: b.visible, orbitColor: b.color, shape: b.shape }));
   let ext = 1; for (const b of bodies) if (b.path) for (let i = 0; i < b.path.r.length; i += 7) ext = Math.max(ext, Math.abs(b.path.r[i][0]), Math.abs(b.path.r[i][1]), Math.abs(b.path.r[i][2]));
   const heavy = EX.sim.bodies.slice().sort((a, b) => b.mu - a.mu)[0];
-  const data = { center: heavy ? heavy.id : 'Sun', jd0: EX.sim.jd0, jd1: EX.sim.jd1, bodies, tracks: [], extent: ext, events: [], lagrange: [], refs: [], markers: [] };
+  const data = { center: heavy ? heavy.id : 'Sun', jd0: EX.sim.jd0, jd1: EX.sim.jd1, bodies, tracks: [], extent: ext, events: [], lagrange: [], refs: [], markers: EX.meta.markers || [], models: EX.meta.models };
   let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(inner, data, { sky: EX.sky }); } catch (e) { inner.replaceChildren(el('div', { class: 'empty' }, 'the sandbox needs WebGL: ' + e)); return; }
   EX.space = S3; Object.assign(S3.state, EX.view, { bright: EX.bright, exag: EX.exag, focus: heavy ? heavy.id : 'Sun' }); S3.setJD(EX.scene.epoch_jd); S3.setRate(10 ** EX.rateExp); S3.play(EX.playing); S3.select(EX.sel);
   if (cam) S3.setCamera(cam); else S3.setCamera({ p: [2.6e8, -2.6e8, 1.7e8], t: [0, 0, 0] });
@@ -84,12 +92,12 @@ function exLib() {
   L.replaceChildren(el('div', { class: 'xhead' }, el('b', {}, 'Add'), el('span', { class: 'xsp' }), el('button', { class: 'xib', title: 'new Solar System', onclick: () => { if (confirm('replace the current scene with the real Solar System?')) exNew(); } }, ico('orb2')),
       el('button', { class: 'xib', title: 'open a saved scene', onclick: () => file.click() }, ico('basic')), file, el('button', { class: 'xib', title: 'close', onclick: () => { EX.libOpen = false; exLib(); } }, ico('close'))),
     el('div', { class: 'xsearch' }, ico('search'), el('input', { id: 'xq', type: 'text', placeholder: 'search bodies', value: EX.q, oninput: e => { EX.q = e.target.value; exLibGrid(); } })),
-    el('div', { class: 'xcats' }, ...EX.meta.categories.map(c => el('button', { class: 'xcat' + (EX.cat === c ? ' on' : ''), onclick: () => { EX.cat = c; exLib(); } }, c))),
+    el('div', { class: 'xcats' }, ...EX.meta.categories.map(c => el('button', { class: 'xcat' + (EX.cat === c ? ' on' : ''), title: c, 'aria-label': c, onclick: () => { EX.cat = c; exLib(); } }, ico(CAT_ICON[c] || 'grid')))), el('div', { class: 'xcatname' }, EX.cat),
     el('div', { class: 'xgrid', id: 'xgrid' }));
   exLibGrid(); function exLibGrid() {
     const g = $('#xgrid'); if (!g) return; const its = EX.meta.catalog.filter(it => (EX.cat === 'All' || it.cat === EX.cat) && (!EX.q || it.name.toLowerCase().includes(EX.q.toLowerCase())));
-    g.replaceChildren(...its.map(it => el('button', { class: 'xitem' + (inScene(it) && it.real ? ' have' : ''), title: it.whatif ? 'a what-if edit of the current scene' : (it.real ? 'real body from the ephemeris' : 'add on an orbit about the selected body'), onclick: () => exAdd(it) },
-      el('span', { class: 'xthumb', style: it.whatif ? 'background:linear-gradient(135deg,#ff6b4a,#9b8cf2)' : thumbStyle(it) }, it.whatif ? el('i', {}, '?') : ''), el('span', { class: 'xname' }, it.name))));
+    g.replaceChildren(...its.map(it => el('button', { class: 'xitem' + (EX.sel && EX.scene && EX.scene.bodies.some(b => b.id === EX.sel && b.name === it.name) ? ' sel' : ''), title: it.whatif ? 'a what-if edit of the current scene' : (it.real ? 'real body from the ephemeris' : 'add on an orbit about the selected body'), onclick: () => exAdd(it) },
+      el('span', { class: 'xthumb', style: it.whatif ? 'background:linear-gradient(135deg,#ff6b4a,#9b8cf2);box-shadow:none' : thumbStyle(it) }, it.whatif ? el('i', {}, '?') : ''), el('span', { class: 'xname' }, it.name))));
     if (!its.length) g.append(el('div', { class: 'dim', style: 'padding:14px' }, 'nothing matches'));
   }
 }
@@ -152,7 +160,8 @@ function exBottom() {
     el('button', { class: 'xtool', title: 'run time backwards', onclick: () => { if (EX.space) { EX.space.state.dir = -EX.space.state.dir; toast(EX.space.state.dir < 0 ? 'time runs backwards' : 'time runs forwards'); } } }, ico('rev')),
     el('span', { class: 'xdate', id: 'xdate' }, '–'), el('span', { class: 'xrateWrap' }, rate, rl), el('span', { class: 'xsp' }),
     tool('addc', 'library: add bodies', e => { EX.libOpen = !EX.libOpen; exLib(); }, EX.libOpen),
-    tool('eye', 'view options', e => openPop('view', e.currentTarget, el('div', { class: 'xpt' }, 'View'), chk('labels', 'Labels'), chk('paths', 'Orbits'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic plane'))),
+    tool('eye', 'view options', e => openPop('view', e.currentTarget, el('div', { class: 'xpt' }, 'View'), chk('labels', 'Labels'), chk('paths', 'Orbits'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic plane'), chk('markers', 'Sky markers (check the sky orientation)'),
+      el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Look Toward'), el('select', { onchange: e => { const v = e.target.value; if (v && EX.space) { EX.view.markers = true; EX.space.set('markers', true); EX.space.look(...v.split(',').map(Number)); } e.target.value = ''; } }, el('option', { value: '' }, '…'), ...(EX.meta.markers || []).map(m => el('option', { value: m.ra + ',' + m.dec }, m.name)))))),
     tool('orb2', 'show or hide orbits', e => { EX.view.paths = !EX.view.paths; if (EX.space) EX.space.set('paths', EX.view.paths); }, EX.view.paths),
     tool('palette', 'background: Milky Way, stars, black', () => { const o = ['milkyway', 'stars', 'black']; EX.sky = o[(o.indexOf(EX.sky) + 1) % o.length]; if (EX.space) EX.space.setSky(EX.sky); toast('background: ' + EX.sky.replace('milkyway', 'milky way')); }),
     tool('dots', 'more', e => openPop('more', e.currentTarget, el('div', { class: 'xpt' }, 'Simulation and Display'),
@@ -178,6 +187,7 @@ function exRecord() {
 async function renderExplore() {
   const main = $('#main'); main.replaceChildren(); exDispose();
   if (!EX.meta) EX.meta = await api('sandbox_meta', { constants: SET.const });
+  exThumbs();
   main.append(el('div', { class: 'xp' }, el('div', { id: 'xview', class: 'xview' }), el('aside', { id: 'xleft', class: 'xside xleft' }), el('aside', { id: 'xright', class: 'xside xright shut' }), el('div', { id: 'xbottom', class: 'xbottom' }),
     el('div', { id: 'xbusy', class: 'xbusy' }, el('span', {}, 'simulating…'))));
   exLib(); exBottom();

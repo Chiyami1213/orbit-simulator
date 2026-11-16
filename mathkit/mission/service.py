@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
 import pathlib
 import numpy as np
 from ..core.constants import ConstantSet, BODIES, D2R
@@ -159,12 +160,16 @@ def build_scene(m: Mission, res: RunResult, eph, theme: str, refs: list | None =
     return sc
 
 
+LAST_RUN: dict = {}                                 # key (the mission as JSON) -> RunResult, so the node planner does not re-run the mission for every slider move
+
+
 def run_mission(d: dict, opts: dict, scene_payload, eph, progress=None, refs: list | None = None) -> dict:
     m = Mission.from_dict(d); consts = ConstantSet(m.constants); conv = Convention.of(opts.get('convention', 'course'))
     try:
         res = run(m, eph, consts, progress)
     except (MissionError, ValueError, KeyError, ZeroDivisionError, np.linalg.LinAlgError) as ex:
         return dict(error=f'{type(ex).__name__}: {ex}')
+    LAST_RUN.clear(); LAST_RUN.update(key=json.dumps(d, sort_keys=True, default=str), res=res)
     try:
         sc = build_scene(m, res, eph, opts.get('theme', 'dark'), refs); scene = scene_payload('main', sc, opts.get('theme', 'dark'), opts.get('name', ''), not opts.get('skip3d'), opts)
     except Exception as ex:
@@ -301,7 +306,7 @@ def space_payload(m: Mission, res: RunResult, eph, refs: list | None = None, cap
     traj = _recentre_samples(res, center, eph, True)
     for i, (name, (jd, R, seg)) in enumerate(traj.items()):
         k = _thin(len(jd), cap); col = next((s.color for s in m.spacecraft if s.name == name), PALETTE[i % len(PALETTE)])
-        tracks.append(dict(name=name, color=col, jd=jd[k].tolist(), r=R[k].tolist())); jd0 = min(jd0, jd[0]); jd1 = max(jd1, jd[-1]); ext = max(ext, float(np.max(np.abs(R))))
+        sm_ = res.samples[name]; tracks.append(dict(name=name, color=col, jd=jd[k].tolist(), r=R[k].tolist(), idx=k.tolist(), cmd=[sm_['cmd'][i] for i in k], tc=[round(sm_['tc'][i], 3) for i in k])); jd0 = min(jd0, jd[0]); jd1 = max(jd1, jd[-1]); ext = max(ext, float(np.max(np.abs(R))))
     if not tracks: return dict(markers=[], tracks=[], bodies=[], jd0=0, jd1=1, center=center, extent=1, events=[], lagrange=[], refs=[])
     names = []                                                                                      # bodies worth drawing: the centre, whatever the propagators or views mention, and the Sun
     for p in m.propagators:
@@ -346,3 +351,59 @@ def _lagrange_paths(p: Propagator, consts: ConstantSet, eph, jd0: float, jd1: fl
             rin = (R @ rot) * L - sys_.mu * L * np.array([c, s_, 0]); path.append((Rm.T @ rin).tolist())
         out.append(dict(name=name, jd=jds.tolist(), r=path))
     return out
+
+
+# ---------------------------------------------------------------------------------------------------------------- maneuver-node planner
+def _cached_run(d: dict, eph) -> tuple[Mission, RunResult]:
+    m = Mission.from_dict(d); key = json.dumps(d, sort_keys=True, default=str)
+    if LAST_RUN.get('key') == key: return m, LAST_RUN['res']
+    res = run(m, eph, ConstantSet(m.constants)); LAST_RUN.clear(); LAST_RUN.update(key=key, res=res); return m, res
+
+
+def _elements(mu: float, r, v) -> dict:
+    k = P.keplerian(mu, np.asarray(r), np.asarray(v)); return {n: (None if not np.isfinite(k[n]) else float(k[n])) for n in ('SMA', 'ECC', 'INC', 'RAAN', 'AOP', 'TA', 'RadPer', 'RadApo', 'OrbitPeriod', 'VMAG', 'RMAG')}
+
+
+def preview_node(d: dict, eph, sat: str, idx: int, e: list, length_s: float | None = None, cap: int = 600) -> dict:
+    """Where would the spacecraft go if it burned (E1, E2, E3 in VNB, km/s) at sample ``idx`` of its trajectory? Returns the predicted path and the new elements."""
+    m, res = _cached_run(d, eph); consts = ConstantSet(m.constants); sm = res.samples[sat]; idx = int(max(0, min(len(sm['jd']) - 1, idx)))
+    central = sm['central'][idx]; jd = float(sm['jd'][idx]); r = np.array(sm['r'][idx]); v = np.array(sm['v'][idx]); mu = consts.mu(central)
+    prop = next((Propagator(**{**p.__dict__, 'name': 'PropPreview'}) for p in m.propagators if p.central == central), None) or Propagator('PropPreview', central, 'two_body', [central], 'RungeKutta89')
+    cs = 'EarthMJ2000Eq' if central == 'Earth' else f'{"Luna" if central == "Moon" else central}MJ2000Eq'
+    pm = Mission(name='preview', constants=m.constants); pm.coords = [] if cs == 'EarthMJ2000Eq' else [CoordSys(cs, central, 'MJ2000Eq')]
+    pm.spacecraft = [Spacecraft('Sat', 'UTCModJulian', repr(float(TU.jd_to_modjulian(jd))), cs, 'Cartesian', dict(X=r[0], Y=r[1], Z=r[2], VX=v[0], VY=v[1], VZ=v[2]))]
+    pm.propagators = [prop]; pm.burns = [Burn('Node', central, 'VNB', float(e[0]), float(e[1]), float(e[2]))]
+    from .run import _maneuver_dv
+    dvec = _maneuver_dv(pm.burns[0], r, v, mu); after = _elements(mu, r, v + dvec); before = _elements(mu, r, v)
+    L = length_s if length_s else (min(after['OrbitPeriod'], 400 * 86400.0) if after['OrbitPeriod'] and after['ECC'] < 1 else 10 * 86400.0)
+    pm.commands = [Command('Maneuver', burn='Node', sat='Sat'), Command('Propagate', items=[['PropPreview', ['Sat']]], stops=[f'Sat.ElapsedSecs = {float(max(L, 60.0))!r}'])]
+    try: pr = run(pm, eph, consts)
+    except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
+    center = next((q.central for q in m.propagators), central); traj = _recentre_samples(pr, center, eph, True)
+    jdp, R, _ = traj['Sat']; k = _thin(len(jdp), cap); node_r = np.array(sm['r'][idx])
+    if central != center and eph is not None: node_r = node_r + eph.state(central, TU.utc_to_tdb(jd), center)[0]
+    return dict(ok=True, path=dict(jd=jdp[k].tolist(), r=R[k].tolist()), node=dict(jd=jd, r=node_r.tolist()), before=before, after=after, dv=float(np.linalg.norm(dvec)), central=central,
+                elapsed=float(sm['tc'][idx]), command=int(sm['cmd'][idx]), length_s=float(L), epoch=TU.format_gregorian(jd))
+
+
+def insert_node(d: dict, eph, sat: str, idx: int, e: list) -> dict:
+    """Turn the node into real commands: the Propagate that contains the sample is split there, and a Maneuver (a new VNB burn) is inserted."""
+    import copy
+    m, res = _cached_run(d, eph); sm = res.samples[sat]; idx = int(max(0, min(len(sm['jd']) - 1, idx))); ci = int(sm['cmd'][idx]); tc = float(sm['tc'][idx]); central = sm['central'][idx]
+    n = 1
+    while any(b.name == f'Node{n}' for b in m.burns): n += 1
+    name = f'Node{n}'; m.burns.append(Burn(name, central, 'VNB', float(e[0]), float(e[1]), float(e[2]))); man = Command('Maneuver', burn=name, sat=sat); cmd = m.commands[ci]
+    if cmd.kind == 'Maneuver': m.commands.insert(ci + 1, man)
+    elif cmd.kind == 'Propagate':
+        if tc < 1e-6: m.commands.insert(ci, man)
+        else:
+            first = copy.deepcopy(cmd); first.stops = [f'{sat}.ElapsedSecs = {tc!r}']; rest = copy.deepcopy(cmd); new = []
+            for st in rest.stops:
+                mt = re.match(r'^(\w+)\.(ElapsedSecs|ElapsedDays)\s*=\s*([-+0-9.eE]+)$', st.strip())
+                if mt:
+                    val = float(mt.group(3)) - (tc if mt.group(2) == 'ElapsedSecs' else tc / 86400.0); new.append(f'{mt.group(1)}.{mt.group(2)} = {max(val, 1e-6)!r}')
+                else: new.append(st)
+            rest.stops = new; m.commands[ci:ci + 1] = [first, man, rest]
+    else: raise ValueError('a node can only be placed on a propagation or a maneuver')
+    m.notes = list(m.notes) + [f'{name}: E1 = {e[0]:.6f}, E2 = {e[1]:.6f}, E3 = {e[2]:.6f} km/s (VNB) at {TU.format_gregorian(sm["jd"][idx])}']
+    return m.to_dict()

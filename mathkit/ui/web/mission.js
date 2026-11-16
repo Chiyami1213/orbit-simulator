@@ -156,6 +156,7 @@ function plotsTab() {
     : [`a ${fmtN(f.values.SMA, 9)} km · e ${fmtN(f.values.ECC, 8)} · i ${fmtN(f.values.INC, 8)}°`, `θ* ${fmtN(f.values.TA, 8)}° · γ ${fmtN(f.values.gamma, 8)}°`, `r ${fmtN(f.values.RMAG, 9)} km · v ${fmtN(f.values.VMAG, 9)} km/s · ε ${fmtN(f.values.Energy, 8)} km²/s²`])]);
   return el('div', { class: 'mwrap' }, ...(r.warnings.length ? [el('div', { class: 'chk warn' }, el('span', { class: 'ic' }, '!'), el('span', {}, r.warnings.join(' · ')))] : []),
     spaceCard(r),
+    plannerCard(r),
     el('div', { class: 'mplots' }, el('div', { class: 'cardx c3d' }, el('h3', {}, el('b', {}, '3D View'), el('span', { class: 'hint' }, ' · ' + r.ephemeris)), el('div', { class: 'body' }, fr)),
       el('div', { class: 'cardx c2d' }, el('h3', {}, el('b', {}, '2D View')), el('div', { class: 'body' }, el('div', { class: 'svgw', html: sc.svg })))),
     el('div', { class: 'sheet' }, el('h3', {}, 'Final States'), table(['Spacecraft', 'Epoch (UTC)', 'Elapsed', 'Elements', 'Angles', 'Magnitudes'], fin)),
@@ -167,7 +168,7 @@ function plotsTab() {
         mbtn('Import SPK Kernel…', async () => { const path = prompt('full path of a .bsp kernel'); if (!path) return; const x = await api('mission_import_trajectory', { path }); if (!x.ok) { toast(x.error, 'err'); return; } MIS.refs.push(x.ref); toast(`imported ${x.points} points`, 'ok'); renderMission(); }),
         ...(MIS.refs.length ? [mbtn('Clear Imported', () => { MIS.refs = []; renderMission(); })] : [])),
       ...(MIS.refs.length ? [table(['Imported', 'Centre', 'Points', 'Max difference (km)', 'RMS (km)', 'At the end (km)'], MIS.refs.map((rf, i) => { const d = (r.ref_diff || []).find(x => x.name === rf.name) || {}; return [rf.name, rf.center, rf.jd.length, d.points ? fmtN(d.max_km, 6) : '–', d.points ? fmtN(d.rms_km, 6) : '–', d.points ? fmtN(d.end_km, 6) : (d.error || 'run the mission')]; }))] : [])),
-    el('div', { class: 'btnrow' }, ...MIS.m.spacecraft.flatMap(sc => [['csv', 'CSV'], ['oem', 'CCSDS OEM']].map(([k, l]) => mbtn(`${sc.name} Trajectory (${l})`, async () => { const x = await api('mission_trajectory', { mission: MIS.m, sat: sc.name, kind: k }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); })))),
+    el('div', { class: 'btnrow' }, ...MIS.m.spacecraft.flatMap(sc => [['csv', 'CSV'], ['oem', 'CCSDS OEM'], ['cosmo', 'Cosmographia SPK']].map(([k, l]) => mbtn(`${sc.name} Trajectory (${l})`, async () => { const x = k === 'cosmo' ? await api('mission_cosmographia', { mission: MIS.m, sat: sc.name }) : await api('mission_trajectory', { mission: MIS.m, sat: sc.name, kind: k }); toast(x.ok ? 'saved to ' + (x.path || x.spk) : x.error, x.ok ? 'ok' : 'err'); })))),
     el('div', { class: 'dim' }, `ephemeris: ${r.ephemeris} — ${r.ephemeris_accuracy}`));
 }
 function porkchopTab() {
@@ -293,4 +294,36 @@ function spaceCard(r) {
         rec, btn('Save Image', async () => { const x = await api('save_blob', { kind: 'png', name: MIS.m.name + '_space', data: S3.png() }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); })));
   }, 0);
   return card;
+}
+
+
+/* ---- maneuver-node planner: pick a point on the trajectory, drag the V / N / B handles, watch the predicted path ---- */
+const NODE = { sat: null, pos: 0, e: [0, 0, 0], busy: false, last: null };
+function plannerCard(r) {
+  const sp = r.space; if (!sp || !sp.tracks || !sp.tracks.length) return '';
+  const trk = sp.tracks.find(t => t.name === NODE.sat) || sp.tracks[0]; NODE.sat = trk.name; NODE.pos = Math.max(0, Math.min(trk.idx.length - 1, NODE.pos));
+  const out = el('div', { class: 'nodeout' }), card = el('div', { class: 'cardx nodecard' }, el('h3', {}, el('b', {}, 'Maneuver Planner'), el('span', { class: 'hint' }, ' · place a burn anywhere on the trajectory and see where it leads')));
+  const sat = el('select', { onchange: e => { NODE.sat = e.target.value; NODE.pos = 0; NODE.e = [0, 0, 0]; renderMission(); } }, ...sp.tracks.map(t => el('option', { value: t.name, selected: t.name === NODE.sat }, t.name)));
+  const when = el('span', { class: 'dim' });
+  const pos = el('input', { type: 'range', min: 0, max: trk.idx.length - 1, value: NODE.pos, class: 'sslider', oninput: e => { NODE.pos = +e.target.value; preview(); } });
+  const rng = 3.0, mk = (label, tip, k) => { const num = el('input', { type: 'number', step: 'any', value: NODE.e[k], style: 'width:110px', onchange: e => { NODE.e[k] = +e.target.value; sl.value = NODE.e[k]; preview(); } });
+    const sl = el('input', { type: 'range', min: -rng, max: rng, step: 0.001, value: NODE.e[k], class: 'sslider', oninput: e => { NODE.e[k] = +e.target.value; num.value = NODE.e[k]; previewSoon(); } });
+    return el('div', { class: 'srow', title: tip }, el('span', { class: 'ml', style: 'width:150px' }, label), sl, num, el('span', { class: 'dim' }, 'km/s')); };
+  let timer = null; const previewSoon = () => { clearTimeout(timer); timer = setTimeout(preview, 220); };
+  async function preview() {
+    if (NODE.busy) { previewSoon(); return; } NODE.busy = true; const idx = trk.idx[NODE.pos];
+    const x = await api('mission_node_preview', { mission: MIS.m, sat: NODE.sat, index: idx, e: NODE.e }); NODE.busy = false; if (!out.isConnected) return; if (!x.ok) { out.replaceChildren(el('div', { class: 'chk err' }, el('span', { class: 'ic' }, '✕'), el('span', {}, x.error))); return; }
+    NODE.last = x; when.textContent = `${x.epoch} UTC · ${(x.elapsed / 3600).toFixed(2)} h into command ${x.command + 1} · about ${x.central}`;
+    if (MIS.space) { MIS.space.setPreview(x.path.r, x.node.r); MIS.space.setJD(x.node.jd); }
+    const f = (v, d = 6) => (v == null ? '–' : fmtN(v, d)), a = x.after, b = x.before;
+    out.replaceChildren(table(['', 'Before the burn', 'After the burn'], [['Semi-major axis (km)', f(b.SMA), f(a.SMA)], ['Eccentricity', f(b.ECC, 7), f(a.ECC, 7)], ['Inclination (°)', f(b.INC), f(a.INC)], ['Periapsis radius (km)', f(b.RadPer), f(a.RadPer)],
+      ['Apoapsis radius (km)', f(b.RadApo), f(a.RadApo)], ['Period (h)', b.OrbitPeriod ? f(b.OrbitPeriod / 3600) : '–', a.OrbitPeriod ? f(a.OrbitPeriod / 3600) : '–'], ['Speed (km/s)', f(b.VMAG, 7), f(a.VMAG, 7)]]),
+      el('div', { class: 'dim' }, `Δv ${x.dv.toFixed(6)} km/s · GMAT ImpulsiveBurn Element1..3 = ${NODE.e.map(v => v.toFixed(6)).join(', ')} (VNB)`));
+  }
+  card.append(el('div', { class: 'srow' }, el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Spacecraft'), sat), el('label', { class: 'mf', style: 'flex:1' }, el('span', { class: 'ml' }, 'Place the node along the trajectory'), pos), when),
+    mk('Prograde  (V)', 'along the velocity: raises the opposite side of the orbit', 0), mk('Normal  (N)', 'along the orbit normal: changes the inclination', 1), mk('Radial out  (B = V × N)', 'out of the orbit plane direction of Ĉ: the course Ĉ axis', 2), out,
+    el('div', { class: 'btnrow' }, el('button', { class: 'btn pri', onclick: async () => { const x = await api('mission_node_insert', { mission: MIS.m, sat: NODE.sat, index: trk.idx[NODE.pos], e: NODE.e }); if (!x.ok) { toast(x.error, 'err'); return; }
+        MIS.m = x.mission; misTouch(); NODE.e = [0, 0, 0]; toast('node inserted into the sequence; running the mission', 'ok'); runMission(); } }, 'Insert Node Into Sequence'),
+      el('button', { class: 'btn', onclick: () => { NODE.e = [0, 0, 0]; renderMission(); } }, 'Reset')));
+  setTimeout(() => { if (NODE.e.some(v => v !== 0) || true) preview(); }, 600); return card;
 }

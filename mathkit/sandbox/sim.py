@@ -26,7 +26,10 @@ def rhs_for(mu: np.ndarray, attract: np.ndarray):
 
 def pack(scene: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     bodies = scene['bodies']; mu = np.array([b['mu'] for b in bodies], float); att = np.array([bool(b.get('gravity', True)) and b['mu'] > 0 for b in bodies])
-    y = np.concatenate([np.concatenate([b['r'], b['v']]) for b in bodies]).astype(float); return mu, att, y
+    y = np.concatenate([np.concatenate([b['r'], b['v']]) for b in bodies]).astype(float)
+    for i, b in enumerate(bodies):
+        if not np.all(np.isfinite(y[6 * i:6 * i + 6])): raise ValueError(f"{b['name']} has an invalid (non-finite) position or velocity")
+    return mu, att, y
 
 
 def energy(mu: np.ndarray, Y: np.ndarray) -> float:
@@ -35,6 +38,22 @@ def energy(mu: np.ndarray, Y: np.ndarray) -> float:
     for i in range(len(M)):
         for j in range(i + 1, len(M)): u -= M[i] * M[j] / np.linalg.norm(R[i] - R[j])
     return float(k + u)
+
+
+def _time_scales(bodies, mu, att):
+    """Orbital periods of every body about each heavier attractor (the shortest one sets how finely the run is sampled and how long it can reasonably be)."""
+    n = len(bodies); out = []
+    for i, b in enumerate(bodies):
+        for j in range(n):
+            if j == i or not att[j] or mu[j] < mu[i]: continue
+            d = np.linalg.norm(np.array(bodies[j]['r']) - np.array(b['r']))
+            T = 2 * np.pi * np.sqrt(d ** 3 / (mu[j] + max(mu[i], 0.0))) if d > 0 else np.inf
+            if np.isfinite(T) and T > 0: out.append(float(T))
+    return out
+
+
+def fastest_period_days(scene: dict) -> float:
+    mu, att, _ = pack(scene); ts = _time_scales(scene['bodies'], mu, att); return min(ts) / DAY if ts else float('inf')
 
 
 def simulate(scene: dict, days_back: float = 0.0, days_forward: float = 365.25, accuracy: float = 1e-11, max_samples: int = 6000) -> dict:
@@ -47,13 +66,7 @@ def simulate(scene: dict, days_back: float = 0.0, days_forward: float = 365.25, 
     mu, att, y0 = pack(scene); f = rhs_for(mu, att); jd0 = scene['epoch_jd']
     # sampling interval: resolve the fastest orbit (about 40 samples per period) within the sample budget
     horizon = max(days_back + days_forward, 1e-6)
-    dts = []
-    for i, b in enumerate(bodies):                                                              # fastest orbital time scale of each body about any heavier attractor
-        for j in range(n):
-            if j == i or not att[j] or mu[j] < mu[i]: continue
-            d = np.linalg.norm(np.array(bodies[j]['r']) - np.array(b['r']))
-            T = 2 * np.pi * np.sqrt(d ** 3 / (mu[j] + max(mu[i], 0.0))) if d > 0 else np.inf
-            if np.isfinite(T) and T > 0: dts.append(T / 40.0)
+    dts = [T / 72.0 for T in _time_scales(bodies, mu, att)]
     dt_s = max(min(dts) if dts else horizon * DAY / 2000, horizon * DAY / max_samples)
     out_jd = [jd0]; out_r = [y0.reshape(n, 6)[:, :3].copy()]; steps = 0; status = 'done'
     e0 = energy(mu, y0.reshape(n, 6))

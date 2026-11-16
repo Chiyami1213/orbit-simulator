@@ -16,6 +16,64 @@ function interp(tr, jd) {                                   // position of a sam
   const f = (jd - J[lo]) / (J[hi] - J[lo]), a = tr.r[lo], b = tr.r[hi]; return [a[0] + f * (b[0] - a[0]), a[1] + f * (b[1] - a[1]), a[2] + f * (b[2] - a[2])];
 }
 
+
+/* ---- body shapes: spheres, the two satellite models, a lumpy asteroid, a comet with a tail, a black hole with an accretion disk, a star with a glow, a ringed planet ---- */
+const SATURN_POLE = [40.589, 83.537];
+function lumpy(seed = 7, detail = 3) {                                    // an irregular rock: a noise-displaced icosphere, stretched
+  const g = new THREE.IcosahedronGeometry(1, detail), pos = g.attributes.position; let a = seed;
+  const rnd = () => { a = (a * 16807) % 2147483647; return a / 2147483647; }, wob = Array.from({ length: 12 }, () => [rnd() * 6.28, rnd() * 6.28, 0.04 + rnd() * 0.09]);
+  for (let i = 0; i < pos.count; i++) { const v = new THREE.Vector3().fromBufferAttribute(pos, i).normalize(); let d = 1; for (const [p, q, k] of wob) d += k * Math.sin(p + 3 * v.x + 2 * v.y) * Math.cos(q + 3 * v.z + v.x); v.multiplyScalar(d); pos.setXYZ(i, v.x * 1.25, v.y * 0.85, v.z * 0.75); }
+  g.computeVertexNormals(); return g;
+}
+function glowSprite(color, size) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'), g = x.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, color); g.addColorStop(0.25, color + '88'); g.addColorStop(1, color + '00'); x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); sp.scale.setScalar(size); return sp;
+}
+export function buildShape(shape, color, models, loader) {
+  const g = new THREE.Group(); const col = color || '#8aa0c8';
+  if ((shape === 'comsat' || shape === 'probe') && models && models[shape]) {
+    const m = models[shape], geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(m.x.flatMap((x, i) => [x, m.y[i], m.z[i]]), 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(m.colors.flatMap(h => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; }), 3)); geo.setIndex(m.i.flatMap((x, n) => [x, m.j[n], m.k[n]])); geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.6, metalness: 0.4, side: THREE.DoubleSide })); mesh.scale.setScalar(0.9); g.add(mesh); g.userData.orient = true; return g;
+  }
+  if (shape === 'asteroid' || shape === 'comet') {
+    const rock = new THREE.Mesh(lumpy(shape === 'comet' ? 3 : 7), new THREE.MeshStandardMaterial({ color: shape === 'comet' ? '#9aa4b0' : '#8c8174', roughness: 1, flatShading: true })); g.add(rock);
+    if (shape === 'comet') {
+      const L = 16, tail = new THREE.Mesh(new THREE.ConeGeometry(1.6, L, 24, 1, true).translate(0, L / 2, 0), new THREE.MeshBasicMaterial({ color: '#bfe3ff', transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+      g.add(tail); g.userData.tail = tail; g.add(glowSprite('#cfe8ff', 6));
+    }
+    return g;
+  }
+  if (shape === 'blackhole') {
+    g.add(new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), new THREE.MeshBasicMaterial({ color: '#000000' })));
+    const disk = new THREE.Mesh(new THREE.RingGeometry(1.5, 4.2, 96, 4), new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const pos = disk.geometry.attributes.position, cols = []; for (let i = 0; i < pos.count; i++) { const r = Math.hypot(pos.getX(i), pos.getY(i)), t = (r - 1.5) / 2.7, c = new THREE.Color().setHSL(0.09 - 0.07 * t, 1, 0.62 - 0.45 * t); cols.push(c.r, c.g, c.b); }
+    disk.geometry.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); disk.rotation.x = 1.25; g.add(disk);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.08, 1.16, 96), new THREE.MeshBasicMaterial({ color: '#ffe6c0', side: THREE.DoubleSide, transparent: true, opacity: 0.7, depthWrite: false })); ring.userData.billboard = true; g.add(ring); g.userData.ring = ring; return g;
+  }
+  const mat = new THREE.MeshStandardMaterial({ color: col, roughness: 1, metalness: 0 });
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), mat); ball.rotation.x = Math.PI / 2; g.add(ball); g.userData.ball = ball; g.userData.mat = mat;
+  if (shape === 'star') { mat.emissive = new THREE.Color(col); mat.emissiveIntensity = 1; g.add(glowSprite(col.replace('#', '#').slice(0, 7), 5)); }
+  if (shape === 'ring') {                                                               // Saturn: a flat ring in the equator plane, textured with the real ring strip
+    const rg = new THREE.RingGeometry(1.25, 2.4, 128, 1), pos = rg.attributes.position, uv = rg.attributes.uv; for (let i = 0; i < pos.count; i++) uv.setXY(i, (Math.hypot(pos.getX(i), pos.getY(i)) - 1.25) / 1.15, 0.5);
+    const rm = new THREE.MeshBasicMaterial({ color: '#d9c9a0', side: THREE.DoubleSide, transparent: true, opacity: 0.85, depthWrite: false }); if (loader) loader.load('/assets/textures/2k_saturn_ring_alpha.png', tx => { tx.colorSpace = THREE.SRGBColorSpace; rm.map = tx; rm.color.set('#ffffff'); rm.needsUpdate = true; });
+    const ringMesh = new THREE.Mesh(rg, rm); const a = SATURN_POLE[0] * Math.PI / 180, d = SATURN_POLE[1] * Math.PI / 180; ringMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(Math.cos(d) * Math.cos(a), Math.cos(d) * Math.sin(a), Math.sin(d))); g.add(ringMesh);
+  }
+  return g;
+}
+let thumbRenderer = null;
+export function renderThumbs(list, models, size = 112) {                              // [{key, shape, color}] -> {key: dataURL}, drawn with one small off-screen renderer
+  if (!thumbRenderer) { thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); thumbRenderer.setSize(size, size); }
+  const out = {}, sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(32, 1, 0.1, 100); sc.add(new THREE.AmbientLight(0xffffff, 0.7)); const dl = new THREE.DirectionalLight(0xffffff, 2.2); dl.position.set(2, 1.5, 3); sc.add(dl);
+  for (const it of list) {
+    const obj = buildShape(it.shape, it.color, models, null), box = new THREE.Box3().setFromObject(obj), sphere = box.getBoundingSphere(new THREE.Sphere()); obj.position.sub(sphere.center); sc.add(obj);
+    if (it.shape === 'comsat' || it.shape === 'probe') obj.rotation.set(0.35, -0.7, 0.2); if (it.shape === 'asteroid') obj.rotation.set(0.4, 0.5, 0); if (it.shape === 'comet') obj.rotation.set(0.1, 0, -0.5);
+    if (it.shape === 'blackhole') obj.rotation.x = -0.25;
+    const d = sphere.radius / Math.tan(cam.fov * Math.PI / 360) * 1.12; cam.position.set(0, 0, d); cam.lookAt(0, 0, 0); thumbRenderer.render(sc, cam); out[it.key] = thumbRenderer.domElement.toDataURL('image/png'); sc.remove(obj);
+  }
+  return out;
+}
+
 export function createSpace(host, data, opts = {}) {
   host.replaceChildren(); host.classList.add('spacehost');
   const W = () => Math.max(300, host.clientWidth), H = () => Math.max(260, host.clientHeight);
@@ -50,12 +108,16 @@ export function createSpace(host, data, opts = {}) {
     if (b.visible === false) continue;
     const mat = new THREE.MeshStandardMaterial({ color: b.color || '#6b7fb5', roughness: 1, metalness: 0 }); if (b.texture) loader.load('/assets/textures/' + b.texture, tx => { tx.colorSpace = THREE.SRGBColorSpace; mat.map = tx; mat.color.set('#ffffff'); mat.needsUpdate = true; });
     if (b.name === 'Sun') { mat.emissive = new THREE.Color('#ffd27a'); mat.emissiveIntensity = 1; mat.color.set('#ffd27a'); }
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), mat); mesh.rotation.x = Math.PI / 2; world.add(mesh);                       // texture poles along z
+    let mesh; const shape = b.shape || (b.name === 'Sun' ? 'star' : 'sphere');
+    if (shape === 'sphere' || shape === 'star' && false) { mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), mat); mesh.rotation.x = Math.PI / 2; }              // texture poles along z
+    else { mesh = buildShape(shape, b.color, data.models, loader); const ball = mesh.userData.ball; if (ball) { ball.material = mat; ball.material.needsUpdate = true; } }
+    world.add(mesh);
     const o = { def: b, mesh, label: mkLabel(b.name, '#cfe0ff'), soi: null };
     if (b.soi) { o.soi = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 20), new THREE.MeshBasicMaterial({ color: '#4c8df6', wireframe: true, transparent: true, opacity: 0.12 })); world.add(o.soi); }
     const par = b.parent ? data.bodies.find(x => x.name === b.parent) : null;                                      // orbit drawn relative to the parent, around its current position
     if (b.path && b.path.r.length > 1) {
       const pts = par && par.path ? b.path.r.map((p, i) => new THREE.Vector3(p[0] - par.path.r[i][0], p[1] - par.path.r[i][1], p[2] - par.path.r[i][2])) : b.path.r.map(p => new THREE.Vector3(...p));
+      if (par && par.path) { let ang = 0; for (let i = 1; i < pts.length; i++) { const a = pts[i - 1], c = pts[i], d = a.dot(c) / Math.max(1e-12, a.length() * c.length()); ang += Math.acos(Math.max(-1, Math.min(1, d))); if (ang >= 2 * Math.PI * 1.005) { pts.length = i + 1; break; } } }       // one revolution is enough: a fast orbit must not fill the screen
       o.line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: b.orbitColor || '#7b8bb0', transparent: true, opacity: 0.55 })); o.rel = !!(par && par.path); world.add(o.line);
     }
     if (b.parent && b.path && b.path.r.length > 1) { o.parentId = b.parent; }
@@ -80,6 +142,7 @@ export function createSpace(host, data, opts = {}) {
   const dirOf = (ra, dec) => { const a = ra * Math.PI / 180, d = dec * Math.PI / 180; return new THREE.Vector3(Math.cos(d) * Math.cos(a), Math.cos(d) * Math.sin(a), Math.sin(d)); };
   const markers = (data.markers || []).map(m => ({ def: m, dir: dirOf(m.ra, m.dec), label: mkLabel(m.name, '#9dffb0'), mk: new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 24), new THREE.MeshBasicMaterial({ color: '#9dffb0', side: THREE.DoubleSide, depthTest: false })) }));
   markers.forEach(m => { m.mk.renderOrder = 5; scene.add(m.mk); });
+  const this_velOf = name => { const o = bodies[name]; if (!o || !o.def.path) return [0, 0, 0]; const d = 0.01, a = interp(o.def.path, Math.max(t0, jd - d)), b = interp(o.def.path, Math.min(t1, jd + d)); return [b[0] - a[0], b[1] - a[1], b[2] - a[2]]; };
   const posOf = name => { if (bodies[name]) return interp(bodies[name].def.path || { jd: [0], r: [[0, 0, 0]] }, jd); const tr = tracks.find(t => t.def.name === name); return tr ? interp(tr.def, jd) : [0, 0, 0]; };
   const names = () => [...Object.keys(bodies), ...tracks.map(t => t.def.name)];
   const ext = data.extent || 1e5;
@@ -96,7 +159,10 @@ export function createSpace(host, data, opts = {}) {
     const cp = camera.position.clone().add(world.position.clone().negate()), tgt = controls.target.clone();
     const tgtD = camera.position.distanceTo(controls.target), unit = tgtD * 0.012, placed = [];
     for (const o of Object.values(bodies)) {
-      const p = posOf(o.def.name); o.mesh.position.set(...p); const r = Math.max(o.def.R * state.exag, unit * 0.6); o.mesh.scale.setScalar(r);
+      const p = posOf(o.def.name); o.mesh.position.set(...p); const minS = o.mesh.userData.orient ? 3.5 : (o.def.shape === 'asteroid' || o.def.shape === 'comet' ? 1.1 : 0.6); const r = Math.max(o.def.R * state.exag, unit * minS); o.mesh.scale.setScalar(r);
+      if (o.mesh.userData.orient) { const v = this_velOf(o.def.name); const n = Math.hypot(...v); if (n > 0) o.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(v[0] / n, v[1] / n, v[2] / n)); }
+      if (o.mesh.userData.tail) { const sp = bodies.Sun ? posOf('Sun') : [0, 0, 0], a = new THREE.Vector3(p[0] - sp[0], p[1] - sp[1], p[2] - sp[2]).normalize(); o.mesh.userData.tail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), a); }
+      if (o.mesh.userData.ring) o.mesh.userData.ring.quaternion.copy(camera.quaternion);
       if (o.soi) { o.soi.position.set(...p); o.soi.scale.setScalar(o.def.soi); o.soi.visible = state.soi; }
       if (o.line) { o.line.visible = state.paths; if (o.rel) o.line.position.set(...posOf(o.def.parent)); o.line.material.opacity = state.selected === o.def.name ? 1 : 0.45; } const l = label(o.label, o.mesh.position, true); if (l) placed.push(l);
       if (o.def.name === 'Sun') { const c = o.mesh.position; sun.position.copy(c); sun.target.position.set(0, 0, 0); }
@@ -109,6 +175,7 @@ export function createSpace(host, data, opts = {}) {
     for (const l of lag) { l.mk.position.set(...interp(l.def, jd)); l.mk.scale.setScalar(unit * 0.8); l.mk.visible = state.lag; label(l.label, l.mk.position, state.lag); }
     axes.visible = state.axes; axes.scale.setScalar(ext * 0.6); ecl.visible = state.ecl; ecl.scale.setScalar(ext * 1.5);
     for (const e of evMarks) e.m.scale.setScalar(unit * 0.6);
+    if (nodeMk) nodeMk.scale.setScalar(unit * 0.9);
     for (const rf of refs) rf.material.dashSize = rf.material.gapSize = ext * 0.01;
     // declutter: a later label that overlaps an earlier one is hidden
     const boxes = []; for (const el_ of placed) { const b = el_.getBoundingClientRect(); if (boxes.some(q => !(b.right < q.left || b.left > q.right || b.bottom < q.top || b.top > q.bottom))) el_.style.display = 'none'; else boxes.push(b); }
@@ -116,6 +183,7 @@ export function createSpace(host, data, opts = {}) {
     if (state.selected && bodies[state.selected]) { const o = bodies[state.selected], rr = Math.max(o.mesh.scale.x * 1.25, unit * 1.6); ring.visible = true; ring.position.copy(o.mesh.position); ring.quaternion.copy(camera.quaternion); ring.scale.setScalar(rr); } else ring.visible = false;
     for (const m of markers) { m.mk.visible = state.markers; const p = camera.position.clone().add(m.dir.clone().multiplyScalar(5e4)); m.mk.position.copy(p); m.mk.quaternion.copy(camera.quaternion); m.mk.scale.setScalar(900); label(m.label, p, state.markers); }
   }
+  let preview = null, nodeMk = null;
   const clamp01 = x => Math.max(0, Math.min(1, x));
 
   // ---- focus: the controls target follows the chosen object (smooth fly-to)
@@ -143,6 +211,11 @@ export function createSpace(host, data, opts = {}) {
     view(kind) { const d = camera.position.distanceTo(controls.target), t = controls.target; if (kind === 'top') camera.position.set(t.x, t.y, t.z + d); else if (kind === 'iso') camera.position.set(t.x + d * 0.62, t.y - d * 0.62, t.z + d * 0.48); else if (kind === 'side') camera.position.set(t.x, t.y - d, t.z); controls.update(); },
     look(ra, dec) { const d = camera.position.distanceTo(controls.target), dir = dirOf(ra, dec); camera.position.copy(controls.target).addScaledVector(dir, -d); controls.update(); },
     markerList: () => markers.map(m => m.def.name),
+    setPreview(pts, node) {                                                            // the predicted path of a maneuver node (dashed white) and the node marker
+      if (preview) { world.remove(preview); preview.geometry.dispose(); preview = null; } if (nodeMk) { world.remove(nodeMk); nodeMk = null; }
+      if (pts && pts.length > 1) { const g = new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(...p))); preview = new THREE.Line(g, new THREE.LineDashedMaterial({ color: '#ffffff', dashSize: ext * 0.01, gapSize: ext * 0.006 })); preview.computeLineDistances(); world.add(preview); }
+      if (node) { nodeMk = new THREE.Mesh(new THREE.OctahedronGeometry(1), new THREE.MeshBasicMaterial({ color: '#ff6161' })); nodeMk.position.set(...node); world.add(nodeMk); }
+    },
     select(name) { state.selected = name; }, setRate(r) { state.rate = r; }, getCamera() { return { p: camera.position.toArray(), t: controls.target.toArray() }; },
     setCamera(c) { camera.position.fromArray(c.p); controls.target.fromArray(c.t); controls.update(); },
     pick(cx, cy) {                                                                    // nearest body to a screen point (within 18 px), preferring the larger on-screen body

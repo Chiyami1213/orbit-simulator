@@ -429,6 +429,31 @@ def sandbox_save(p: dict) -> dict:
     except Exception as ex: return dict(ok=False, error=str(ex))
 
 
+def mission_node_preview(p: dict) -> dict:
+    from ..mission import service as MS
+    try:
+        with LOCK: return MS.preview_node(p['mission'], _eph(), p['sat'], int(p['index']), [float(x) for x in p['e']], p.get('length_s'))
+    except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
+
+
+def mission_node_insert(p: dict) -> dict:
+    from ..mission import service as MS
+    try:
+        with LOCK: return dict(ok=True, mission=MS.insert_node(p['mission'], _eph(), p['sat'], int(p['index']), [float(x) for x in p['e']]))
+    except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
+
+
+def mission_cosmographia(p: dict) -> dict:
+    """Write an SPK kernel and a Cosmographia catalogue for one spacecraft into the exports folder (needs the optional spiceypy)."""
+    from ..mission.model import Mission
+    from ..mission.run import run
+    from ..mission import cosmographia as CG
+    try:
+        m = Mission.from_dict(p['mission']); res = run(m, _eph(), ConstantSet(m.constants)); sat = p.get('sat') or m.spacecraft[0].name
+        out = CG.export(res, sat, shell.folder('exports') / 'cosmographia', m.name); return dict(ok=True, **out)
+    except Exception as ex: return dict(ok=False, error=str(ex))
+
+
 def mission_porkchop(p: dict) -> dict:
     """Departure x arrival grid (Earth to Mars by default). Dates are 'YYYY-MM-DD'."""
     from ..mission import porkchop as PK
@@ -591,6 +616,6 @@ def report_issue(p: dict) -> dict:
 
 ROUTES = {'meta': lambda p: meta(), 'visible': visible, 'solve': solve, 'progress': progress, 'mission_meta': mission_meta, 'mission_starter': mission_starter, 'mission_run': mission_run, 'mission_progress': mission_progress, 'mission_convert': mission_convert,
           'mission_compare': mission_compare, 'mission_script': mission_script, 'mission_import': mission_import, 'mission_from_module': mission_from_module, 'mission_save': mission_save,
-          'ephem_status': ephem_status, 'mission_porkchop': mission_porkchop, 'sandbox_meta': sandbox_meta, 'sandbox_new': sandbox_new, 'sandbox_run': sandbox_run, 'sandbox_edit': sandbox_edit, 'sandbox_panel': sandbox_panel, 'sandbox_to_mission': sandbox_to_mission, 'sandbox_save': sandbox_save, 'save_blob': save_blob, 'mission_import_trajectory': mission_import_trajectory, 'mission_from_porkchop': mission_from_porkchop, 'mission_trajectory': mission_trajectory, 'licenses': licenses, 'ephem_download': ephem_download, 'gmat_check': gmat_check, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
+          'ephem_status': ephem_status, 'mission_porkchop': mission_porkchop, 'mission_cosmographia': mission_cosmographia, 'mission_node_preview': mission_node_preview, 'mission_node_insert': mission_node_insert, 'sandbox_meta': sandbox_meta, 'sandbox_new': sandbox_new, 'sandbox_run': sandbox_run, 'sandbox_edit': sandbox_edit, 'sandbox_panel': sandbox_panel, 'sandbox_to_mission': sandbox_to_mission, 'sandbox_save': sandbox_save, 'save_blob': save_blob, 'mission_import_trajectory': mission_import_trajectory, 'mission_from_porkchop': mission_from_porkchop, 'mission_trajectory': mission_trajectory, 'licenses': licenses, 'ephem_download': ephem_download, 'gmat_check': gmat_check, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
           'fullscreen': fullscreen, 'open_folder': open_folder, 'export_save': export_save, 'report_issue': report_issue,
           'backup_create': _bk(_bk_create), 'backup_list': _bk(_bk_list), 'backup_restore': _bk(_bk_restore), 'backup_import': _bk(_bk_import), 'backup_delete': _bk(_bk_delete)}

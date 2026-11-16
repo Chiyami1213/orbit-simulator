@@ -11,8 +11,28 @@ from . import model as SM, sim
 HORIZONS = {'30 days': (15, 15), '1 year': (183, 183), '5 years': (913, 913), '25 years': (4566, 4566), '100 years': (18262, 18262)}
 
 
+def models() -> dict:
+    from ..view3d.models import spacecraft_mesh
+    return {k: spacecraft_mesh(k) for k in ('comsat', 'probe')}
+
+
+def shape_of(name: str, kind: str) -> str:
+    n = name.lower()
+    if kind == 'spacecraft': return 'probe' if 'probe' in n else 'comsat'
+    if 'black hole' in n: return 'blackhole'
+    if 'comet' in n: return 'comet'
+    if kind == 'small' and 'ceres' not in n: return 'asteroid'
+    if kind == 'star' and name != 'Sun': return 'star'
+    if name == 'Saturn': return 'ring'
+    return 'sphere'
+
+
 def meta(consts: ConstantSet | None = None) -> dict:
-    return dict(catalog=SM.catalog(consts), categories=SM.CATEGORIES, horizons=list(HORIZONS), kinds=['star', 'planet', 'moon', 'small', 'spacecraft', 'custom'])
+    from .. import sky as SK
+    cat = SM.catalog(consts)
+    for c in cat: c['shape'] = shape_of(c['name'], c['kind'])
+    markers = [dict(name='Galactic Center', ra=SK.GALACTIC_CENTER[0], dec=SK.GALACTIC_CENTER[1]), dict(name='North Galactic Pole', ra=SK.NORTH_GALACTIC_POLE[0], dec=SK.NORTH_GALACTIC_POLE[1])] + [dict(name=k, ra=r_, dec=d_) for k, (r_, d_) in SK.STARS.items()]
+    return dict(catalog=cat, categories=SM.CATEGORIES, horizons=list(HORIZONS), kinds=['star', 'planet', 'moon', 'small', 'spacecraft', 'custom'], models=models(), markers=markers)
 
 
 def default_scene(eph, jd_utc: float | None = None) -> dict:
@@ -22,13 +42,15 @@ def default_scene(eph, jd_utc: float | None = None) -> dict:
 
 def run(scene: dict, horizon: str | tuple = '1 year', accuracy: float = 1e-11) -> dict:
     back, fwd = HORIZONS[horizon] if isinstance(horizon, str) else horizon
+    cap = max(5.0, sim.fastest_period_days(scene) * 80.0); limited = None                      # a spacecraft in low orbit would need millions of steps over years
+    if fwd > cap or back > cap: back, fwd = min(back, cap), min(fwd, cap); limited = round(cap, 1)
     r = sim.simulate(scene, back, fwd, accuracy)
     bodies = []
     for b in scene['bodies']:
-        d = dict(id=b['id'], name=b['name'], kind=b['kind'], mu=b['mu'], radius=b['radius'], color=b['color'], texture=b.get('texture'), gravity=b.get('gravity', True), visible=b.get('visible', True),
+        d = dict(id=b['id'], name=b['name'], kind=b['kind'], shape=shape_of(b['name'], b['kind']), mu=b['mu'], radius=b['radius'], color=b['color'], texture=b.get('texture'), gravity=b.get('gravity', True), visible=b.get('visible', True),
                  parent=SM.dominant_parent(scene, b['id']), path=dict(jd=r['jd'], r=r['bodies'][b['id']]))
         bodies.append(d)
-    return dict(bodies=bodies, jd0=r['jd'][0], jd1=r['jd'][-1], epoch_jd=scene['epoch_jd'], energy_drift=r['energy_drift'], steps=r['steps'], status=r['status'], samples=len(r['jd']))
+    return dict(bodies=bodies, jd0=r['jd'][0], jd1=r['jd'][-1], epoch_jd=scene['epoch_jd'], energy_drift=r['energy_drift'], steps=r['steps'], status=r['status'], samples=len(r['jd']), limited_days=limited)
 
 
 def edit(scene: dict, jd: float, edits: list[dict], eph=None, consts: ConstantSet | None = None) -> dict:

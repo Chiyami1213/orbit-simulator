@@ -113,3 +113,14 @@ def test_three_modes_are_wired_in_the_front_end():
     assert 'nonav' in app and "renderExplore()" in app and 'Three Modes' in tour
     ex = (web / 'explore.js').read_text(encoding='utf-8')
     for part in ('exLib', 'exPanel', 'exBottom', "'Basic'", "'Motion'", "'Orbit'", "'Forces'", "'Actions'", 'sandbox_to_mission', 'exHistory'): assert part in ex
+
+
+def test_nothing_orbits_a_massless_body(scene):
+    sat_item = next(c for c in SM.catalog() if c['name'] == 'Spacecraft'); sc = SM.apply_edits(scene, [{'op': 'add', 'item': sat_item, 'parent': 'Earth'}], EPH); sat = sc['bodies'][-1]['id']
+    for it in SM.catalog():                                                                      # clicking any library item with a spacecraft selected must never give NaN states
+        if it.get('real') and any(b['name'] == it['name'] for b in sc['bodies']): continue
+        out = SM.apply_edits(sc, [{'op': 'add', 'item': it, 'parent': sat}], EPH) if not it.get('whatif') or it['whatif'] == 'rogue' else sc
+        assert all(np.all(np.isfinite(b['r'])) and np.all(np.isfinite(b['v'])) for b in out['bodies']), it['name']
+    two = SM.apply_edits(sc, [{'op': 'add', 'item': sat_item, 'parent': sat}], EPH); a, b = two['bodies'][-1], SM.get(two, 'Earth')
+    assert 1e4 < np.linalg.norm(np.array(a['r']) - np.array(b['r'])) < 3e4                       # it went into orbit about Earth, the spacecraft's own parent
+    with pytest.raises(ValueError): SM.apply_edits(sc, [{'op': 'orbit', 'id': 'Moon', 'parent': sat, 'elements': dict(SMA=1000, ECC=0, INC=0, RAAN=0, AOP=0, TA=0)}])

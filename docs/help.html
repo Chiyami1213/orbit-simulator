@@ -70,6 +70,8 @@ code{font-family:ui-monospace,Consolas,monospace;background:var(--bg);padding:1p
 <li><b>Run Mission</b> shows a progress bar; <b>Plots</b>, <b>Reports</b> and <b>Compare</b> show the results. <b>Compare</b> sets the exact course answer against the propagation as built.</li>
 <li><b>GMAT Script</b> shows the exported <code>.script</code>. <b>Import…</b> reads GMAT scripts (a subset) and saved <code>.orbitmission</code> files; anything unsupported is listed.</li>
 <li>Every module result has <b>Open in Mission</b> and an Export button for a GMAT script. <i>Settings → Conventions</i> switches between the course and GMAT way of showing results.</li>
+<li><b>Maneuver Planner</b> (under the space view on the Plots tab): choose a point on the trajectory, set the burn with the Prograde, Normal and Radial sliders, see the predicted path and the orbit before and after, then <i>Insert Node Into Sequence</i> splits the propagation there and adds the burn.</li>
+<li>Trajectories can be saved as CSV, CCSDS OEM, or (with the optional <code>spiceypy</code> package: <code>pip install spiceypy</code>) as an SPK kernel with a Cosmographia catalogue. The catalogue follows Cosmographia's catalogue format but has not been opened in Cosmographia by the program's author.</li>
 <li><i>Settings → Ephemeris and GMAT</i>: built-in ephemeris or the JPL DE440s kernel (downloaded only when you press the button), and the folder of an installed GMAT.</li>
 </ul>
 

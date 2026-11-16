@@ -63,6 +63,7 @@ def get(scene: dict, bid: str) -> dict:
 def orbit_state(parent: dict, mu_child: float, a: float, e: float, inc: float, raan: float, aop: float, ta: float):
     """Absolute (r, v) of a child on the given orbit about ``parent`` (km, deg)."""
     mu = parent['mu'] + max(mu_child, 0.0)
+    if parent['mu'] <= 0: raise ValueError(f"{parent['name']} has no mass, so nothing can orbit it")
     if e < 1 and a <= 0: raise ValueError('an elliptical orbit needs SMA > 0')
     if e > 1 and a >= 0: raise ValueError('a hyperbolic orbit needs SMA < 0')
     r, v, _ = rv_from_elements(mu, a, e, inc, raan, aop, ta)
@@ -130,7 +131,12 @@ def add_item(scene: dict, item: dict, eph=None, consts: ConstantSet | None = Non
     parent_id = parent or next((b['id'] for b in sorted(scene['bodies'], key=lambda x: -x['mu'])), None)
     if parent_id is None:
         bd = new_body(name, item['kind'], item['mu'], item['radius'], [0, 0, 0], [0, 0, 0], id=unique_id(scene, name)); scene['bodies'].append(bd); return bd
-    par = get(scene, parent_id); o = dict(item.get('orbit') or {}); o.update(orbit or {})
+    par = get(scene, parent_id)
+    if par['mu'] <= 0:                                                                          # a massless body (spacecraft) cannot be orbited: use what it orbits
+        grand = dominant_parent(scene, parent_id)
+        if grand is None: raise ValueError(f"{par['name']} has no mass, so nothing can orbit it")
+        par = get(scene, grand)
+    o = dict(item.get('orbit') or {}); o.update(orbit or {})
     if item.get('whatif') == 'rogue':                                                              # an unbound Jupiter-mass planet crossing the inner system at 25 km/s
         d = 3.0e8; p0 = np.array(par['r']) + np.array([d, -d * 0.55, 0.0]); aim = np.array(par['r']) - p0; v = 25.0 * aim / np.linalg.norm(aim)
         bd = new_body(name, item['kind'], item['mu'], item['radius'], p0, np.array(par['v']) + v, id=unique_id(scene, name), color=item.get('color'))

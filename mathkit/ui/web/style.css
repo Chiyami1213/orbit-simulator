@@ -246,7 +246,7 @@ body[data-palette=plum][data-theme=light]{--orange:#e0405a;--bg:#f6f3fa;--nav:#f
 /* ----- menu bar (file, edit, view ...) ----- */
 .brand{display:flex;align-items:center;gap:6px}
 .applogo{width:26px;height:26px;flex:none;margin-right:6px}
-#menubar{display:flex;align-items:center;gap:2px;margin:0 14px 0 4px}
+#menubar{display:flex;align-items:center;gap:2px;margin:0 8px 0 4px}
 #menubar>button{background:transparent;border:0;color:var(--text2);padding:5px 11px;border-radius:7px;font-size:14px;cursor:pointer}
 #menubar>button:hover,#menubar>button.open{background:var(--nav-on);color:var(--text)}
 .mdrop{position:fixed;z-index:150;min-width:260px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 14px 40px rgba(0,0,0,.4)}
@@ -299,7 +299,7 @@ details.lic pre{max-height:360px;overflow:auto;font-size:12px;white-space:pre-wr
 .spacebar{display:flex;flex-direction:column;gap:8px}.srow{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 12px}.sslider{flex:1;min-width:260px}.sdate{font-variant-numeric:tabular-nums;color:var(--text2)}
 
 /* ----- modes ----- */
-.modesw{display:flex;gap:2px;background:var(--inset);border:1px solid var(--line);border-radius:10px;padding:3px;margin:0 12px 0 4px}
+.modesw{display:flex;gap:2px;background:var(--inset);border:1px solid var(--line);border-radius:10px;padding:3px;margin:0 12px 0 10px}
 .modesw button{background:transparent;border:0;color:var(--text2);padding:6px 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
 .modesw button:hover{color:var(--text)}.modesw button.on{background:var(--orange);color:#fff}
 #app.nonav{--navw:0px}#app.nonav #nav,#app.nonav #sp1{display:none}
@@ -318,7 +318,7 @@ details.lic pre{max-height:360px;overflow:auto;font-size:12px;white-space:pre-wr
 .xsearch input{flex:1;background:transparent;border:0;outline:0;color:var(--text);font-size:15px}
 .xcats{display:flex;gap:6px;padding:4px 14px 10px;overflow-x:auto;flex:none}.xcat{background:rgba(255,255,255,.06);border:0;color:var(--text2);border-radius:16px;padding:6px 13px;font-size:13px;white-space:nowrap;cursor:pointer}.xcat.on{background:var(--orange);color:#fff}
 .xgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 6px;padding:6px 12px 20px;overflow-y:auto;flex:1;align-content:start}
-.xitem{background:transparent;border:0;color:var(--text2);display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;border-radius:10px;cursor:pointer;font-size:12.5px}.xitem:hover{background:rgba(255,255,255,.08);color:var(--text)}.xitem.have .xthumb{box-shadow:0 0 0 2px var(--orange)}
+.xitem{background:transparent;border:0;color:var(--text2);display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;border-radius:10px;cursor:pointer;font-size:12.5px}.xitem:hover{background:rgba(255,255,255,.08);color:var(--text)}
 .xthumb{width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:inset -8px -8px 18px rgba(0,0,0,.55)}.xthumb i{font-style:normal;font-size:28px;font-weight:700;color:#fff}.xname{text-align:center;line-height:1.2}
 .xprev{position:relative;height:190px;display:flex;align-items:center;justify-content:center;flex:none;background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.07),transparent 65%)}
 .xball{width:150px;height:150px;border-radius:50%;box-shadow:inset -22px -22px 40px rgba(0,0,0,.6),0 0 30px rgba(120,160,255,.12)}.xkind{position:absolute;left:14px;bottom:6px;font-size:12.5px;color:var(--text2)}
@@ -334,3 +334,13 @@ details.lic pre{max-height:360px;overflow:auto;font-size:12px;white-space:pre-wr
 .xbusy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:20;background:rgba(0,0,0,.35);color:#fff;font-size:18px;pointer-events:none}.xbusy.on{display:flex}
 .xpop{position:fixed;z-index:200;width:300px;background:rgba(14,20,38,.97);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;box-shadow:0 12px 40px rgba(0,0,0,.5)}.xpt{font-weight:600;font-size:14px}
 @media (max-width:1100px){.xside{width:min(340px,86vw)}.xrateWrap input{width:110px}.xdate{min-width:150px;font-size:15px}}
+
+.nodecard{display:flex;flex-direction:column;gap:10px;padding:14px 18px 16px}.nodecard .srow{align-items:center}.nodeout{margin-top:4px}
+
+/* ----- explore polish: icons for categories, rings only on hover or when selected, transparent bottom bar ----- */
+.xcats{gap:5px;padding:4px 14px 6px}.xcat{width:38px;height:38px;padding:8px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.xcat svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.xcatname{padding:0 16px 8px;font-size:12.5px;color:var(--muted)}
+.xitem .xthumb{transition:box-shadow .12s}.xitem:hover .xthumb,.xitem:focus-visible .xthumb,.xitem.sel .xthumb{box-shadow:0 0 0 2.5px var(--orange)}
+.xbottom{background:transparent;border-top:0;backdrop-filter:none}.xbottom .xdate,.xbottom .xrate{text-shadow:0 0 6px #000,0 0 3px #000}
+.xbottom .xtool,.xbottom .xplay{text-shadow:none;filter:drop-shadow(0 0 3px rgba(0,0,0,.9))}
+.xside{bottom:0}

@@ -140,13 +140,13 @@ def run(m: Mission, eph=None, consts: ConstantSet | None = None, progress=None, 
     states: dict[str, SatState] = {}
     for sc in m.spacecraft:
         states[sc.name] = initial_state(m, sc, consts, eph); res.start[sc.name] = initial_state(m, sc, consts, eph)
-        res.samples[sc.name] = dict(jd=[], r=[], v=[], central=[], seg=[])
+        res.samples[sc.name] = dict(jd=[], r=[], v=[], central=[], seg=[], cmd=[], tc=[])
     reports_on = {r.name: r.active for r in m.reports}
     for r in m.reports: res.reports[r.name] = dict(columns=list(r.params), rows=[], units=[P.UNITS.get(p.split('.')[-1], '') for p in r.params], filename=r.filename, precision=r.precision)
-    seg_id = [0]; n_cmd = len(m.commands)
+    seg_id = [0]; n_cmd = len(m.commands); ctx = dict(ci=0, t0={})
 
     def record(st: SatState, jd, r, v):
-        s = res.samples[st.name]; s['jd'].append(jd); s['r'].append(np.asarray(r, float)); s['v'].append(np.asarray(v, float)); s['central'].append(st.central); s['seg'].append(seg_id[0])
+        s = res.samples[st.name]; s['cmd'].append(ctx['ci']); s['tc'].append((jd - ctx['t0'].get(st.name, jd)) * 86400.0); s['jd'].append(jd); s['r'].append(np.asarray(r, float)); s['v'].append(np.asarray(v, float)); s['central'].append(st.central); s['seg'].append(seg_id[0])
 
     def report_row(sat: str, st: SatState, jd, r, v, only: str | None = None):
         for rf in m.reports:
@@ -161,6 +161,7 @@ def run(m: Mission, eph=None, consts: ConstantSet | None = None, progress=None, 
 
     for ci, cmd in enumerate(m.commands):
         if not cmd.enabled: continue
+        ctx['ci'] = ci; ctx['t0'] = {n_: s_.jd for n_, s_ in states.items()}
         if progress: progress(f'{cmd.text()}', ci / max(1, n_cmd))
         if cmd.kind == 'Toggle': reports_on[cmd.report] = cmd.on; continue
         if cmd.kind == 'Report':
