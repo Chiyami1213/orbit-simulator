@@ -1,4 +1,4 @@
-"""Generate the installer's wizard artwork (branded navy-to-blue side panel + small header image) in several DPI sizes -> packaging/wizard/*.bmp
+"""Generate the installer's wizard artwork (branded navy-to-blue side panel + small header image) in several DPI sizes -> assets/installer/*.bmp
 
 Inno Setup shows the large image on the welcome and finish pages and the small image on the inner pages. Several sizes are listed in
 installer.iss so the wizard stays sharp at 100-250 % display scaling.
@@ -7,7 +7,7 @@ import math
 import pathlib
 from PIL import Image, ImageDraw, ImageFont
 
-OUT = pathlib.Path(__file__).with_name('wizard'); OUT.mkdir(exist_ok=True)
+OUT = pathlib.Path(__file__).resolve().parents[1] / 'assets' / 'installer'; OUT.mkdir(exist_ok=True)
 SS = 3                                                              # supersampling for smooth edges
 
 

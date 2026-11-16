@@ -38,12 +38,17 @@ def _arrow(origin, tip, c, name='', width=5, head_frac=0.12, text=None, showlege
     traces.append(go.Scatter3d(**kw)); return traces
 
 
+def legend_dot(name, c, symbol='circle'):
+    """A legend-only marker, so the legend shows a plain circle instead of the mesh's odd icon."""
+    return go.Scatter3d(x=[None], y=[None], z=[None], mode='markers', marker=dict(size=8, color=c, symbol=symbol, line=dict(width=0)), name=name, showlegend=True, hoverinfo='skip')
+
+
 def sphere(center, radius, c, n=28, name=''):
     u = np.linspace(0, 2 * np.pi, n); v = np.linspace(0, np.pi, n // 2 + 1)
     x = center[0] + radius * np.outer(np.cos(u), np.sin(v)); y = center[1] + radius * np.outer(np.sin(u), np.sin(v))
     z = center[2] + radius * np.outer(np.ones_like(u), np.cos(v))
     return go.Surface(x=x, y=y, z=z, showscale=False, opacity=0.95, colorscale=[[0, c], [1, c]], name=name or 'body',
-                      hoverinfo='name', showlegend=bool(name), lighting=dict(ambient=0.75, diffuse=0.5))
+                      hoverinfo='name', showlegend=False, lighting=dict(ambient=0.75, diffuse=0.5))
 
 
 LABEL_POS = ['top center', 'bottom center', 'middle right', 'middle left', 'top right', 'top left', 'bottom right', 'bottom left']
@@ -86,9 +91,11 @@ def build_figure(sc: Scene, theme: str = 'light', user_name: str = '', body: str
         if textures and d.body and has_texture(d.body):                       # real surface map sampled onto a sphere mesh
             x, y, z, i, j, k, colors = sphere_mesh(d.body)
             fig.add_trace(go.Mesh3d(x=d.center[0] + d.radius * x, y=d.center[1] + d.radius * y, z=d.center[2] + d.radius * z, i=i, j=j, k=k, vertexcolor=colors,
-                                    flatshading=False, lighting=dict(ambient=0.95, diffuse=0.3, specular=0.0), name=d.body, showlegend=True, hoverinfo='name'))
+                                    flatshading=False, lighting=dict(ambient=0.95, diffuse=0.3, specular=0.0), name=d.body, showlegend=False, hoverinfo='name'))
+            fig.add_trace(legend_dot(d.body, T['body']))
         else:
             fig.add_trace(sphere(d.center, d.radius, T['body'], name=d.label or 'central body'))
+            fig.add_trace(legend_dot(d.label or 'central body', T['body']))
     for o in sc.orbits:
         P = o.sample(721); allp.append(P)
         ths = o.label_ths if o.label_ths is not None else 0

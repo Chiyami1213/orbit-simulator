@@ -17,6 +17,7 @@ from ..plots2d.render import render
 from ..view3d.animate import build_html
 from ..results import Result
 from .present import summary_cards, extra_tabs
+from ..theme import apply_palette
 from . import shell, backup
 
 VERSION = '1.0.0'
@@ -68,42 +69,81 @@ def _scene_payload(name, sc, theme, user, with_3d=True, opts=None):
     buf = io.StringIO(); fig.savefig(buf, format='svg', facecolor=fig.get_facecolor()); svg = buf.getvalue()
     overlaps = getattr(fig, 'label_overlaps', 0); plt.close(fig)
     svg = svg[svg.index('<svg'):]
-    html = build_html(sc, theme, user, plotlyjs=PLOTLY_SRC, body=opts.get('body', 'symbol'), n_frames=int(opts.get('frames', 480)), textures=bool(opts.get('textures')), model=opts.get('model', 'marker'), show_fps=bool(opts.get('fps'))) if with_3d else ''
+    html = build_html(sc, theme, user, plotlyjs=PLOTLY_SRC, body=opts.get('body', 'symbol'), n_frames=int(opts.get('frames', 480)), textures=bool(opts.get('textures')), model=opts.get('model', 'marker'), show_fps=bool(opts.get('fps')), repeat=bool(opts.get('repeat', True))) if with_3d else ''
     return dict(name=name, svg=svg, html3d=html, overlaps=overlaps, has_anim=bool(sc.tracks), notes=list(sc.notes), is3d=bool(sc.is3d))
+
+
+PROGRESS = dict(stage='', frac=0.0, seq=0)
+
+
+def _prog(stage: str, frac: float):
+    PROGRESS.update(stage=stage, frac=frac)
+
+
+def progress(p: dict) -> dict:
+    return dict(PROGRESS)
+
+
+def _nonfinite(res) -> list[str]:
+    """Names of result values that came out NaN or infinite (a sign the inputs are outside the solver's domain)."""
+    bad = []
+    for st in res.steps:
+        v = st.value
+        try:
+            arr = np.asarray(v, dtype=float)
+        except (TypeError, ValueError):
+            continue
+        if arr.size and not np.all(np.isfinite(arr)): bad.append(st.name)
+    return bad
 
 
 def solve(p: dict) -> dict:
     mid = p['mid']; spec = MODULES[mid]; vals = _vals(mid, p.get('vals')); theme = p.get('theme', 'dark'); user = p.get('name', '')
     vals['_label'] = p.get('label') or f'Module {mid}'
     c = p.get('consts') or {}; C = ConstantSet(c.get('mode', 'Course table'), float(c.get('moon_R', 2000.0)))
+    problems: list[str] = []
     with LOCK:
+        apply_palette((p.get('opts') or {}).get('palette', 'prussian'))
+        _prog('solving the equations', 0.08)
         try:
             res: Result = spec.run(vals, C)
-        except (ValueError, ZeroDivisionError, KeyError, np.linalg.LinAlgError) as ex:
-            return dict(error=f'Could not solve with these inputs: {ex}')
+        except (ValueError, ZeroDivisionError, KeyError, np.linalg.LinAlgError, OverflowError, FloatingPointError) as ex:
+            _prog('', 1.0)
+            return dict(error=f'Could not solve with these inputs: {ex}', fatal=True)
         except Exception:
-            return dict(error='Unexpected error', trace=traceback.format_exc())
+            _prog('', 1.0)
+            return dict(error='Unexpected error', trace=traceback.format_exc(), fatal=True)
+        bad = _nonfinite(res)
+        if bad: problems.append('these values are not finite numbers: ' + ', '.join(bad[:6]) + ('…' if len(bad) > 6 else ''))
         try:
             opts = p.get('opts') or {}
-            scenes = [_scene_payload('main', res.scene, theme, user, not opts.get('skip3d'), opts)] + [_scene_payload(k, sc, theme, user, not opts.get('skip3d'), opts) for k, sc in res.scenes.items()]
+            names = ['main'] + list(res.scenes)
+            scs = [res.scene] + list(res.scenes.values())
+            scenes = []
+            for i, (nm, sc) in enumerate(zip(names, scs)):
+                _prog('drawing the 2d figure' + (' and the 3d view' if not opts.get('skip3d') else ''), 0.3 + 0.6 * i / len(scs))
+                scenes.append(_scene_payload(nm, sc, theme, user, not opts.get('skip3d'), opts))
             extra_figs = []
             for k, f in res.figs.items():
                 fig = f(theme, user); b = io.StringIO(); fig.savefig(b, format='svg', facecolor=fig.get_facecolor()); plt.close(fig)
                 extra_figs.append(dict(name=k, svg=b.getvalue()[b.getvalue().index('<svg'):]))
-        except Exception:
-            plt.close('all')
-            return dict(error='The inputs solved but the figure could not be drawn (check for zero or negative radii/velocities).', trace=traceback.format_exc())
-        LAST.clear(); LAST.update(res=res, name=user, label=vals['_label'], mid=mid, body=(p.get('opts') or {}).get('body', 'symbol'))
+        except Exception as ex:
+            plt.close('all'); trace = traceback.format_exc()
+            problems.append(f'the figures could not be drawn ({type(ex).__name__}: {ex}); the numbers and steps are still available')
+            scenes = [dict(name='main', svg='', html3d='', overlaps=0, has_anim=False, notes=[], is3d=False)]; extra_figs = []
+        _prog('done', 1.0)
+        LAST.clear(); LAST.update(palette=(p.get('opts') or {}).get('palette', 'prussian'), res=res, name=user, label=vals['_label'], mid=mid, body=(p.get('opts') or {}).get('body', 'symbol'))
     groups = []
     for g in dict.fromkeys(s.group for s in res.steps):
         groups.append(dict(name=g, rows=[[s.name, s.symbol, s.display(), s.units, s.equation, s.note] for s in res.steps if s.group == g]))
     return dict(title=res.title, label=res.label, warnings=res.warnings, checks=res.checks, groups=groups, scenes=scenes, figs=extra_figs,
-                cards=summary_cards(mid, res), tabs=extra_tabs(mid, res), inputs=_jsonable(res.inputs))
+                cards=summary_cards(mid, res), tabs=extra_tabs(mid, res), inputs=_jsonable(res.inputs), problems=problems)
 
 
 def export(idx: int, fmt: str, theme: str = 'light'):
     """Render the idx-th scene of the last result for download. Returns (bytes, mimetype, filename)."""
     if not LAST: raise ValueError('nothing solved yet')
+    apply_palette(LAST.get('palette', 'prussian'))
     res: Result = LAST['res']; scenes = [('main', res.scene)] + list(res.scenes.items()); name, sc = scenes[idx]
     stem = ((LAST['name'] + '_') if LAST['name'] else '') + LAST['label'].replace(' ', '_') + ('' if name == 'main' else '_' + name.split()[0])
     with LOCK:
@@ -238,6 +278,6 @@ def report_issue(p: dict) -> dict:
     return dict(ok=True, url=url)
 
 
-ROUTES = {'meta': lambda p: meta(), 'visible': visible, 'solve': solve, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
+ROUTES = {'meta': lambda p: meta(), 'visible': visible, 'solve': solve, 'progress': progress, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
           'fullscreen': fullscreen, 'open_folder': open_folder, 'export_save': export_save, 'report_issue': report_issue,
           'backup_create': _bk(_bk_create), 'backup_list': _bk(_bk_list), 'backup_restore': _bk(_bk_restore), 'backup_import': _bk(_bk_import), 'backup_delete': _bk(_bk_delete)}

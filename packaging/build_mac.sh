@@ -9,15 +9,15 @@ OUT="$HOME/Library/Application Support/Orbit Simulator/build"
 mkdir -p "$OUT/dist" "$OUT/work" "$OUT/installer"
 
 python3 -m pip install -r requirements-dev.txt
-python3 packaging/make_icon.py                                   # writes packaging/icon.png (1024 px)
+python3 packaging/make_icon.py                                   # writes assets/icons/icon.png (1024 px)
 
 # .icns from the 1024 px PNG
 ICONSET="$OUT/work/icon.iconset"; rm -rf "$ICONSET"; mkdir -p "$ICONSET"
 for s in 16 32 128 256 512; do
-  sips -z "$s" "$s" packaging/icon.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
-  sips -z "$((s * 2))" "$((s * 2))" packaging/icon.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+  sips -z "$s" "$s" assets/icons/icon.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
+  sips -z "$((s * 2))" "$((s * 2))" assets/icons/icon.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
 done
-iconutil -c icns "$ICONSET" -o packaging/icon.icns
+iconutil -c icns "$ICONSET" -o assets/icons/icon.icns
 
 python3 -m PyInstaller packaging/mathkit.spec --noconfirm --distpath "$OUT/dist" --workpath "$OUT/work"
 

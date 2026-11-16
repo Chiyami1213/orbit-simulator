@@ -8,8 +8,9 @@ __pycache__/
 build_out/
 mathkit/ui/web/vendor/
 edgeprof*/
-packaging/icon.png
-packaging/icon.icns
-packaging/wizard/
-!mathkit/assets/textures/*.png
-!docs/gallery/*.png
+assets/icons/icon.png
+assets/icons/icon.icns
+assets/installer/
+!assets/textures/*.png
+!assets/gallery/*.png
+!assets/reference/**/*.png

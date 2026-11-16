@@ -1,4 +1,4 @@
-"""Generate packaging/icon.ico (navy tile, orange orbit, blue planet, yellow spacecraft)."""
+"""Generate assets/icons/icon.ico (navy tile, orange orbit, blue planet, yellow spacecraft)."""
 import math
 import pathlib
 from PIL import Image, ImageDraw
@@ -23,7 +23,7 @@ d.ellipse((fx - r, fy - r, fx + r, fy + r), fill=(76, 141, 246, 255))
 d.ellipse((fx - r * .55, fy - r * .7, fx - r * .1, fy - r * .25), fill=(130, 180, 255, 255))
 sx, sy = on_orbit(math.radians(35))
 d.ellipse((sx - 42, sy - 42, sx + 42, sy + 42), fill=(245, 183, 59, 255))
-im.save(pathlib.Path(__file__).with_name('icon.png'))                      # 1024 px source for the macOS .icns
-out = pathlib.Path(__file__).with_name('icon.ico')
+im.save(pathlib.Path(__file__).resolve().parents[1] / 'assets' / 'icons' / 'icon.png')                      # 1024 px source for the macOS .icns
+out = pathlib.Path(__file__).resolve().parents[1] / 'assets' / 'icons' / 'icon.ico'
 im.save(out, sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
 print('wrote', out)

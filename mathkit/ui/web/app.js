@@ -42,6 +42,7 @@ const ICO = {
   layers: '<path d="M12 2.5 2.5 7.2 12 12l9.5-4.8z"/><path d="M2.5 12 12 16.8l9.5-4.8M2.5 16.8 12 21.5l9.5-4.7"/>',
   globe: '<circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19M12 2.5a14 14 0 0 1 0 19M12 2.5a14 14 0 0 0 0 19"/>',
   assist: '<path d="M3 19c6 0 8-12 18-13"/><circle cx="13" cy="13" r="3.2"/>',
+  trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/>', check2: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   lambert: '<circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/><path d="M6.5 17.2C9 8 13.5 6 17.2 6.4"/>'
 };
 const MOD_ICO = { 1: 'nbody', 2: 'twobody', 3: 'conic', 4: 'kepler', 5: 'hyper', 6: 'cube', 7: 'zap', 8: 'hohmann', 9: 'layers', 10: 'globe', 11: 'assist', 12: 'lambert' };
@@ -51,22 +52,24 @@ const BODY_SYM = { Sun: '☉', Moon: '☽', Mercury: '☿', Venus: '♀', Earth:
 const UTIL = [['jd', 'Julian Date', 'cal'], ['const', 'Body Constants', 'orbit'], ['tests', 'Test Cases', 'check']];
 const OPT = { tof: 'TOF', radec: 'RA / Dec', ths: 'θ*', xy: 'x, y', polar: 'r, v_r, v_θ', h_eps: 'h, ε', rp_ra: 'r_p, r_a', a_e: 'a, e', p_e: 'p, e', ccw: 'counter-clockwise', cw: 'clockwise' };
 const optText = o => OPT[o] || o;
-const KEYS_DEFAULT = { refresh: 'F5', screenshot: 'F2', fullscreen: 'F11', settings: 'S', menu: 'M' };
+const KEYS_DEFAULT = { refresh: 'F5', screenshot: 'F2', fullscreen: 'F11', settings: 'S', menu: 'M', focus: 'F12', reset: 'F8' };
 const KEY_INFO = {
   refresh: ['Refresh Screen', 're-renders the current page and solves it again, keeping your inputs'],
   screenshot: ['Screenshot', 'saves a png of the app window to the screenshots folder in the app data folder'],
   fullscreen: ['Full Screen', 'switches between full screen and the normal window'],
   settings: ['Settings Page', 'opens the settings page, or goes back to where you were'],
-  menu: ['Menu Bar', 'hides or shows the whole left menu bar']
+  menu: ['Menu Bar', 'hides or shows the whole left menu bar'],
+  reset: ['Reset Panels', 'puts every panel back in the default arrangement and brings back closed panels'],
+  focus: ['Maximise Plot', 'hides every panel except the 3d or 2d view; esc leaves. bring panels back with the buttons in the plot header']
 };
-const LAY_DEFAULT = { navw: 250, subw: 275, panelw: 384, f3d: 0.56, plotsh: 0, fold: false, hidden: false, sub: false, groups: { utilities: true } };
+const LAY_DEFAULT = { dock: null, navw: 285, subw: 275, panelw: 384, f3d: 0.56, plotsh: 0, fold: false, hidden: false, sub: false, groups: { modules: true, utilities: true }, closed: [] };
 const FRAME_PRESETS = [[240, 'Low'], [480, 'Medium'], [1200, 'High'], [3000, 'Ultra']];
 const fresh = o => JSON.parse(JSON.stringify(o));
 let META = null;
 let SET = { const: 'Course table', moonR: 2000, unit: 'km', appearance: 'dark', name: '', label: '', sliders: true, layout: {}, keys: {},
-  view: 'both', bodyNotation: 'symbol', frames: 480, textures: false, model: 'marker', fps: false };
+  view: 'both', palette: 'prussian', repeat: true, bodyNotation: 'symbol', frames: 480, textures: false, model: 'marker', fps: false };
 const LAY = fresh(LAY_DEFAULT);
-const S = { page: '12', prev: '12', canon: {}, tab: 'Plots', scene: 0, res: null, seq: 0, tests: null, rebind: null, cache: new Map(), last: {}, setTab: 'Appearance', backups: null, gpu: '' };
+const S = { page: '12', prev: '12', canon: {}, tab: 'Plots', scene: 0, res: null, seq: 0, tests: null, rebind: null, cache: new Map(), last: {}, setTab: 'Appearance', backups: null, gpu: '', focus: null, fshow: { menu: false, inputs: false, results: false } };
 const mod = () => META.modules.find(m => m.id === S.page);
 const isMod = () => !!mod();
 
@@ -76,7 +79,7 @@ const keys = () => ({ ...KEYS_DEFAULT, ...(SET.keys || {}) });
 const dark = matchMedia('(prefers-color-scheme: dark)');
 const effTheme = () => SET.appearance === 'device' ? (dark.matches ? 'dark' : 'light') : (SET.appearance === 'light' ? 'light' : 'dark');
 dark.addEventListener('change', () => { if (SET.appearance === 'device') { syncChrome(); S.cache.clear(); if (isMod()) solveNow(); } });
-const solveOpts = () => ({ body: SET.bodyNotation, frames: SET.frames, textures: SET.textures, model: SET.model, fps: SET.fps });
+const solveOpts = () => ({ body: SET.bodyNotation, frames: SET.frames, textures: SET.textures, model: SET.model, fps: SET.fps, palette: SET.palette, repeat: SET.repeat !== false });
 
 /* ---------- text style (headers: APA title case, explanations: lower case) ---------- */
 const SEL_H = ['.title', '.nv .lbl', '.chip:not(#unitChip)', '.tab', '#panel h2', '.cardx > h3 b', '.sheet h3', '.tbl th', '.flab', '.fld-top label', '.seg button', 'a.btn', 'button.btn',
@@ -112,9 +115,9 @@ function toast(msg, kind = '') {
 
 /* ---------- layout: hide / fold, sub-menu bar and draggable borders ---------- */
 function applyLayout() {
-  const r = document.documentElement.style, a = $('#app'), subOpen = !!LAY.sub && !LAY.hidden;
+  const r = document.documentElement.style, a = $('#app'), subOpen = false;
   r.setProperty('--navw', LAY.navw + 'px'); r.setProperty('--panelw', LAY.panelw + 'px'); r.setProperty('--subw', subOpen ? LAY.subw + 'px' : '0px');
-  a.classList.toggle('fold', !!LAY.fold); a.classList.toggle('menuhidden', !!LAY.hidden); a.classList.toggle('subopen', subOpen);
+  a.classList.toggle('fold', !!LAY.fold); a.classList.toggle('menuhidden', !!LAY.hidden); 
 }
 function drag(handle, onmove, reset) {
   handle.addEventListener('pointerdown', e => {
@@ -127,14 +130,74 @@ function drag(handle, onmove, reset) {
   if (reset) handle.addEventListener('dblclick', () => { reset(); saveSet(); });
 }
 function initSplitters() {
-  const navNow = () => LAY.fold ? 60 : LAY.navw, subNow = () => (LAY.sub && !LAY.hidden) ? LAY.subw : 0;
+  const navNow = () => LAY.fold ? 60 : LAY.navw, subNow = () => 0;
   const maxPanel = () => Math.max(300, Math.min(660, innerWidth - navNow() - subNow() - 520));
   drag($('#sp1'), e => { LAY.navw = clamp(e.clientX, 170, 420); LAY.panelw = clamp(LAY.panelw, 300, maxPanel()); applyLayout(); }, () => { LAY.navw = LAY_DEFAULT.navw; applyLayout(); });
-  drag($('#sp3'), e => { LAY.subw = clamp(e.clientX - navNow(), 170, 340); applyLayout(); }, () => { LAY.subw = LAY_DEFAULT.subw; applyLayout(); });
   drag($('#sp2'), e => { LAY.panelw = clamp(e.clientX - navNow() - subNow(), 300, maxPanel()); applyLayout(); }, () => { LAY.panelw = LAY_DEFAULT.panelw; applyLayout(); });
   applyLayout();
 }
 new ResizeObserver(() => { const p = $('.plots'), m = $('#main'); if (p && m) p.classList.toggle('stack', m.clientWidth < 960 && SET.view === 'both'); }).observe(document.documentElement);
+
+/* ---------- menu bar (file / edit / view / go / help) ---------- */
+const goto = (page, tab) => { if (tab) S.setTab = tab; if (page === 'settings' && S.page !== 'settings') S.prev = S.page; go(page); };
+const copyText = async txt => { try { await navigator.clipboard.writeText(txt); toast('copied to the clipboard', 'ok'); } catch (e) { toast('could not copy: ' + e, 'err'); } };
+const setPalette = id => { SET.palette = id; saveSet(); syncChrome(); S.cache.clear(); S.last = {}; if (S.page === 'settings') renderUtil(); else if (isMod()) solveNow(); };
+const setAppearance = v => { SET.appearance = v; saveSet(); syncChrome(); S.cache.clear(); S.last = {}; if (S.page === 'settings') renderUtil(); else if (isMod()) solveNow(); };
+function menuDefs() {
+  const K = keys(), res = S.res && !S.res.error ? S.res : null, M = isMod(), tile = id => ({ label: TILE_NAME[id], check: () => !isClosed(id), run: () => (isClosed(id) ? openTile(id) : closeTile(id)), dis: !M });
+  return {
+    'File': [
+      { label: 'Save Screenshot', key: K.screenshot, run: ACTIONS.screenshot },
+      { label: 'Export Figure…', dis: !res, run: () => { S.tab = 'Export Figure'; renderMain(); } },
+      { sep: 1 },
+      { label: 'Create Backup', run: async () => { const r = await api('backup_create', {}); toast(r.ok ? 'backup created' : r.error, r.ok ? 'ok' : 'err'); S.backups = null; } },
+      { label: 'Open Data Folder', run: async () => { const r = await api('open_folder', {}); if (!r.ok) toast(r.error, 'err'); } },
+      { sep: 1 },
+      { label: 'Settings', key: K.settings, run: ACTIONS.settings }],
+    'Edit': [
+      { label: 'Solve & Draw', dis: !M, run: () => solveNow(false, true) },
+      { label: 'Reset Inputs', dis: !M, run: () => { const m = mod(); delete S.canon[m.id]; renderPanel(); solveNow(); } },
+      { sep: 1 },
+      { label: 'Copy Results as Text', dis: !res, run: () => copyText(res.groups.map(g => g.name + '\n' + g.rows.map(r => `  ${r[0]} = ${r[2]}${r[3] ? ' ' + r[3] : ''}`).join('\n')).join('\n\n')) },
+      { label: 'Copy Inputs', dis: !M, run: () => copyText(JSON.stringify(S.canon[S.page], null, 1)) }],
+    'View': [
+      { label: 'Menu Bar', key: K.menu, check: () => !LAY.hidden, run: ACTIONS.menu },
+      { label: 'Maximise Plot', key: K.focus, dis: !res, run: ACTIONS.focus },
+      { label: 'Full Screen', key: K.fullscreen, run: ACTIONS.fullscreen },
+      { sep: 1 }, { head: 'Panels' }, tile('inputs'), tile('v3d'), tile('v2d'), tile('results'),
+      { label: 'Reset Panel Layout', key: K.reset, run: resetPanels },
+      { sep: 1 }, { head: 'Mode' },
+      ...[['light', 'Light'], ['dark', 'Dark'], ['device', 'Use Device Settings']].map(([v, l]) => ({ label: l, check: () => SET.appearance === v, run: () => setAppearance(v) })),
+      { sep: 1 }, { head: 'Color Theme' },
+      ...PALETTES.map(([id, name]) => ({ label: name, check: () => (SET.palette || 'prussian') === id, run: () => setPalette(id) })),
+      { sep: 1 }, { label: 'Refresh', key: K.refresh, run: ACTIONS.refresh }],
+    'Go': [{ head: 'Modules' }, ...META.modules.map(m => ({ label: m.short, check: () => S.page === m.id, run: () => go(m.id) })),
+      { sep: 1 }, { head: 'Utilities' }, ...UTIL.map(([id, name]) => ({ label: name, check: () => S.page === id, run: () => go(id) }))],
+    'Help': [
+      { label: 'Help and Feedback', run: () => goto('settings', 'Help and Feedback') },
+      { label: 'Report an Issue', run: () => goto('settings', 'Help and Feedback') },
+      { label: 'Key Bindings', run: () => goto('settings', 'Key Bindings') },
+      { sep: 1 },
+      { label: 'About and Licenses', run: () => goto('settings', 'About') }]
+  };
+}
+let openMenu = null;
+function closeMenu() { document.querySelectorAll('.mdrop').forEach(d => d.remove()); document.querySelectorAll('#menubar>button.open').forEach(b => b.classList.remove('open')); openMenu = null; }
+function showMenu(name, btn) {
+  closeMenu(); openMenu = name; btn.classList.add('open'); const r = btn.getBoundingClientRect();
+  const d = el('div', { class: 'mdrop', style: `left:${r.left}px;top:${r.bottom + 4}px;max-height:${innerHeight - r.bottom - 16}px;overflow:auto` });
+  for (const it of menuDefs()[name]) {
+    if (it.sep) { d.append(el('div', { class: 'msep' })); continue; } if (it.head) { d.append(el('div', { class: 'mh' }, it.head)); continue; }
+    d.append(el('button', { class: 'mi', disabled: !!it.dis, onclick: () => { closeMenu(); it.run(); } }, el('span', { class: 'ck' }, it.check && it.check() ? ico('check2') : ''), el('span', { class: 'ml' }, it.label), it.key ? el('kbd', {}, it.key) : ''));
+  }
+  document.body.append(d);
+}
+function buildMenubar() {
+  const bar = $('#menubar'); bar.replaceChildren(...['File', 'Edit', 'View', 'Go', 'Help'].map(n => el('button', { role: 'menuitem',
+    onclick: e => { e.stopPropagation(); if (openMenu === n) closeMenu(); else showMenu(n, e.currentTarget); }, onmouseenter: e => { if (openMenu && openMenu !== n) showMenu(n, e.currentTarget); } }, n)));
+  document.addEventListener('click', e => { if (openMenu && !e.target.closest('.mdrop')) closeMenu(); });
+  window.addEventListener('blur', closeMenu);
+}
 
 /* ---------- loading screen ---------- */
 const SPLASH = { t0: performance.now(), real: 0, done: false };
@@ -156,7 +219,7 @@ function fpsLoop(now) {
 function showFps() {
   const b = $('#fpsb'); b.hidden = !SET.fps; if (SET.fps) b.textContent = `UI ${FPS.ui} fps` + (FPS.d3 ? ` · 3D ${FPS.d3} fps` : '');
 }
-window.addEventListener('message', e => { if (e.data && e.data.orbitFps != null) { FPS.d3 = e.data.orbitFps; showFps(); } });
+window.addEventListener('message', e => { if (e.data && e.data.orbitRepeat != null) { SET.repeat = e.data.orbitRepeat; saveSet(); S.cache.clear(); } if (e.data && e.data.orbitFps != null) { FPS.d3 = e.data.orbitFps; showFps(); } });
 function gpuInfo() {
   if (S.gpu) return S.gpu;
   try {
@@ -167,41 +230,39 @@ function gpuInfo() {
 }
 
 /* ---------- chrome and navigation ---------- */
+const PALETTES = [['prussian', 'Prussian Blue & Orange', ['#0f1628', '#1c2d56', '#ff6b4a']], ['forest', 'Forest Green & Amber', ['#0e1a15', '#1d4a38', '#f5b73b']], ['graphite', 'Graphite & Teal', ['#151618', '#33363f', '#2ec4b6']], ['plum', 'Plum & Coral', ['#1a1226', '#3b2a63', '#ff5d73']]];
 function syncChrome() {
-  const th = effTheme(); document.body.dataset.theme = th; document.documentElement.dataset.boot = th;
+  const th = effTheme(); document.body.dataset.theme = th; document.body.dataset.palette = SET.palette || 'prussian'; document.documentElement.dataset.boot = th;
   document.querySelectorAll('[data-const]').forEach(b => b.classList.toggle('on', b.dataset.const === SET.const));
   $('#unitChip').textContent = 'Units: ' + SET.unit + ' · s'; showFps();
 }
 function navItem(id, label, iconNode, tip, on) {
   return el('button', { class: 'nv' + ((on ?? S.page === id) ? ' on' : ''), title: tip || label, onclick: () => go(id) }, el('span', { class: 'n' }, iconNode), el('span', { class: 'lbl' }, label));
 }
-function toggleSub() { LAY.sub = !LAY.sub; applyLayout(); buildNav(); buildSub(); saveSet(); }
-function utilGroup() {
-  const open = LAY.groups.utilities !== false;
+function navGroup(key, label, icon, items) {
+  const open = LAY.groups[key] !== false;
   return el('div', { class: 'ngrp' },
-    el('button', { class: 'nv grp', title: 'Utilities', 'aria-expanded': String(open), onclick: () => { LAY.groups.utilities = !open; saveSet(); buildNav(); } },
-      el('span', { class: 'n' }, ico('tools')), el('span', { class: 'lbl' }, 'Utilities'), el('span', { class: 'chev' }, ico(open ? 'down' : 'rc'))),
-    open ? el('div', { class: 'nsub' }, ...UTIL.map(([id, name, ic]) => navItem(id, name, ico(ic)))) : null);
+    el('button', { class: 'nv grp', title: label, 'aria-expanded': String(open), onclick: () => { LAY.groups[key] = !open; saveSet(); buildNav(); } },
+      el('span', { class: 'n' }, ico(icon)), el('span', { class: 'lbl' }, label), el('span', { class: 'chev' }, ico(open ? 'down' : 'rc'))),
+    open ? el('div', { class: 'nsub' }, ...items) : null);
 }
 function buildNav() {
   $('#nav').replaceChildren(
     el('div', { class: 'navtop' }, el('button', { class: 'navtoggle', title: LAY.fold ? 'expand menu' : 'collapse menu', onclick: () => { LAY.fold = !LAY.fold; applyLayout(); buildNav(); saveSet(); } }, ico(LAY.fold ? 'right' : 'left'))),
     el('div', { class: 'navlist' },
-      el('button', { class: 'nv grp', title: 'Modules', 'aria-expanded': String(!!LAY.sub), onclick: toggleSub }, el('span', { class: 'n' }, ico('grid')), el('span', { class: 'lbl' }, 'Modules'), el('span', { class: 'chev' }, ico('rc'))),
-      utilGroup()),
+      navGroup('modules', 'Modules', 'grid', META.modules.map(m => navItem(m.id, m.short, ico(MOD_ICO[m.id]), m.short))),
+      navGroup('utilities', 'Utilities', 'tools', UTIL.map(([id, name, ic]) => navItem(id, name, ico(ic))))),
     el('div', { class: 'navbottom' }, navItem('settings', 'Settings', ico('gear'))));            // the gear sits alone at the very bottom
 }
-function buildSub() {
-  $('#subnav').replaceChildren(el('div', { class: 'subhead' }, 'Modules'), ...META.modules.map(m => navItem(m.id, m.short, ico(MOD_ICO[m.id]), m.short)));
-}
 async function go(page) {
-  S.page = page; S.scene = 0; buildNav(); buildSub();
+  setFocus(null);
+  S.page = page; S.scene = 0; buildNav();
   $('#app').classList.toggle('wide', !isMod());
   if (isMod()) {
-    renderPanel(); S.res = S.last[page] || null; if (S.res) { showChecks(S.res); renderMain(); } else $('#main').replaceChildren();      // show the last result instantly, refresh behind it
+    renderPanel(); S.res = S.last[page] || null; if (S.res) showChecks(S.res); renderMain();      // show the last result instantly, refresh behind it
     return solveNow();
   }
-  S.res = null; $('#panel').replaceChildren(); renderUtil();
+  S.res = null; unmountDock(); $('#panel').replaceChildren(); renderUtil();
 }
 function setSet(patch, resolve = true) {
   Object.assign(SET, patch); saveSet(); syncChrome();
@@ -218,7 +279,7 @@ function renderPanel() {
   const sel = el('select', { class: 'preset', onchange: e => { if (e.target.value !== '') loadPreset(m, +e.target.value); } },
     el('option', { value: '' }, 'Load a homework / exam problem'), ...m.presets.map((pr, i) => el('option', { value: i }, pr.label)));
   p.replaceChildren(el('h2', {}, m.short), el('div', { class: 'blurb' }, m.blurb), m.presets.length ? sel : '', el('div', { class: 'pnote', id: 'pnote' }),
-    el('div', { id: 'fields' }), el('button', { class: 'solve', onclick: () => solveNow() }, 'Solve & Draw'), el('div', { id: 'checks' }));
+    el('div', { id: 'fields' }), el('button', { class: 'solve', onclick: () => solveNow(false, true) }, 'Solve & Draw'), el('div', { id: 'pbar', class: 'pbar' }, el('div', { class: 'track' }, el('i')), el('span', {})), el('div', { id: 'checks' }));
   renderFields();
 }
 function loadPreset(m, i) {
@@ -272,14 +333,43 @@ const refreshVisible = debounce(async () => {
 }, 40);
 
 /* ---------- solving (cached; live drags skip the 3-D page) ---------- */
-async function solveNow(live = false) {
+function progressStart() {
+  const bar = $('#pbar'); if (!bar) return () => { };
+  const i = bar.querySelector('i'), t = bar.querySelector('span'); bar.classList.add('on'); i.style.width = '4%'; t.textContent = 'starting';
+  let stop = false, shown = 4;
+  (async () => {
+    while (!stop) {
+      try { const g = await api('progress', {}); const target = Math.max(4, Math.min(96, (g.frac || 0) * 100)); shown = Math.max(shown, target); i.style.width = shown + '%'; if (g.stage) t.textContent = g.stage + ' · ' + Math.round(shown) + '%'; } catch (e) { }
+      await new Promise(r => setTimeout(r, 110));
+    }
+  })();
+  return () => { stop = true; i.style.width = '100%'; t.textContent = 'done · 100%'; setTimeout(() => bar.classList.remove('on'), 500); };
+}
+function askDialog({ title, lines, intro, actions }) {
+  return new Promise(res => {
+    const done = v => { ov.remove(); res(v); };
+    const ov = el('div', { class: 'modalov', onclick: e => { if (e.target === ov) done(actions[actions.length - 1].value); } },
+      el('div', { class: 'modal', role: 'alertdialog' }, el('h3', {}, title), intro ? el('p', {}, intro) : '', lines && lines.length ? el('ul', {}, ...lines.map(l => el('li', {}, l))) : '',
+        el('div', { class: 'btnrow' }, ...actions.map(a => el('button', { class: 'btn' + (a.pri ? ' pri' : ''), onclick: () => done(a.value) }, a.label)))));
+    document.body.append(ov); const b = ov.querySelector('button.pri') || ov.querySelector('button'); if (b) b.focus();
+  });
+}
+async function solveNow(live = false, explicit = false) {
   const m = mod(); if (!m) return; const id = ++S.seq;
   const payload = { mid: m.id, vals: S.canon[m.id], consts: { mode: SET.const, moon_R: SET.moonR }, theme: effTheme(), name: SET.name, label: SET.label, opts: solveOpts() };
   const key = JSON.stringify(payload);
   if (!live && S.cache.has(key)) { const r = S.cache.get(key); S.cache.delete(key); S.cache.set(key, r); S.res = S.last[m.id] = r; showChecks(r); renderMain(); return; }
-  $('#spin').classList.add('on');
-  let r; try { r = await api('solve', live ? { ...payload, opts: { ...payload.opts, skip3d: true } } : payload); } catch (e) { r = { error: String(e) }; }
-  if (id !== S.seq) return; $('#spin').classList.remove('on');
+  $('#spin').classList.add('on'); const endBar = (!live) ? progressStart() : () => { };
+  let r; try { r = await api('solve', live ? { ...payload, opts: { ...payload.opts, skip3d: true } } : payload); } catch (e) { r = { error: String(e), fatal: true }; }
+  endBar(); if (id !== S.seq) return; $('#spin').classList.remove('on');
+  if (explicit && !live) {                                                                 // the Solve button: tell the user about math problems instead of silently drawing them
+    if (r.error) {
+      await askDialog({ title: 'Cannot Solve With These Inputs', intro: r.error, lines: ['nothing was drawn, so there is nothing to continue with', 'adjust the inputs (the values, the body, or the root choice) and press solve & draw again'], actions: [{ label: 'Adjust Inputs', value: 'adjust', pri: true }] });
+    } else if ((r.problems || []).length) {
+      const go = await askDialog({ title: 'The Solver Reported a Problem', intro: 'the calculation finished but something may be wrong with these inputs:', lines: [...r.problems, ...r.warnings], actions: [{ label: 'Adjust Inputs', value: 'adjust' }, { label: 'Continue Anyway', value: 'go', pri: true }] });
+      if (go !== 'go') { if (S.last[m.id]) { S.res = S.last[m.id]; showChecks(S.res); renderMain(); } return; }
+    }
+  }
   showChecks(r);
   if (live && !r.error && updateLive(r)) return;                                  // in-place 2-D update, 3-D frame untouched
   S.res = r; if (S.scene >= (r.scenes || []).length) S.scene = 0;
@@ -293,45 +383,202 @@ function updateLive(r) {
 function showChecks(r) {
   const c = $('#checks'); if (!c) return; c.replaceChildren();
   if (r.error) { c.append(chk('err', '✕', r.error)); return; }
-  for (const w of r.warnings) c.append(chk('warn', '!', w));
+  for (const w of [...(r.problems || []), ...r.warnings]) c.append(chk('warn', '!', w));
   for (const k of r.checks) c.append(chk('ok', '✓', k));
 }
 const chk = (cls, ic, t) => el('div', { class: 'chk ' + cls }, el('span', { class: 'ic' }, ic), el('span', {}, t));
 
-/* ---------- main area ---------- */
-function renderMain() {
-  const main = $('#main'), r = S.res; main.replaceChildren();
-  if (!r) return;
-  if (r.error) { main.append(el('div', { class: 'empty' }, r.error)); if (r.trace) main.append(el('pre', {}, r.trace)); return; }
-  const tabs = ['Plots', 'Step-by-Step', ...r.tabs.map(t => apa(t.name)), 'Export Figure']; if (!tabs.includes(S.tab)) S.tab = 'Plots';
+/* ---------- main area: the Plots tab is a dock of movable tiles, the other tabs are plain pages ---------- */
+function tabRow(r) {
+  const tabs = ['Plots', 'Step-by-Step', ...r.tabs.map(t => apa(t.name)), 'Export Figure'];
+  const closed = ['inputs', 'v3d', 'v2d', 'results'].filter(isClosed);
   const views = el('div', { class: 'seg viewseg', title: 'choose the 3d view, the 2d figure, or both' }, ...[['3d', '3D'], ['2d', '2D'], ['both', '3D + 2D']].map(([v, l]) =>
-    el('button', { class: SET.view === v ? 'on' : '', onclick: () => { SET.view = v; saveSet(); renderMain(); } }, l)));
-  main.append(el('div', { class: 'tabrow' }, el('div', { class: 'tabs' }, ...tabs.map(t => el('button', { class: 'tab' + (t === S.tab ? ' on' : ''), onclick: () => { S.tab = t; renderMain(); } }, t))), S.tab === 'Plots' ? views : ''));
-  if (S.tab === 'Plots') plots(main, r); else if (S.tab === 'Step-by-Step') steps(main, r);
-  else if (S.tab === 'Export Figure') exportTab(main, r); else extra(main, r.tabs.find(t => apa(t.name) === S.tab));
+    el('button', { class: SET.view === v ? 'on' : '', onclick: () => { SET.view = v; saveSet(); setFocus(null); renderMain(); } }, l)));
+  const chips = S.tab === 'Plots' && closed.length ? el('div', { class: 'closedchips', title: 'closed panels: click to bring one back' }, ...closed.map(id => el('button', { class: 'chip', onclick: () => openTile(id) }, '+ ' + TILE_NAME[id]))) : '';
+  return el('div', { class: 'tabrow' }, el('div', { class: 'tabs' }, ...tabs.map(t => el('button', { class: 'tab' + (t === S.tab ? ' on' : ''), onclick: () => { S.tab = t; renderMain(); } }, t))), chips, S.tab === 'Plots' ? views : '');
+}
+function renderMain() {
+  const main = $('#main'), r = S.res;
+  if (S.focus && S.tab !== 'Plots') setFocus(null);
+  if (!r || r.error || S.tab === undefined) {
+    unmountDock(); main.replaceChildren(); if (!r) return;
+    main.append(el('div', { class: 'empty' }, r.error)); if (r.trace) main.append(el('pre', {}, r.trace)); return;
+  }
+  const tabs = ['Plots', 'Step-by-Step', ...r.tabs.map(t => apa(t.name)), 'Export Figure']; if (!tabs.includes(S.tab)) S.tab = 'Plots';
+  if (S.tab !== 'Plots') {
+    unmountDock(); main.replaceChildren(tabRow(r));
+    if (S.tab === 'Step-by-Step') steps(main, r); else if (S.tab === 'Export Figure') exportTab(main, r); else extra(main, r.tabs.find(t => apa(t.name) === S.tab));
+    return;
+  }
+  ensureDock(main);
+  $('#tabhost').replaceChildren(tabRow(r)); const sc = r.scenes[S.scene];
+  $('#scenehost').replaceChildren(...(r.scenes.length > 1 ? [el('div', { class: 'scenebar' }, ...r.scenes.map((s, i) => el('button', { class: 'chip' + (i === S.scene ? ' on' : ''), onclick: () => { S.scene = i; renderMain(); } }, s.name === 'main' ? 'Overview' : s.name)))] : []),
+    ...(sc.notes || []).map(n => el('div', { class: 'dim', style: 'margin:0 0 8px' }, n)));
+  const vis = visibleTiles();
+  $('#tile-v3d .tbody').replaceChildren(...(vis.has('v3d') ? [card3d(sc)] : []));
+  $('#tile-v2d .tbody').replaceChildren(...(vis.has('v2d') ? [card2d(sc)] : []));
+  $('#tile-results .tbody').replaceChildren(cardsEl(r.cards), ...r.figs.map(f => el('div', { class: 'cardx', style: 'margin-top:14px;padding:12px;flex:none' }, el('div', { class: 'svgw', html: f.svg }))));
+  layoutDock();
 }
 function cardsEl(cards) {
   return el('div', { class: 'cards4' }, ...cards.map(c => el('div', { class: 'cardx sc' },
     el('div', { class: 'hd' }, el('span', { class: 't' }, c.title), c.pill ? el('span', { class: 'bp' }, c.pill) : el('span', { class: 'h' }, c.headline || '')),
     ...c.rows.map(([a, b]) => el('div', { class: 'r' }, el('span', { class: 'a' }, a), typeof b === 'object' ? el('span', { class: 'bp g' }, b.pill) : el('span', { class: 'b' }, b))))));
 }
-function plots(main, r) {
-  if (r.scenes.length > 1) main.append(el('div', { class: 'scenebar' }, ...r.scenes.map((s, i) => el('button', { class: 'chip' + (i === S.scene ? ' on' : ''), onclick: () => { S.scene = i; renderMain(); } }, s.name === 'main' ? 'Overview' : s.name))));
-  const sc = r.scenes[S.scene], view = SET.view, show3 = view !== '2d', show2 = view !== '3d';
-  const svg = el('div', { class: 'svgw', html: sc.svg });
-  const c3 = show3 ? el('div', { class: 'cardx c3d' }, el('h3', {}, el('b', {}, '3D View'), el('span', { class: 'hint' }, ' · rotate with mouse')), el('div', { class: 'body' }, (() => { const fr = el('iframe'); fr.srcdoc = sc.html3d; return fr; })())) : null;
-  const c2 = show2 ? el('div', { class: 'cardx c2d' }, el('h3', {}, el('b', {}, '2D Annotated'), el('span', { class: 'hint' }, ' · submit-ready')), el('div', { class: 'body' }, svg, sc.overlaps ? el('div', { class: 'ovl' }, `${sc.overlaps} label overlap(s)`) : null)) : null;
-  const both = show3 && show2;
-  const vs = both ? el('div', { class: 'split h', title: 'drag to resize · double-click to reset' }) : null, rs = el('div', { class: 'split row', title: 'drag to resize · double-click to reset' });
-  const plotsEl = el('div', { class: 'plots view-' + view }, c3, vs, c2); plotsEl.style.setProperty('--f3d', LAY.f3d); if (LAY.plotsh > 0) plotsEl.style.height = LAY.plotsh + 'px';
-  plotsEl.classList.toggle('stack', both && main.clientWidth < 960);
-  main.append(plotsEl, rs);
-  if (vs) drag(vs, e => { const b = plotsEl.getBoundingClientRect(); LAY.f3d = clamp((e.clientX - b.left - 5) / (b.width - 10), 0.25, 0.75); plotsEl.style.setProperty('--f3d', LAY.f3d); }, () => { LAY.f3d = LAY_DEFAULT.f3d; plotsEl.style.setProperty('--f3d', LAY.f3d); });
-  drag(rs, e => { const b = plotsEl.getBoundingClientRect(); LAY.plotsh = clamp(e.clientY - b.top, 260, Math.max(320, $('#main').clientHeight - 150)); plotsEl.style.height = LAY.plotsh + 'px'; }, () => { LAY.plotsh = 0; plotsEl.style.height = ''; });
-  for (const n of sc.notes || []) main.append(el('div', { class: 'dim', style: 'margin-top:8px' }, n));
-  main.append(cardsEl(r.cards));
-  for (const f of r.figs) main.append(el('div', { class: 'cardx', style: 'margin-top:18px;padding:12px' }, el('div', { class: 'svgw', html: f.svg })));
+function card3d(sc) {
+  const fr = el('iframe'); fr.srcdoc = sc.html3d;
+  return el('div', { class: 'cardx c3d' }, el('h3', {}, el('b', {}, '3D View'), el('span', { class: 'hint' }, ' · rotate with mouse'), fbar('v3d')), el('div', { class: 'body' }, fr));
 }
+function card2d(sc) {
+  return el('div', { class: 'cardx c2d' }, el('h3', {}, el('b', {}, '2D View'), el('span', { class: 'hint' }, ' · submit-ready'), fbar('v2d')),
+    el('div', { class: 'body' }, el('div', { class: 'svgw', html: sc.svg }), sc.overlaps ? el('div', { class: 'ovl' }, `${sc.overlaps} label overlap(s)`) : null));
+}
+
+/* ---------- dock: tiles you can drag anywhere; the layout adapts so every tile keeps a usable size ---------- */
+const TILE_IDS = ['inputs', 'v3d', 'v2d', 'results'];
+const TILE_MIN = { inputs: [300, 320], v3d: [340, 300], v2d: [300, 300], results: [280, 150] };       // minimum [width, height] in px
+const STACK_H = { inputs: 520, v3d: 540, v2d: 540, results: 380 };                                    // heights when the window is too small and tiles stack
+const GAP = 8;
+const DOCK_DEFAULT = { t: 's', d: 'h', r: 0.27, a: { t: 't', id: 'inputs' }, b: { t: 's', d: 'v', r: 0.73, a: { t: 's', d: 'h', r: 0.56, a: { t: 't', id: 'v3d' }, b: { t: 't', id: 'v2d' } }, b: { t: 't', id: 'results' } } };
+const DOCK = { rects: {} };
+function dockValid(n, seen = new Set()) {
+  if (!n || (n.t !== 't' && n.t !== 's')) return false;
+  if (n.t === 't') { if (!TILE_IDS.includes(n.id) || seen.has(n.id)) return false; seen.add(n.id); return true; }
+  return (n.d === 'h' || n.d === 'v') && typeof n.r === 'number' && dockValid(n.a, seen) && dockValid(n.b, seen) && (!n.a || true) && seen.size >= 0;
+}
+function getDock() {
+  const seen = new Set(); if (!LAY.dock || !dockValid(LAY.dock, seen) || seen.size !== TILE_IDS.length) LAY.dock = fresh(DOCK_DEFAULT);
+  return LAY.dock;
+}
+const TILE_NAME = { inputs: 'Inputs', v3d: '3D View', v2d: '2D View', results: 'Results' };
+const isClosed = id => (LAY.closed || []).includes(id);
+function visibleTiles() {
+  const v = new Set(); if (!isClosed('inputs')) v.add('inputs'); if (!isClosed('results')) v.add('results');
+  if (SET.view !== '2d' && !isClosed('v3d')) v.add('v3d'); if (SET.view !== '3d' && !isClosed('v2d')) v.add('v2d');
+  if (!S.focus) return v;
+  const f = new Set([S.focus]); if (S.fshow.inputs) f.add('inputs'); if (S.fshow.results) f.add('results'); return f;
+}
+function closeTile(id) { if (S.focus) setFocus(null); LAY.closed = [...new Set([...(LAY.closed || []), id])]; saveSet(); renderMain(); }
+function openTile(id) { LAY.closed = (LAY.closed || []).filter(x => x !== id); saveSet(); renderMain(); }
+function resetPanels() { setFocus(null); LAY.dock = fresh(DOCK_DEFAULT); LAY.closed = []; saveSet(); if (S.tab === 'Plots' && isMod()) renderMain(); toast('panels reset to the default arrangement'); }
+const prune = (n, vis) => {
+  if (n.t === 't') return vis.has(n.id) ? n : null;
+  const a = prune(n.a, vis), b = prune(n.b, vis); if (!a) return b; if (!b) return a; return { t: 's', d: n.d, r: n.r, a, b, src: n.src || n };
+};
+function minSize(n) {
+  if (n.t === 't') return TILE_MIN[n.id];
+  const A = minSize(n.a), B = minSize(n.b); return n.d === 'h' ? [A[0] + B[0] + GAP, Math.max(A[1], B[1])] : [Math.max(A[0], B[0]), A[1] + B[1] + GAP];
+}
+function place(n, x, y, w, h, rects, splits) {
+  if (n.t === 't') { rects[n.id] = { x, y, w, h }; return; }
+  const A = minSize(n.a), B = minSize(n.b);
+  if (n.d === 'h') {
+    const avail = w - GAP, wa = clamp(avail * n.r, A[0], Math.max(A[0], avail - B[0]));
+    splits.push({ n, d: 'h', x: x + wa, y, w: GAP, h, start: x, size: avail }); place(n.a, x, y, wa, h, rects, splits); place(n.b, x + wa + GAP, y, avail - wa, h, rects, splits);
+  } else {
+    const avail = h - GAP, ha = clamp(avail * n.r, A[1], Math.max(A[1], avail - B[1]));
+    splits.push({ n, d: 'v', x, y: y + ha, w, h: GAP, start: y, size: avail }); place(n.a, x, y, w, ha, rects, splits); place(n.b, x, y + ha + GAP, w, avail - ha, rects, splits);
+  }
+}
+function ensureDock(main) {
+  if ($('#dock')) return;
+  unmountDock(); main.replaceChildren(el('div', { id: 'tabhost' }), el('div', { id: 'scenehost' }), el('div', { id: 'dock' }, el('div', { id: 'dockin' })));
+  for (const id of TILE_IDS) $('#dockin').append(el('div', { class: 'tile', id: 'tile-' + id, 'data-id': id }, el('div', { class: 'tbody' }),
+    el('button', { class: 'trash', title: 'close this panel (bring it back with the buttons above the plots, view menu, or f8)', onclick: () => closeTile(id) }, ico('trash')),
+    el('button', { class: 'grip', title: 'drag to move this panel: drop it on another panel (left, right, top, bottom or centre to swap) or on a window edge', onpointerdown: e => startTileDrag(id, e) }, '⠿')));
+  $('#tile-inputs .tbody').append($('#panel')); $('#app').classList.add('docked');
+  new ResizeObserver(() => layoutDock()).observe($('#dock'));
+}
+function unmountDock() {
+  const d = $('#dock'); if (!d) return;
+  const panel = $('#panel'); if (panel) $('#app').insertBefore(panel, $('#main'));              // the input panel goes back to its own column
+  $('#app').classList.remove('docked'); d.remove();
+}
+function layoutDock() {
+  const dock = $('#dock'); if (!dock) return;
+  const W = dock.clientWidth, H = dock.clientHeight, vis = visibleTiles(), tree = prune(getDock(), vis), din = $('#dockin');
+  din.querySelectorAll('.dsplit').forEach(e => e.remove());
+  const rects = {}, splits = []; let totalH = H;
+  if (tree) {
+    const [mw, mh] = minSize(tree);
+    if (vis.size > 1 && (W < mw || H < mh)) { let y = 0; for (const id of TILE_IDS.filter(i => vis.has(i))) { rects[id] = { x: 0, y, w: W, h: STACK_H[id] }; y += STACK_H[id] + GAP; } totalH = Math.max(H, y - GAP); }   // too small: stack and scroll
+    else place(tree, 0, 0, W, H, rects, splits);
+  }
+  din.style.height = totalH + 'px'; dock.classList.toggle('stacked', totalH > H + 1); DOCK.rects = rects;
+  for (const id of TILE_IDS) {
+    const t = $('#tile-' + id), r = rects[id]; if (!t) continue;
+    if (!r) { t.style.display = 'none'; continue; }
+    t.style.display = ''; Object.assign(t.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
+  }
+  for (const sp of splits) { const d = el('div', { class: 'dsplit ' + sp.d }); Object.assign(d.style, { left: sp.x + 'px', top: sp.y + 'px', width: sp.w + 'px', height: sp.h + 'px' }); d.onpointerdown = e => splitDrag(e, sp); din.append(d); }
+}
+function dragWindow(onmove, onup) {
+  document.body.classList.add('dragging');
+  const mv = e => onmove(e), up = e => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); document.body.classList.remove('dragging'); onup && onup(e); };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+}
+function splitDrag(e, sp) {
+  e.preventDefault(); const dock = $('#dock'), src = sp.n.src || sp.n;
+  dragWindow(ev => { const b = dock.getBoundingClientRect(); const pos = sp.d === 'h' ? ev.clientX - b.left : ev.clientY - b.top + dock.scrollTop; src.r = clamp((pos - sp.start) / sp.size, 0.04, 0.96); layoutDock(); }, () => saveSet());
+}
+/* tree edits (always on the full stored tree, hidden tiles included) */
+function removeTile(n, id) { if (n.t === 't') return n.id === id ? null : n; const a = removeTile(n.a, id), b = removeTile(n.b, id); if (!a) return b; if (!b) return a; n.a = a; n.b = b; return n; }
+function insertAt(n, target, id, zone) {
+  if (n.t === 't') { if (n.id !== target) return n; const T = { t: 't', id }, first = zone === 'l' || zone === 't'; return { t: 's', d: zone === 'l' || zone === 'r' ? 'h' : 'v', r: 0.5, a: first ? T : n, b: first ? n : T }; }
+  n.a = insertAt(n.a, target, id, zone); n.b = insertAt(n.b, target, id, zone); return n;
+}
+function swapTiles(n, x, y) { if (n.t === 't') { if (n.id === x) n.id = y; else if (n.id === y) n.id = x; return; } swapTiles(n.a, x, y); swapTiles(n.b, x, y); }
+function dropTarget(px, py, dragId, W, H) {
+  const E = 36;
+  if (px < E) return { zone: 'l', edge: true, rect: { x: 0, y: 0, w: Math.min(W * 0.3, 420), h: H } };
+  if (px > W - E) return { zone: 'r', edge: true, rect: { x: W - Math.min(W * 0.3, 420), y: 0, w: Math.min(W * 0.3, 420), h: H } };
+  if (py < E) return { zone: 't', edge: true, rect: { x: 0, y: 0, w: W, h: Math.min(H * 0.3, 320) } };
+  if (py > H - E) return { zone: 'b', edge: true, rect: { x: 0, y: H - Math.min(H * 0.3, 320), w: W, h: Math.min(H * 0.3, 320) } };
+  for (const [id, r] of Object.entries(DOCK.rects)) {
+    if (id === dragId || px < r.x || px > r.x + r.w || py < r.y || py > r.y + r.h) continue;
+    const u = (px - r.x) / r.w, v = (py - r.y) / r.h, zone = u < 0.28 ? 'l' : u > 0.72 ? 'r' : v < 0.28 ? 't' : v > 0.72 ? 'b' : 'c';
+    const rect = zone === 'l' ? { x: r.x, y: r.y, w: r.w / 2, h: r.h } : zone === 'r' ? { x: r.x + r.w / 2, y: r.y, w: r.w / 2, h: r.h } : zone === 't' ? { x: r.x, y: r.y, w: r.w, h: r.h / 2 } : zone === 'b' ? { x: r.x, y: r.y + r.h / 2, w: r.w, h: r.h / 2 } : r;
+    return { id, zone, rect };
+  }
+  return null;
+}
+function applyDrop(id, tgt) {
+  let t = fresh(getDock());
+  if (tgt.zone === 'c') swapTiles(t, id, tgt.id);
+  else {
+    t = removeTile(t, id);
+    if (tgt.edge) { const first = tgt.zone === 'l' || tgt.zone === 't'; const T = { t: 't', id }; t = { t: 's', d: tgt.zone === 'l' || tgt.zone === 'r' ? 'h' : 'v', r: first ? 0.3 : 0.7, a: first ? T : t, b: first ? t : T }; }
+    else t = insertAt(t, tgt.id, id, tgt.zone);
+  }
+  LAY.dock = t; saveSet(); layoutDock();
+}
+function startTileDrag(id, e) {
+  e.preventDefault(); const dock = $('#dock'), sx = e.clientX, sy = e.clientY, dz = el('div', { class: 'dz' }), ov = el('div', { id: 'dropov' }, dz); let moved = false, tgt = null;
+  dragWindow(ev => {
+    if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 5) return;
+    if (!moved) { moved = true; dock.append(ov); $('#tile-' + id).classList.add('lifted'); }
+    const b = dock.getBoundingClientRect(), px = ev.clientX - b.left + dock.scrollLeft, py = ev.clientY - b.top + dock.scrollTop;
+    tgt = dropTarget(px, py, id, dock.clientWidth, dock.clientHeight);
+    if (tgt) { dz.style.display = 'block'; Object.assign(dz.style, { left: tgt.rect.x + 'px', top: tgt.rect.y + 'px', width: tgt.rect.w + 'px', height: tgt.rect.h + 'px' }); } else dz.style.display = 'none';
+  }, () => { ov.remove(); const t = $('#tile-' + id); if (t) t.classList.remove('lifted'); if (moved && tgt) applyDrop(id, tgt); });
+}
+
+/* ---------- focus mode: only the chosen tile stays (menu / inputs / results come back when switched on) ---------- */
+function fbar(kind) {
+  const w = el('div', { class: 'fbtns', 'data-kind': kind });
+  if (S.focus !== kind) { w.append(el('button', { title: 'hide every panel except this view (esc leaves)', onclick: () => setFocus(kind) }, '⤢ Focus')); return w; }
+  const t = (k, label) => el('button', { class: S.fshow[k] ? 'on' : '', title: 'show or hide', onclick: () => { S.fshow[k] = !S.fshow[k]; applyFocus(); } }, label);
+  w.append(t('menu', 'Menu'), t('inputs', 'Inputs'), t('results', 'Results'), el('button', { onclick: () => ACTIONS.fullscreen() }, 'Full Screen'), el('button', { class: 'pri', onclick: () => setFocus(null) }, 'Exit'));
+  return w;
+}
+function applyFocus() {
+  const b = document.body; b.classList.toggle('plotfocus', !!S.focus); b.dataset.focus = S.focus || '';
+  for (const k of ['menu', 'inputs', 'results']) b.classList.toggle('fshow-' + k, !!S.fshow[k]);
+  document.querySelectorAll('.fbtns[data-kind]').forEach(w => w.replaceWith(fbar(w.dataset.kind)));            // buttons update in place: the 3-D page is not reloaded
+  layoutDock();
+}
+function setFocus(kind) { S.focus = kind; if (!kind) S.fshow = { menu: false, inputs: false, results: false }; applyFocus(); }
+
 function table(cols, rows, hl, cls = 'c1') {
   return el('table', { class: 'tbl ' + cls }, el('thead', {}, el('tr', {}, ...cols.map(c => el('th', {}, c)))),
     el('tbody', {}, ...rows.map((r, i) => el('tr', { class: i === hl ? 'hl' : '' }, ...r.map(v => el('td', {}, v))))));
@@ -365,7 +612,7 @@ function exportTab(main, r) {
 
 /* ---------- utility pages ---------- */
 function renderUtil() {
-  const main = $('#main'); main.replaceChildren();
+  unmountDock(); const main = $('#main'); main.replaceChildren();
   if (S.page === 'const') return constPage(main);
   if (S.page === 'jd') return jdPage(main);
   if (S.page === 'settings') return settingsPage(main);
@@ -408,7 +655,7 @@ function showTests(t) {
       d.hidden = !d.hidden; if (d.hidden || d.firstChild.childNodes.length) return; const rows = det[key] || [];
       d.firstChild.append(el('div', { class: 'sheet', style: 'margin:8px 0' }, s.note ? el('div', { class: 'pnote' }, 'ℹ ' + s.note) : null,
         table(['Quantity', 'Computed', 'Expected', 'Rel. Error', 'Tol.', ''], rows.map(q => [q.name, fmt(q.got), fmt(q.expected), q.got == null ? '—' : (Math.abs(q.got - q.expected) / Math.abs(q.expected)).toExponential(1), q.rtol.toExponential(0), q.ok ? '✓' : '✕ ' + (q.error || '')])),
-        el('div', { class: 'btnrow', style: 'margin:10px 0 0' }, el('button', { class: 'btn', onclick: ev => { ev.stopPropagation(); const m = META.modules.find(x => x.id === s.mid); S.page = s.mid; buildNav(); buildSub(); $('#app').classList.remove('wide'); renderPanel(); loadPreset(m, s.idx); } }, 'Open in Module'))));
+        el('div', { class: 'btnrow', style: 'margin:10px 0 0' }, el('button', { class: 'btn', onclick: ev => { ev.stopPropagation(); const m = META.modules.find(x => x.id === s.mid); S.page = s.mid; buildNav(); $('#app').classList.remove('wide'); renderPanel(); loadPreset(m, s.idx); } }, 'Open in Module'))));
     };
     tb.append(row, d);
   });
@@ -423,7 +670,7 @@ const redo3d = () => { S.cache.clear(); S.last = {}; };
 async function refreshBackups() { const r = await api('backup_list'); S.backups = r.ok ? r.backups : []; if (S.page === 'settings' && S.setTab === 'Backup') renderUtil(); }
 function afterRestore(r) {
   Object.assign(SET, r.settings || {}); Object.assign(LAY, fresh(LAY_DEFAULT), SET.layout || {}); LAY.groups = { ...LAY_DEFAULT.groups, ...(LAY.groups || {}) }; SET.layout = LAY;
-  S.backups = r.backups; S.cache.clear(); S.last = {}; applyLayout(); syncChrome(); buildNav(); buildSub(); renderUtil();
+  S.backups = r.backups; S.cache.clear(); S.last = {}; applyLayout(); syncChrome(); buildNav(); renderUtil();
 }
 function backupPage() {
   if (S.backups === null) { refreshBackups(); return el('div', { class: 'sheet' }, el('div', { class: 'dim' }, 'loading backups…')); }
@@ -458,6 +705,7 @@ function helpPage() {
         el('button', { class: 'btn', onclick: () => api('open_folder', { which: 'logs' }) }, 'Open Logs Folder'))),
     el('div', { class: 'sheet' }, el('h3', {}, 'Graphics'),
       setRow('Graphics Card', 'the 3d view needs webgl; a dedicated gpu helps at high animation resolutions', el('span', { class: 'path' }, gpuInfo())),
+      setRow('Repeat Animation', 'loop the animation when it reaches the end, or stop there (there is also a repeat button in the 3d view)', el('input', { type: 'checkbox', checked: SET.repeat !== false, onchange: e => { SET.repeat = e.target.checked; saveSet(); reRender(); } })),
       setRow('Frame Rate Monitor', 'shows the page and 3d animation frame rates in the title bar', el('input', { type: 'checkbox', checked: SET.fps, onchange: e => { SET.fps = e.target.checked; saveSet(); redo3d(); showFps(); } }))));
 }
 function settingsPage(main) {
@@ -466,8 +714,15 @@ function settingsPage(main) {
   const reRender = () => { redo3d(); if (isMod()) solveSoon(); };
   const frames = SET.frames, custom = !FRAME_PRESETS.some(p => p[0] === frames);
   const pages = {
-    'Appearance': () => el('div', { class: 'acards' }, ...[['light', 'sun', 'Light'], ['dark', 'moon', 'Dark'], ['device', 'monitor', 'Use Device Settings']].map(([v, ic, label]) =>
-      el('button', { class: 'acard' + (SET.appearance === v ? ' on' : ''), onclick: () => { SET.appearance = v; saveSet(); syncChrome(); S.cache.clear(); S.last = {}; renderUtil(); } }, ico(ic), el('span', { class: 'al' }, label)))),
+    'Appearance': () => el('div', { class: 'sheet' },
+      el('div', { class: 'sh1' }, 'Mode'),
+      el('div', { class: 'acards' }, ...[['light', 'sun', 'Light'], ['dark', 'moon', 'Dark'], ['device', 'monitor', 'Use Device Settings']].map(([v, ic, label]) =>
+        el('button', { class: 'acard' + (SET.appearance === v ? ' on' : ''), onclick: () => { SET.appearance = v; saveSet(); syncChrome(); S.cache.clear(); S.last = {}; renderUtil(); } }, ico(ic), el('span', { class: 'al' }, label)))),
+      el('div', { class: 'sh1', style: 'margin-top:26px' }, 'Color Theme'),
+      el('div', { class: 'dim', style: 'margin:0 0 12px' }, 'the accent and background tint of the whole app and its dark figures; independent of light or dark mode'),
+      el('div', { class: 'pcards' }, ...PALETTES.map(([id, name, sw]) => el('button', { class: 'pcard' + ((SET.palette || 'prussian') === id ? ' on' : ''), title: name,
+        onclick: () => { SET.palette = id; saveSet(); syncChrome(); S.cache.clear(); S.last = {}; renderUtil(); } },
+        el('div', { class: 'sw' }, ...sw.map(c => el('i', { style: 'background:' + c }))), el('span', { class: 'al' }, name))))),
     'Figures and Animation': () => el('div', { class: 'sheet' },
       setRow('Plot Layout', 'show the 3d view, the 2d figure, or both side by side', seg([['3d', '3D'], ['2d', '2D'], ['both', '3D + 2D']], SET.view, v => { SET.view = v; saveSet(); })),
       setRow('Body Notation', 'celestial bodies in labels: astronomical symbols (r⊕) or name subscripts (r_earth)', seg([['symbol', 'Symbols'], ['name', 'Name Subscripts']], SET.bodyNotation, v => { SET.bodyNotation = v; saveSet(); reRender(); })),
@@ -490,7 +745,8 @@ function settingsPage(main) {
         el('button', { class: 'btn', onclick: () => { S.rebind = S.rebind === a ? null : a; renderUtil(); } }, S.rebind === a ? 'Cancel' : 'Change'))),
       setRow('Defaults', 'press esc while changing a key to cancel. on a mac the function keys may need the fn key.', el('button', { class: 'btn', onclick: () => { SET.keys = {}; S.rebind = null; saveSet(); renderUtil(); toast('key bindings reset to defaults'); } }, 'Reset Key Bindings'))),
     'Layout': () => el('div', { class: 'sheet' },
-      setRow('Panel Sizes', 'drag the borders between panels to resize them; double-click a border to reset it', el('button', { class: 'btn', onclick: () => { Object.assign(LAY, fresh(LAY_DEFAULT)); applyLayout(); buildNav(); buildSub(); saveSet(); toast('panel sizes reset'); } }, 'Reset Panel Sizes')),
+      setRow('Panel Layout', 'drag a panel by its grip (⠿) onto another panel or a window edge to dock it there; drag the gaps between panels to resize', el('button', { class: 'btn', onclick: () => resetPanels() }, 'Reset Panel Layout')),
+      setRow('Panel Sizes', 'drag the borders between panels to resize them; double-click a border to reset it', el('button', { class: 'btn', onclick: () => { Object.assign(LAY, fresh(LAY_DEFAULT)); applyLayout(); buildNav(); saveSet(); toast('panel sizes reset'); } }, 'Reset Panel Sizes')),
       setRow('Side Menu', 'fold the menu bar down to icons with the arrow at its top, or hide it completely', el('button', { class: 'btn', onclick: () => { LAY.fold = !LAY.fold; applyLayout(); buildNav(); saveSet(); renderUtil(); } }, LAY.fold ? 'Expand Menu' : 'Fold Menu'),
         el('button', { class: 'btn', onclick: () => { LAY.hidden = !LAY.hidden; applyLayout(); saveSet(); renderUtil(); } }, LAY.hidden ? 'Show Menu' : 'Hide Menu'))),
     'Backup': backupPage,
@@ -523,9 +779,13 @@ const ACTIONS = {
     if (r.mode === 'browser') { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => { }); }
   },
   settings: () => { if (S.page === 'settings') go(S.prev || '12'); else { S.prev = S.page; go('settings'); } },
-  menu: () => { LAY.hidden = !LAY.hidden; applyLayout(); saveSet(); }
+  menu: () => { LAY.hidden = !LAY.hidden; applyLayout(); saveSet(); },
+  reset: () => resetPanels(),
+  focus: () => { if (S.focus) setFocus(null); else if (isMod() && S.res && !S.res.error) { S.tab = 'Plots'; setFocus(SET.view === '2d' ? 'v2d' : 'v3d'); } }
 };
 function handleKey(name, e) {
+  if (name === 'Escape' && openMenu) { closeMenu(); return true; }
+  if (name === 'Escape' && S.focus && !S.rebind) { setFocus(null); return true; }
   if (S.rebind) {                                                         // capturing a new binding
     if (name === 'Escape') { S.rebind = null; renderUtil(); return true; }
     if (!name) return true;
@@ -548,7 +808,7 @@ async function boot() {
   Object.assign(SET, META.settings || {}); Object.assign(LAY, fresh(LAY_DEFAULT), SET.layout || {}); LAY.groups = { ...LAY_DEFAULT.groups, ...(LAY.groups || {}) }; SET.layout = LAY; splash(38, 'preparing the interface');
   document.querySelectorAll('[data-const]').forEach(b => b.onclick = () => setSet({ const: b.dataset.const }));
   $('#unitChip').onclick = () => setSet({ unit: { km: 'R_body', R_body: 'AU', AU: 'km' }[SET.unit] });
-  initSplitters(); syncChrome(); buildNav(); buildSub(); splash(58, 'drawing the first transfer');
+  initSplitters(); syncChrome(); buildNav(); buildMenubar(); splash(58, 'drawing the first transfer');
   await go(META.modules.some(m => m.id === SET.lastPage) ? SET.lastPage : S.page); splash(100, 'ready'); SPLASH.done = true; restyle();
 }
 boot();

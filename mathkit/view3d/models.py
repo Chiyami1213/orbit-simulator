@@ -17,7 +17,7 @@ CREDIT = 'Planet textures: Solar System Scope (2k maps), CC BY 4.0 — https://w
 
 def assets_dir() -> pathlib.Path:
     base = pathlib.Path(getattr(sys, '_MEIPASS', pathlib.Path(__file__).resolve().parents[2])) if getattr(sys, 'frozen', False) else pathlib.Path(__file__).resolve().parents[2]
-    return base / 'mathkit' / 'assets' / 'textures'
+    return base / 'assets' / 'textures'
 
 
 def has_texture(body: str) -> bool:

@@ -25,3 +25,19 @@ def color(theme: str, role: str) -> str:
     if role in t:
         return t[role]
     return role  # already a hex colour
+
+
+# ---- UI colour themes (dark mode surfaces; the light figures keep their neutral paper colours) ----
+import copy as _copy
+_BASE = _copy.deepcopy(THEMES)
+PALETTES = {
+    'prussian': {},
+    'forest': dict(surface='#152a21', page='#0e1a15', grid='#234235', axis='#2f5a47', body='#2f7a58'),
+    'graphite': dict(surface='#202126', page='#151618', grid='#34363d', axis='#4a4e5a', body='#4a6fa5'),
+    'plum': dict(surface='#251a3b', page='#1a1226', grid='#3a2c58', axis='#4d3a78', body='#6a4fb8'),
+}
+
+
+def apply_palette(name: str) -> None:
+    """Re-skin the dark figure surfaces to match the chosen UI colour theme (series colours never change)."""
+    THEMES['dark'] = {**_copy.deepcopy(_BASE['dark']), **PALETTES.get(name, {})}

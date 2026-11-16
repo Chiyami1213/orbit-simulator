@@ -38,7 +38,7 @@ main#main{grid-column:4;grid-row:2;overflow:auto;padding:14px 20px 24px;min-widt
 /* ----- draggable borders ----- */
 .split{position:absolute;z-index:15}
 .split.v{top:64px;bottom:0;width:9px;cursor:col-resize}
-#sp1{left:calc(var(--navw) - 4px)}#sp3{left:calc(var(--navw) + var(--subw) - 4px)}#sp2{left:calc(var(--navw) + var(--subw) + var(--panelw) - 4px)}
+#sp1{left:calc(var(--navw) - 4px)}#sp2{left:calc(var(--navw) + var(--subw) + var(--panelw) - 4px)}
 .split::after{content:"";position:absolute;background:transparent;transition:background .12s}
 .split.v::after{left:4px;top:0;bottom:0;width:1px}
 .split:hover::after,.split.on::after{background:var(--orange)}.split.v:hover::after,.split.v.on::after{left:3px;width:3px}
@@ -161,11 +161,9 @@ kbd.wait{border-color:var(--orange);color:var(--orange)}
 #app.fold .nsub{margin-left:0}#app.fold .nsub::before{display:none}
 
 /* ----- modules sub-menu bar (right of the main menu), hide-menu state ----- */
-aside#subnav{grid-column:2;grid-row:2;background:var(--nav);border-right:1px solid var(--line);padding:18px 12px;overflow:auto;min-width:0}
-#app:not(.subopen) #subnav,#app:not(.subopen) #sp3{display:none}
 .subhead{margin:2px 12px 14px;font-size:13px;color:var(--muted);font-weight:700}
 #app.menuhidden{--navw:0px;--subw:0px}
-#app.menuhidden #nav,#app.menuhidden #sp1,#app.menuhidden #subnav,#app.menuhidden #sp3{display:none}
+#app.menuhidden #nav,#app.menuhidden #sp1{display:none}
 
 /* ----- view toggle, plots in 3D-only / 2D-only mode, no scroll bars inside plot cards ----- */
 .tabrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px;flex-wrap:wrap}.tabrow .tabs{margin-bottom:0}
@@ -179,3 +177,82 @@ textarea:focus{border-color:var(--chip-on-line)}
 button:disabled{opacity:.45;cursor:default}
 .bsym{font:22px "Segoe UI Symbol","Apple Symbols","Noto Sans Symbols 2","Noto Sans Symbols",sans-serif;color:var(--text)}
 #fpsb{font-variant-numeric:tabular-nums;color:var(--green);border-color:var(--green)}
+
+/* ----- dock: movable tiles ----- */
+#app.docked{--panelw:0px}#app.docked #sp2{display:none}#app.docked main#main{overflow:hidden}
+#dock{flex:1;min-height:0;position:relative;overflow:hidden}#dock.stacked{overflow:auto}
+#dockin{position:relative;width:100%}
+.tile{position:absolute;display:flex;flex-direction:column;min-width:0;min-height:0}
+.tile>.tbody{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.tile>.tbody>.cardx.c3d,.tile>.tbody>.cardx.c2d{flex:1;min-height:0}
+#tile-inputs .tbody{overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px}
+#tile-inputs section#panel{grid-column:auto;grid-row:auto;border:0;background:transparent;overflow:visible;padding:20px 18px 24px}
+#tile-results .tbody{overflow:auto}
+#tile-results .cards4{margin-top:0}
+.tile.lifted{opacity:.55}
+.grip{position:absolute;z-index:8;top:10px;left:10px;width:22px;height:22px;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:grab;font-size:15px;line-height:1;padding:0;touch-action:none}
+#tile-inputs .grip{left:auto;right:12px;top:12px}
+.grip:hover{background:var(--nav-on);color:var(--text)}.grip:active{cursor:grabbing}
+.tile .cardx>h3{padding-left:36px}
+.dsplit{position:absolute;z-index:6;border-radius:4px;touch-action:none}.dsplit.h{cursor:col-resize}.dsplit.v{cursor:row-resize}
+.dsplit::after{content:"";position:absolute;background:transparent;transition:background .12s;border-radius:2px}
+.dsplit.h::after{left:3px;top:10%;bottom:10%;width:2px}.dsplit.v::after{top:3px;left:10%;right:10%;height:2px}
+.dsplit:hover::after{background:var(--orange)}
+#dropov{position:absolute;inset:0;z-index:60;pointer-events:none}
+.dz{position:absolute;display:none;background:rgba(255,107,74,.2);border:2px solid var(--orange);border-radius:12px;transition:left .08s,top .08s,width .08s,height .08s}
+
+/* ----- focus mode: header / menus hide; the dock keeps only the chosen tile (plus any you switch on) ----- */
+.cardx>h3{display:flex;align-items:center;gap:8px}
+.fbtns{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.fbtns button{background:var(--inset);border:1px solid var(--line);color:var(--text2);border-radius:8px;padding:3px 10px;cursor:pointer;font-size:12.5px;font-weight:500}
+.fbtns button:hover{border-color:var(--orange)}.fbtns button.on{background:var(--chip-on);border-color:var(--chip-on-line);color:var(--chip-on-text)}
+.fbtns button.pri{background:var(--orange);border-color:var(--orange);color:#fff;font-weight:700}
+body.plotfocus:not(.fshow-menu) #app{--navw:0px;--subw:0px;grid-template-rows:0 1fr}
+body.plotfocus:not(.fshow-menu) header#top,body.plotfocus:not(.fshow-menu) #nav,body.plotfocus:not(.fshow-menu) #sp1{display:none}
+body.plotfocus main#main{padding:8px}
+body.plotfocus #tabhost,body.plotfocus #scenehost{display:none}
+#tile-results .tbody{padding-top:22px}#tile-results .grip{top:0;left:6px}
+
+/* ----- solve progress bar and the problem dialog ----- */
+.pbar{display:none;margin:10px 0 2px}.pbar.on{display:block}
+.pbar .track{height:6px;border-radius:4px;background:var(--inset);overflow:hidden}.pbar i{display:block;height:100%;width:0;background:var(--orange);border-radius:4px;transition:width .14s linear}
+.pbar span{display:block;margin-top:5px;font-size:12.5px;color:var(--muted)}
+.modalov{position:fixed;inset:0;z-index:200;background:rgba(5,8,16,.55);display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{max-width:520px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px;box-shadow:0 18px 60px rgba(0,0,0,.45)}
+.modal h3{margin:0 0 10px;font-size:18px}.modal p{margin:0 0 8px;color:var(--text2);font-size:14.5px}.modal ul{margin:6px 0 4px;padding-left:20px;color:var(--text2);font-size:14px}.modal li{margin:4px 0}
+.modal .btnrow{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+
+/* ----- colour themes (independent of light / dark mode) ----- */
+body[data-palette=forest][data-theme=dark]{--orange:#f5b73b;--bg:#0e1a15;--nav:#101f19;--panel:#11211a;--card:#152a21;--line:#234235;--chip-on:#1d4a38;--chip-on-line:#2c6b52;--chip-on-text:#d4ffe9;--inset:#0e1812;--seg-on:#1f4a38;--track:#264638;--nav-on:#17291f;--muted:#86a596}
+body[data-palette=forest][data-theme=light]{--orange:#d98a00;--bg:#f1f7f3;--nav:#ffffff;--panel:#f8fcf9;--line:#d5e5db;--chip-on:#dcf3e6;--chip-on-line:#a9d9bd;--chip-on-text:#14583a;--inset:#e9f2ec;--track:#d3e3d9;--nav-on:#e6f5ec}
+body[data-palette=graphite][data-theme=dark]{--orange:#2ec4b6;--bg:#151618;--nav:#1a1b1e;--panel:#1b1c20;--card:#202126;--line:#34363d;--chip-on:#2d3a3a;--chip-on-line:#3f6b66;--chip-on-text:#c9fff7;--inset:#131416;--seg-on:#2c3b3a;--track:#3a3d45;--nav-on:#23252a;--muted:#8d92a0}
+body[data-palette=graphite][data-theme=light]{--orange:#0f9d8f;--bg:#f3f4f6;--nav:#ffffff;--panel:#fafafb;--line:#dcdee3;--chip-on:#d9f4f0;--chip-on-line:#9fd8d1;--chip-on-text:#0b5c54;--inset:#eceef1;--track:#d6d9df;--nav-on:#e6f4f2}
+body[data-palette=plum][data-theme=dark]{--orange:#ff5d73;--bg:#1a1226;--nav:#1e1530;--panel:#1f1633;--card:#251a3b;--line:#3a2c58;--chip-on:#3b2a63;--chip-on-line:#5a43a0;--chip-on-text:#e9ddff;--inset:#150e20;--seg-on:#3a2a60;--track:#403061;--nav-on:#281d42;--muted:#a592c4}
+body[data-palette=plum][data-theme=light]{--orange:#e0405a;--bg:#f6f3fa;--nav:#ffffff;--panel:#fbf9fe;--line:#e3dcef;--chip-on:#ece3ff;--chip-on-line:#c8b4f0;--chip-on-text:#442488;--inset:#efeaf6;--track:#ddd3ec;--nav-on:#f0e9ff}
+.pcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;max-width:760px}
+.pcard{display:flex;flex-direction:column;gap:10px;align-items:flex-start;padding:14px;border-radius:12px;border:1.5px solid var(--line);background:var(--inset);cursor:pointer;text-align:left}
+.pcard:hover{border-color:var(--orange)}.pcard.on{border-color:var(--orange);box-shadow:0 0 0 1px var(--orange) inset}
+.pcard .sw{display:flex;width:100%;height:34px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}.pcard .sw i{flex:1}.pcard .sw i:last-child{flex:.6}
+.pcard .al{font-size:14px;font-weight:600;color:var(--text)}
+
+/* ----- panel close button ----- */
+.trash{position:absolute;z-index:8;top:10px;right:10px;width:24px;height:24px;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;padding:3px}
+.trash svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.trash:hover{background:rgba(255,97,97,.16);color:var(--red)}
+#tile-inputs .grip{right:42px}#tile-results .trash{top:0;right:6px}
+.tile .cardx>h3{padding-right:38px}
+.closedchips{display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1;margin-left:14px}
+.closedchips .chip{cursor:pointer;border-style:dashed}
+
+/* ----- menu bar (file, edit, view ...) ----- */
+.brand{display:flex;align-items:center;gap:6px}
+.applogo{width:26px;height:26px;flex:none;margin-right:6px}
+#menubar{display:flex;align-items:center;gap:2px;margin:0 14px 0 4px}
+#menubar>button{background:transparent;border:0;color:var(--text2);padding:5px 11px;border-radius:7px;font-size:14px;cursor:pointer}
+#menubar>button:hover,#menubar>button.open{background:var(--nav-on);color:var(--text)}
+.mdrop{position:fixed;z-index:150;min-width:260px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 14px 40px rgba(0,0,0,.4)}
+.mdrop .mi{display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:0;color:var(--text);text-align:left;padding:7px 10px;border-radius:6px;font-size:14px;cursor:pointer}
+.mdrop .mi:hover:not(:disabled){background:var(--chip-on)}.mdrop .mi:disabled{color:var(--muted);cursor:default}
+.mdrop .mi .ck{width:16px;flex:none;color:var(--orange);font-weight:700}.mdrop .mi .ck svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.4}
+.mdrop .mi .ml{flex:1}.mdrop .mi kbd{margin-left:18px;color:var(--muted);font-size:12.5px;background:transparent;border:0;padding:0}
+.mdrop .msep{height:1px;background:var(--line);margin:5px 4px}.mdrop .mh{padding:6px 10px 2px;font-size:12px;color:var(--muted);font-weight:700}

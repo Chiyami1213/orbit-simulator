@@ -8,6 +8,7 @@ root = pathlib.Path(SPECPATH).parent
 plotly_js = pathlib.Path(plotly.__file__).parent / 'package_data' / 'plotly.min.js'
 
 datas = [(str(root / 'mathkit' / 'ui' / 'web'), 'mathkit/ui/web'),
+         (str(root / 'assets' / 'textures'), 'assets/textures'),
          (str(plotly_js), 'mathkit/ui/web/vendor')]                 # bundled so the 3-D plots work offline
 datas += collect_data_files('webview')
 # matplotlib loads its output backends dynamically, so PyInstaller cannot see them: list them explicitly
@@ -19,7 +20,7 @@ a = Analysis([str(root / 'run.py')], pathex=[str(root)], datas=datas, hiddenimpo
 pyz = PYZ(a.pure)
 import os
 import sys
-ICON = str(root / 'packaging' / ('icon.icns' if sys.platform == 'darwin' else 'icon.ico'))
+ICON = str(root / 'assets' / 'icons' / ('icon.icns' if sys.platform == 'darwin' else 'icon.ico'))
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='OrbitSimulator', console=False, icon=ICON if os.path.exists(ICON) else None)
 coll = COLLECT(exe, a.binaries, a.datas, name='OrbitSimulator')
 if sys.platform == 'darwin':

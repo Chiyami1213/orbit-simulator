@@ -23,7 +23,7 @@ document.documentElement.dataset.boot = matchMedia('(prefers-color-scheme: dark)
 </div>
 <div id="app">
   <header id="top">
-    <div class="brand"><span class="title">Orbit Simulator</span><span class="pill" id="ver">v1.0.0</span><span class="pill" id="fpsb" hidden></span></div>
+    <div class="brand"><svg class="applogo" viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="32" rx="25" ry="13" transform="rotate(-28 32 32)" fill="none" stroke="var(--orange)" stroke-width="4"/><circle cx="25.5" cy="35.5" r="8" fill="var(--blue)"/><circle cx="47" cy="21" r="3.4" fill="var(--amber)"/></svg><div id="menubar" role="menubar"></div><span class="title">Orbit Simulator</span><span class="pill" id="ver">v1.0.0</span><span class="pill" id="fpsb" hidden></span></div>
     <div class="top-right">
       <span class="lbl">Constants</span>
       <button class="chip" data-const="Course table">Course Table</button>
@@ -32,11 +32,9 @@ document.documentElement.dataset.boot = matchMedia('(prefers-color-scheme: dark)
     </div>
   </header>
   <nav id="nav"></nav>
-  <aside id="subnav"></aside>
   <section id="panel"></section>
   <main id="main"></main>
   <div class="split v" id="sp1" title="drag to resize · double-click to reset"></div>
-  <div class="split v" id="sp3" title="drag to resize · double-click to reset"></div>
   <div class="split v" id="sp2" title="drag to resize · double-click to reset"></div>
 </div>
 <div class="spin" id="spin">Solving…</div>

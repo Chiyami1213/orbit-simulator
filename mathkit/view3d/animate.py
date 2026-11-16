@@ -90,19 +90,20 @@ function render(withTrail){
 function rotateCam(){ phi += 0.006; const c = Math.cos(phi), s = Math.sin(phi); Plotly.relayout(gd, {'scene.camera.eye': {x: eye0.x*c - eye0.y*s, y: eye0.x*s + eye0.y*c, z: eye0.z}}); }
 let frames = 0, fpsT = performance.now();
 function loop(now){
-  if (playing){ if (last !== null && D.duration > 0){ t += (now-last)/1000 * (D.duration/20) * speed; if (t > D.duration) t -= D.duration; dirty = true; } last = now; } else last = null;
+  if (playing){ if (last !== null && D.duration > 0){ t += (now-last)/1000 * (D.duration/20) * speed; if (t > D.duration){ if (D.repeat) t -= D.duration; else { t = D.duration; playing = false; $('play').textContent = '↻ Replay'; $('play').classList.remove('on'); } } dirty = true; } last = now; } else last = null;
   if (auto) rotateCam();
   if (dirty){ const wantTrail = now - lastTrail > 80; if (wantTrail) lastTrail = now; render(wantTrail); }
   frames++; if (now - fpsT >= 500){ const fps = Math.round(frames * 1000 / (now - fpsT)); frames = 0; fpsT = now; $('fps').textContent = fps + ' fps'; parent.postMessage({orbitFps: fps}, '*'); }
   requestAnimationFrame(loop);
 }
-$('play').onclick = () => { playing = !playing; $('play').textContent = playing ? '⏸ Pause' : '▶ Play'; $('play').classList.toggle('on', playing); };
+$('play').onclick = () => { if (!playing && !D.repeat && t >= D.duration) { t = 0; lastTrail = 0; } playing = !playing; $('play').textContent = playing ? '⏸ Pause' : '▶ Play'; $('play').classList.toggle('on', playing); };
 $('speed').oninput = e => { speed = Math.pow(10, parseFloat(e.target.value)); $('spd').textContent = speed.toFixed(speed < 1 ? 2 : 1) + '×'; };
 $('scrub').oninput = e => { t = D.duration * e.target.value / 1000; dirty = true; lastTrail = 0; };
 $('auto').onclick = () => { auto = !auto; $('auto').classList.toggle('on', auto); };
 let labelsOn = true; $('labels').onclick = () => { labelsOn = !labelsOn; const u = {}; for (let k = 0; k < D.nlabels; k++) u['scene.annotations[' + k + '].visible'] = labelsOn; Plotly.relayout(gd, u); $('labels').classList.toggle('on', labelsOn); };
 let legendOn = true; $('legend').onclick = () => { legendOn = !legendOn; Plotly.relayout(gd, {showlegend: legendOn}); $('legend').classList.toggle('on', legendOn); };
 if (!D.nlabels) $('labels').style.display = 'none';
+$('repeat').classList.toggle('on', !!D.repeat); $('repeat').onclick = () => { D.repeat = !D.repeat; $('repeat').classList.toggle('on', D.repeat); parent.postMessage({orbitRepeat: D.repeat}, '*'); };
 function setView(v){ eye0 = {x:v.eye[0], y:v.eye[1], z:v.eye[2]}; phi = 0; Plotly.relayout(gd, {'scene.camera.eye': eye0, 'scene.camera.up': {x:v.up[0], y:v.up[1], z:v.up[2]}}); }
 $('v_normal').onclick = () => setView(V.normal); $('v_nodes').onclick = () => setView(V.nodes); $('v_iso').onclick = () => setView(V.iso);
 if (!TR.length) document.querySelectorAll('.anim').forEach(e => e.style.display = 'none');
@@ -117,16 +118,17 @@ render(true); requestAnimationFrame(loop);
 
 
 def build_html(sc: Scene, theme: str = 'light', user_name: str = '', n_frames: int = 480, plotlyjs: str = 'cdn', body: str = 'symbol',
-               textures: bool = False, model: str = 'marker', show_fps: bool = False) -> str:
+               textures: bool = False, model: str = 'marker', show_fps: bool = False, repeat: bool = True) -> str:
     """Return a self-contained HTML page for an <iframe>. ``model``: 'marker' (simple dot) or a key of models.MODELS ('comsat', 'probe')."""
     T = THEMES[theme]; fig, meta = build_figure(sc, theme, user_name, body, textures)
     data = sample_tracks(sc, n_frames) if sc.tracks else dict(times=[0, 1], duration=0, tracks=[])
-    data['views'] = view_presets(sc); data['idx'] = meta['track_idx']; data['nlabels'] = meta['n_labels']; data['showFps'] = bool(show_fps); data['model'] = None
+    data['views'] = view_presets(sc); data['idx'] = meta['track_idx']; data['nlabels'] = meta['n_labels']; data['showFps'] = bool(show_fps); data['repeat'] = bool(repeat); data['model'] = None
     if model in MODELS and sc.tracks:
         m = spacecraft_mesh(model); fig.add_trace(go.Mesh3d(x=m['x'], y=m['y'], z=m['z'], i=m['i'], j=m['j'], k=m['k'], vertexcolor=m['colors'], flatshading=True, name=MODELS[model],
-                                                             showlegend=True, hoverinfo='name', lighting=dict(ambient=0.7, diffuse=0.6, specular=0.2)))
+                                                             showlegend=False, hoverinfo='name', lighting=dict(ambient=0.7, diffuse=0.6, specular=0.2)))
+        from .scene import legend_dot; fig.add_trace(legend_dot(MODELS[model], T['body'], 'diamond'))
         fig.data[meta['track_idx'][0][1]].visible = False                      # the dot is replaced by the model
-        data['model'] = dict(x=m['x'], y=m['y'], z=m['z'], idx=len(fig.data) - 1, scale=0.05 * meta['half'])
+        data['model'] = dict(x=m['x'], y=m['y'], z=m['z'], idx=len(fig.data) - 2, scale=0.05 * meta['half'])
     plot_html = fig.to_html(full_html=False, include_plotlyjs=plotlyjs, div_id='plot', default_height='100%', default_width='100%', config=dict(displaylogo=False, responsive=True))
     css = _CSS % dict(surface=T['surface'], ink=T['ink'], ink2=T['ink2'], grid=T['grid'], axis=T['axis'], accent=T['series'][0])
     controls = """
@@ -135,7 +137,7 @@ def build_html(sc: Scene, theme: str = 'light', user_name: str = '', n_frames: i
   <label class="anim">Speed <input id="speed" type="range" min="-1" max="1" step="0.01" value="0"> <b id="spd">1.0×</b></label>
   <label class="anim">Time <input id="scrub" type="range" min="0" max="1000" step="1" value="0"></label>
   <span>View: <button id="v_normal">Orbit Normal</button> <button id="v_nodes">Along Line of Nodes</button> <button id="v_iso">Isometric</button></span>
-  <button id="auto">⟳ Auto-Rotate</button> <button id="labels" class="on">Labels</button> <button id="legend" class="on">Legend</button>
+  <button id="auto">⟳ Auto-Rotate</button> <button id="repeat" class="anim" title="loop the animation, or stop at the end">Repeat</button> <button id="labels" class="on">Labels</button> <button id="legend" class="on">Legend</button>
 </div>
 <div id="readout" class="anim"><span>t <b id="r_t">0</b></span><span>r <b id="r_r">–</b></span><span>v <b id="r_v">–</b></span>
   <span>γ <b id="r_g">–</b></span><span>θ* <b id="r_th">–</b></span></div>"""
