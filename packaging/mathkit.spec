@@ -9,11 +9,12 @@ plotly_js = pathlib.Path(plotly.__file__).parent / 'package_data' / 'plotly.min.
 
 datas = [(str(root / 'mathkit' / 'ui' / 'web'), 'mathkit/ui/web'),
          (str(root / 'assets' / 'textures'), 'assets/textures'),
+         (str(root / 'LICENSES'), 'LICENSES'), (str(root / 'NOTICE'), '.'),
          (str(plotly_js), 'mathkit/ui/web/vendor')]                 # bundled so the 3-D plots work offline
 datas += collect_data_files('webview')
 # matplotlib loads its output backends dynamically, so PyInstaller cannot see them: list them explicitly
 hidden = collect_submodules('webview') + collect_submodules('mathkit') + [
-    'matplotlib.backends.backend_agg', 'matplotlib.backends.backend_svg', 'matplotlib.backends.backend_pdf']
+    'matplotlib.backends.backend_agg', 'matplotlib.backends.backend_svg', 'matplotlib.backends.backend_pdf', 'jplephem', 'jplephem.spk']
 
 a = Analysis([str(root / 'run.py')], pathex=[str(root)], datas=datas, hiddenimports=hidden,
              excludes=['scipy', 'tkinter', 'pytest', 'IPython', 'notebook', 'PyQt5', 'PyQt6', 'PySide2', 'PySide6', 'streamlit', 'pyflakes'])

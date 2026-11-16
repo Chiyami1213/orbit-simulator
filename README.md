@@ -27,7 +27,18 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 * **Export** figures as PNG / PDF, a standalone 3-D page, or a **Python (matplotlib)** or **MATLAB** script that redraws the plots.
 * **Homework presets:** every problem with printed answers (HW 3–10, Fall 2024 Exams 1–2, lecture-note examples) loads as a preset, and the *Test Cases* page compares
   computed and printed values. Known errors in the printed solutions are corrected and documented.
-* Light / dark / device appearance, rebindable keys, resizable panels, backup & restore of your data, built-in issue reporting.
+* **Mission workspace (GMAT-style):** define spacecraft, coordinate systems, propagators, impulsive burns, report files and a command sequence
+  (`Propagate`, `Maneuver`, `Report`, `Toggle`, with several stop conditions and `Synchronized`), then run it. Propagation is numerical (Verner RK 8(9),
+  Prince–Dormand 7(8) and 4(5), or the exact Kepler solution) with the central body alone, selected point masses (Moon, Sun, planets), the whole Solar System,
+  or the circular restricted three-body problem. Optional J2, solar radiation pressure and atmospheric drag.
+  A *Calculated vs Propagated vs GMAT* table shows how far a realistic answer is from the course answer.
+* **GMAT compatibility:** every module result and every mission can be exported as a **GMAT R2022a `.script`**; scripts can be imported back (a subset; anything unsupported is
+  listed, never fatal). Parameters use GMAT's names (`Sat.Earth.SMA`, `VFPA`, `UTCModJulian` …). **Open in Mission** turns a module result into the matching mission.
+  If you have GMAT installed, set its folder under *Settings → Ephemeris and GMAT* and the comparison also runs your script in GMAT.
+* **Conventions:** show results the course way or the GMAT way (`VFPA = 90° − γ`, anomalies in 0–360°, `Luna`, VNB burn elements); the numbers and presets never change.
+* **Ephemerides:** a built-in offline model, or the JPL **DE440s** kernel (about 32 MB, downloaded only when you press the button).
+* Light / dark / device appearance and four colour themes, rebindable keys (`F12` maximises a plot, `F8` resets the panel arrangement), movable and closable panels,
+  a File / Edit / View / Go / Help menu bar, backup & restore of your data, built-in issue reporting.
 
 ## Installation
 
@@ -97,7 +108,8 @@ and *Settings → Local Files* opens the folders. Uninstalling keeps this folder
 
 ## Known limitations
 
-* Two-body / patched-conic analytics only: no numerical propagation, no perturbations (except the N-body acceleration module), no ephemerides (planets on circular orbits of mean radius).
+* Modules 1–12 are two-body / patched-conic analytics with planets on circular orbits of mean radius; realistic propagation, perturbations and ephemerides live in the Mission workspace.
+* The Mission workspace models point-mass gravity, J2, cannonball radiation pressure and exponential drag. Spherical-harmonic gravity fields, finite-burn attitude and GMAT's targeting commands (`Target`, `Vary`, `Achieve`) are not modelled; the importer lists them as skipped.
 * Lambert: zero full revolutions in the interface. Gravity assists and patched conics are planar.
 * Formulas and equations shown in the *results tables* of the app window still use Unicode symbols; LaTeX typesetting is applied to figures and exported files.
 * 3-D labels use real sub/superscripts but not full LaTeX (WebGL text cannot typeset it).
@@ -106,6 +118,12 @@ and *Settings → Local Files* opens the folders. Uninstalling keeps this folder
 ## Credits and licence
 
 * Planet texture maps in `assets/textures` appear to be **Solar System Scope** 2k textures (CC BY 4.0, <https://www.solarsystemscope.com/textures/>); attribution is required and the licence should be confirmed by the project owner before redistribution.
+* **NASA GMAT** (General Mission Analysis Tool) is licensed under the **Apache License 2.0**. This program contains portions derived from GMAT: the Runge–Kutta coefficient tables of its
+  RungeKutta89, PrinceDormand78 and PrinceDormand45 integrators, translated to Python and modified. Copyright (c) 2002–2026 United States Government as represented by the Administrator of
+  the National Aeronautics and Space Administration. The full licence text is in [`LICENSES/GMAT-Apache-2.0.txt`](LICENSES/GMAT-Apache-2.0.txt), the notice in [`NOTICE`](NOTICE), and both are shown in the
+  app under *Settings → About*. This program is not affiliated with or endorsed by NASA; "compatible with GMAT R2022a" describes the script syntax only, and no GMAT binaries are included.
+* The JPL **DE440s** ephemeris kernel comes from NASA/JPL NAIF (<https://naif.jpl.nasa.gov/naif/rules.html>); it is downloaded only on request. Kernel files are read with **jplephem** (MIT, Brandon Rhodes,
+  [`LICENSES/jplephem-MIT.txt`](LICENSES/jplephem-MIT.txt)). The built-in ephemeris uses E. M. Standish's approximate Keplerian elements (JPL) and a truncated lunar theory after J. Meeus.
 * Equations follow Bate, Mueller & White, *Fundamentals of Astrodynamics*, and the course notes the homework was set from.
 * **No licence has been chosen for this project yet**, so by default all rights are reserved. Add a `LICENSE` file before accepting contributions or redistributing.
 

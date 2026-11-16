@@ -169,3 +169,40 @@ If your own algebra disagrees with a printed solution, check this table before c
 6. Never invent expected values; if a problem is not in §4's list, derive it and say so.
 
 Project page: <https://github.com/Chiyami1213/orbit-simulator> · Source of truth for the math: `mathkit/core/` (verbatim reference port) and `tests/test_hw.py`.
+
+---
+
+## 7. Conventions, realistic models and GMAT compatibility (Mission workspace)
+
+### 7.1 Two presentations of the same numbers
+
+Everything in modules 1–12, the presets and the Test Cases stays in the **course convention**. A presentation switch (Settings → Conventions, or the toggle in a result header) shows the same values the GMAT way. It never changes a stored value.
+
+| Quantity | Course | GMAT | Relation |
+|---|---|---|---|
+| Flight-path angle | $\gamma$ from the local horizon, $+$ when $\dot r>0$ | `HFPA` $=\gamma$; `VFPA` from the radius vector | $\mathrm{VFPA}=90^\circ-\gamma$ |
+| Anomalies | $\theta^*,M,E\in(-180^\circ,180^\circ]$ | `TA`, `MA`, `EA` in $[0^\circ,360^\circ)$ | wrap |
+| Impulse | $\Delta v,\alpha,\beta$ in VNC | `ImpulsiveBurn` `Element1..3` in `VNB` | $E_1=\Delta v\cos\beta\cos\alpha$, $E_2=\Delta v\sin\beta$, $E_3=\Delta v\cos\beta\sin\alpha$ ($B=V\times N=\hat C$) |
+| Energy | $\varepsilon$ | `Energy`, `C3Energy` | $C_3=2\varepsilon$ |
+| Bodies / dates | Moon; JD | `Luna`; `UTCModJulian` | $\mathrm{ModJulian}=\mathrm{JD}-2430000.0$ (**not** JD $-2400000.5$) |
+
+Worked check (HW4 problem 3): $\gamma=-62.397426^\circ\Rightarrow$ `VFPA` $=152.397426^\circ$; $\theta^*_{aim}=-56.4427^\circ\Rightarrow$ `TA` $=303.5573^\circ$. The solution text's "270° offset" is really $\mathrm{VFPA}=90^\circ-\gamma$.
+Constants stay a separate switch (Course table / Exam rounded): GMAT uses its own $\mu$ values, so with *Exam rounded* constants a GMAT script will not reproduce the printed exam answers exactly (the exported script says so).
+
+### 7.2 Realistic models: why answers differ from the course
+
+* **Course model:** two bodies only; analytic; planets on circular orbits of mean radius; each leg is a conic about one body.
+* **Mission workspace:** state $\bar y=[\bar r,\bar v]$ integrated numerically with adaptive Runge–Kutta (Verner 8(9), Prince–Dormand 7(8)/4(5); coefficients from NASA GMAT, Apache 2.0). Third-body accelerations use the **direct + indirect** form of §2 (Module 1): $\ddot{\bar r}=-\mu_c\bar r/r^3+\sum_j\mu_j\left(\frac{\bar d_j-\bar r}{|\bar d_j-\bar r|^3}-\frac{\bar d_j}{d_j^3}\right)$.
+  Optional $J_2$, cannonball radiation pressure, exponential drag. Restricted three-body: circular, nondimensional rotating frame, Jacobi constant $C_J=x^2+y^2+2(1-\mu)/r_1+2\mu/r_2-v^2$; collinear points from the standard quintics.
+* **Why the answers differ:** Moon/Sun/planet perturbations change $a,e,i,\omega,\Omega$ secularly and periodically; a finite arc of a hyperbola only *approaches* $v_\infty$ and $\theta^*_\infty$ (HW4: 1.0466 km/s and 146.06° at the end of a finite arc against 1.0361 km/s and 146.44° from theory — an asymptote, not a mismatch); patched conics ignore the third body inside each sphere of influence $r_{SOI}=a(m/M)^{2/5}$ (Earth $\approx9.25\times10^5$ km).
+* **Events:** periapsis ($\bar r\cdot\bar v$ rising through 0), apoapsis (falling), `TA = x` (wrap-safe), `RMAG = x`, elapsed time; located by bracketing and an Illinois root finder to $10^{-9}$ s. With several stop conditions the earliest wins.
+* **Ephemerides:** built-in = Standish approximate Keplerian elements (inner planets within about $10^4$–$7\times10^4$ km, Jupiter to Pluto within a few $10^6$ km of DE440s in 2026) plus a truncated Meeus lunar theory (about 50 km); optional JPL **DE440s** (1849–2150) through `jplephem`. Time scale: UTC → TAI (leap seconds, 37 s since 2017) → TT (+32.184 s) → TDB; GMAT's A1 = TAI + 0.0343817 s.
+* **Checks that must agree:** the exact Kepler solution and the numerical two-body run agree to $10^{-8}$ relative; "Open in Mission" on modules 3–8 and 12 reproduces the module numbers (HW4 problem 3: start $\theta^*=-110^\circ$, $r=225826.422$ km; aim point $\theta^*=-56.4427^\circ$, $r=80045.573$ km, $v=3.03157$ km/s).
+
+### 7.3 GMAT compatibility
+
+* Export: GMAT R2022a script syntax (`Create Spacecraft`, `ForceModel` with `CentralBody`/`PointMasses`, `Propagator`, `CoordinateSystem`, `ImpulsiveBurn`, `ReportFile`, `OrbitView`, then `BeginMissionSequence` and `Propagate`/`Maneuver`/`Report`/`Toggle`). Module answers are written as `% expected:` comments. The Moon is `Luna`.
+* GMAT's `MarsMJ2000Eq` keeps **Earth's** J2000 equator axes; the course's "Mars equatorial" frame is `BodyInertial` (Mars pole RA 317.68°, Dec 52.89°).
+* Import: a subset parsed by a small tokenizer; `Target`/`Vary`/`Achieve`, GMAT functions, spherical-harmonic fields and drag models are listed as skipped. The tutorial script `Tut_SimulatingAnOrbit.script` loads and runs.
+* Models GMAT does not have (analytic Kepler, restricted three-body) are exported as the closest GMAT force model with a comment.
+* Not modelled: spherical-harmonic gravity, finite-burn attitude, targeting. Licence: portions derived from NASA GMAT (Apache 2.0), see `NOTICE`.

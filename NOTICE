@@ -1,0 +1,26 @@
+Orbit Simulator
+Third-party notices
+
+Portions of this software are derived from NASA GMAT (General Mission Analysis Tool), licensed under the Apache License, Version 2.0.
+  Source: https://github.com/nasa/GMAT   (File: License.txt; full text in LICENSES/GMAT-Apache-2.0.txt)
+  Copyright (c) 2002-2026 United States Government as represented by the Administrator of the National Aeronautics and Space Administration.
+  What is derived: the Runge-Kutta coefficient tables of the RungeKutta89, PrinceDormand78 and PrinceDormand45 integrators
+  (src/base/propagator/RungeKutta89.cpp, PrinceDormand78.cpp, PrinceDormand45.cpp), translated mechanically to Python and MODIFIED
+  (mathkit/dyn/_gmat_tables.py). The GMAT script syntax is also written and read by this program (mathkit/gmat/), which is original code.
+  This program is not affiliated with or endorsed by NASA. The NASA name and logo are not used. "Compatible with GMAT R2022a" describes the
+  script syntax only. GMAT binaries and its SPICE, Boost and Xerces libraries are not included.
+
+The sample script tests/data/Tut_SimulatingAnOrbit.script is copied unmodified from NASA GMAT (Apache License 2.0) and is used only to check the script importer.
+
+jplephem (MIT licence, Brandon Rhodes) reads JPL SPK ephemeris kernels.   Full text: LICENSES/jplephem-MIT.txt
+
+JPL planetary and lunar ephemerides (DE440s) are produced by NASA/JPL and distributed by NAIF (https://naif.jpl.nasa.gov/). The kernel is not bundled;
+it is downloaded only when you press the download button in Settings. NAIF rules for the use of SPICE data and software:
+https://naif.jpl.nasa.gov/naif/rules.html
+
+Built-in approximate ephemeris: E. M. Standish, "Keplerian Elements for Approximate Positions of the Major Planets", JPL Solar System Dynamics;
+lunar theory after J. Meeus, Astronomical Algorithms (truncated).
+
+Planet textures: Solar System Scope (2k maps), CC BY 4.0, https://www.solarsystemscope.com/textures/
+
+Plotly (MIT), pywebview (BSD-3-Clause), NumPy (BSD-3-Clause) and Matplotlib (PSF-based licence) are used under their own licences.

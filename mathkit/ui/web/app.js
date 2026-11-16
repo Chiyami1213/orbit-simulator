@@ -67,7 +67,7 @@ const FRAME_PRESETS = [[240, 'Low'], [480, 'Medium'], [1200, 'High'], [3000, 'Ul
 const fresh = o => JSON.parse(JSON.stringify(o));
 let META = null;
 let SET = { const: 'Course table', moonR: 2000, unit: 'km', appearance: 'dark', name: '', label: '', sliders: true, layout: {}, keys: {},
-  view: 'both', palette: 'prussian', repeat: true, bodyNotation: 'symbol', frames: 480, textures: false, model: 'marker', fps: false };
+  view: 'both', palette: 'prussian', repeat: true, convention: 'course', ephemMode: 'auto', ephemPath: '', gmatPath: '', bodyNotation: 'symbol', frames: 480, textures: false, model: 'marker', fps: false };
 const LAY = fresh(LAY_DEFAULT);
 const S = { page: '12', prev: '12', canon: {}, tab: 'Plots', scene: 0, res: null, seq: 0, tests: null, rebind: null, cache: new Map(), last: {}, setTab: 'Appearance', backups: null, gpu: '', focus: null, fshow: { menu: false, inputs: false, results: false } };
 const mod = () => META.modules.find(m => m.id === S.page);
@@ -79,7 +79,7 @@ const keys = () => ({ ...KEYS_DEFAULT, ...(SET.keys || {}) });
 const dark = matchMedia('(prefers-color-scheme: dark)');
 const effTheme = () => SET.appearance === 'device' ? (dark.matches ? 'dark' : 'light') : (SET.appearance === 'light' ? 'light' : 'dark');
 dark.addEventListener('change', () => { if (SET.appearance === 'device') { syncChrome(); S.cache.clear(); if (isMod()) solveNow(); } });
-const solveOpts = () => ({ body: SET.bodyNotation, frames: SET.frames, textures: SET.textures, model: SET.model, fps: SET.fps, palette: SET.palette, repeat: SET.repeat !== false });
+const solveOpts = () => ({ convention: S.conv || SET.convention || 'course', body: SET.bodyNotation, frames: SET.frames, textures: SET.textures, model: SET.model, fps: SET.fps, palette: SET.palette, repeat: SET.repeat !== false });
 
 /* ---------- text style (headers: APA title case, explanations: lower case) ---------- */
 const SEL_H = ['.title', '.nv .lbl', '.chip:not(#unitChip)', '.tab', '#panel h2', '.cardx > h3 b', '.sheet h3', '.tbl th', '.flab', '.fld-top label', '.seg button', 'a.btn', 'button.btn',
@@ -171,7 +171,7 @@ function menuDefs() {
       { sep: 1 }, { head: 'Color Theme' },
       ...PALETTES.map(([id, name]) => ({ label: name, check: () => (SET.palette || 'prussian') === id, run: () => setPalette(id) })),
       { sep: 1 }, { label: 'Refresh', key: K.refresh, run: ACTIONS.refresh }],
-    'Go': [{ head: 'Modules' }, ...META.modules.map(m => ({ label: m.short, check: () => S.page === m.id, run: () => go(m.id) })),
+    'Go': [{ label: 'Mission', check: () => S.page === 'mission', run: () => go('mission') }, { sep: 1 }, { head: 'Modules' }, ...META.modules.map(m => ({ label: m.short, check: () => S.page === m.id, run: () => go(m.id) })),
       { sep: 1 }, { head: 'Utilities' }, ...UTIL.map(([id, name]) => ({ label: name, check: () => S.page === id, run: () => go(id) }))],
     'Help': [
       { label: 'Help and Feedback', run: () => goto('settings', 'Help and Feedback') },
@@ -251,11 +251,12 @@ function buildNav() {
     el('div', { class: 'navtop' }, el('button', { class: 'navtoggle', title: LAY.fold ? 'expand menu' : 'collapse menu', onclick: () => { LAY.fold = !LAY.fold; applyLayout(); buildNav(); saveSet(); } }, ico(LAY.fold ? 'right' : 'left'))),
     el('div', { class: 'navlist' },
       navGroup('modules', 'Modules', 'grid', META.modules.map(m => navItem(m.id, m.short, ico(MOD_ICO[m.id]), m.short))),
+      navItem('mission', 'Mission', ico('orbit'), 'GMAT-style mission design: resources, command sequence, propagation and GMAT script import / export'),
       navGroup('utilities', 'Utilities', 'tools', UTIL.map(([id, name, ic]) => navItem(id, name, ico(ic))))),
     el('div', { class: 'navbottom' }, navItem('settings', 'Settings', ico('gear'))));            // the gear sits alone at the very bottom
 }
 async function go(page) {
-  setFocus(null);
+  setFocus(null); if (page !== S.page) S.conv = null;                                   // the per-result convention toggle lasts for one result
   S.page = page; S.scene = 0; buildNav();
   $('#app').classList.toggle('wide', !isMod());
   if (isMod()) {
@@ -395,7 +396,10 @@ function tabRow(r) {
   const views = el('div', { class: 'seg viewseg', title: 'choose the 3d view, the 2d figure, or both' }, ...[['3d', '3D'], ['2d', '2D'], ['both', '3D + 2D']].map(([v, l]) =>
     el('button', { class: SET.view === v ? 'on' : '', onclick: () => { SET.view = v; saveSet(); setFocus(null); renderMain(); } }, l)));
   const chips = S.tab === 'Plots' && closed.length ? el('div', { class: 'closedchips', title: 'closed panels: click to bring one back' }, ...closed.map(id => el('button', { class: 'chip', onclick: () => openTile(id) }, '+ ' + TILE_NAME[id]))) : '';
-  return el('div', { class: 'tabrow' }, el('div', { class: 'tabs' }, ...tabs.map(t => el('button', { class: 'tab' + (t === S.tab ? ' on' : ''), onclick: () => { S.tab = t; renderMain(); } }, t))), chips, S.tab === 'Plots' ? views : '');
+  const convSeg = el('div', { class: 'seg convseg', title: 'show this result with course names and angles, or with GMAT parameter names (VFPA, TA 0 to 360 …). the values behind it do not change' }, ...[['course', 'Course'], ['gmat', 'GMAT']].map(([v, l]) =>
+    el('button', { class: (S.conv || SET.convention || 'course') === v ? 'on' : '', onclick: () => { S.conv = v; S.cache.clear(); solveNow(); } }, l)));
+  const toMission = el('button', { class: 'btn small', title: 'build the matching spacecraft, propagator, burns and stop conditions in the Mission workspace', onclick: () => openInMission() }, 'Open in Mission');
+  return el('div', { class: 'tabrow' }, el('div', { class: 'tabs' }, ...tabs.map(t => el('button', { class: 'tab' + (t === S.tab ? ' on' : ''), onclick: () => { S.tab = t; renderMain(); } }, t))), chips, el('div', { class: 'tabtools' }, convSeg, toMission), S.tab === 'Plots' ? views : '');
 }
 function renderMain() {
   const main = $('#main'), r = S.res;
@@ -606,7 +610,8 @@ function exportTab(main, r) {
     el('div', { class: 'btnrow' }, ...['light', 'dark'].flatMap(t => ['png', 'pdf'].map(f => el('button', { class: 'btn', onclick: () => saveExport(i, f, t) }, `${f.toUpperCase()} · ${t}`))),
       el('button', { class: 'btn', onclick: () => saveExport(i, 'html', 'light') }, '3D Page (.html)'),
       el('button', { class: 'btn', onclick: () => saveExport(i, 'py', 'light') }, 'Python Script (.py)'),
-      el('button', { class: 'btn', onclick: () => saveExport(i, 'm', 'light') }, 'MATLAB Script (.m)')))));
+      el('button', { class: 'btn', onclick: () => saveExport(i, 'm', 'light') }, 'MATLAB Script (.m)'),
+      i === 0 ? el('button', { class: 'btn', title: 'a GMAT R2022a script that rebuilds this result (always in GMAT convention)', onclick: () => saveExport(i, 'script', 'light') }, 'GMAT Script (.script)') : ''))));
   if (!SET.name) main.append(el('div', { class: 'chk warn' }, el('span', { class: 'ic' }, '!'), el('span', {}, 'enter your name under settings: homework figures must carry it.')));
 }
 
@@ -616,6 +621,7 @@ function renderUtil() {
   if (S.page === 'const') return constPage(main);
   if (S.page === 'jd') return jdPage(main);
   if (S.page === 'settings') return settingsPage(main);
+  if (S.page === 'mission') return renderMission();
   return testsPage(main);
 }
 function constPage(main) {
@@ -665,7 +671,7 @@ function showTests(t) {
 /* ---------- settings page ---------- */
 const seg = (opts, cur, pick) => { const w = el('div', { class: 'seg' }); opts.forEach(([v, label]) => w.append(el('button', { class: v === cur ? 'on' : '', onclick: () => { pick(v); w.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', opts[i][0] === v)); } }, label))); return w; };
 const setRow = (title, desc, ...ctl) => el('div', { class: 'setrow' }, el('div', { class: 'lt' }, el('div', { class: 't' }, title), desc ? el('div', { class: 'dim' }, desc) : null), el('div', { class: 'ctl' }, ...ctl));
-const SET_TABS = ['Appearance', 'Figures and Animation', 'Figure Title', 'Constants and Units', 'Inputs', 'Key Bindings', 'Layout', 'Backup', 'Local Files', 'Help and Feedback', 'About'];
+const SET_TABS = ['Appearance', 'Figures and Animation', 'Figure Title', 'Constants and Units', 'Conventions', 'Ephemeris and GMAT', 'Inputs', 'Key Bindings', 'Layout', 'Backup', 'Local Files', 'Help and Feedback', 'About'];
 const redo3d = () => { S.cache.clear(); S.last = {}; };
 async function refreshBackups() { const r = await api('backup_list'); S.backups = r.ok ? r.backups : []; if (S.page === 'settings' && S.setTab === 'Backup') renderUtil(); }
 function afterRestore(r) {
@@ -732,6 +738,15 @@ function settingsPage(main) {
       setRow('Spacecraft', 'a simple marker, or a 3d satellite model that points along the velocity', seg([['marker', 'Marker'], ['comsat', 'Satellite A'], ['probe', 'Satellite B']], SET.model, v => { SET.model = v; saveSet(); reRender(); })),
       setRow('Frame Rate Monitor', 'show frames per second for the page and the 3d animation', el('input', { type: 'checkbox', checked: SET.fps, onchange: e => { SET.fps = e.target.checked; saveSet(); redo3d(); showFps(); } })),
       el('div', { class: 'dim', style: 'margin:8px 0 0' }, 'planet textures: solar system scope (2k maps), cc by 4.0, https://www.solarsystemscope.com/textures/')),
+    'Conventions': () => el('div', { class: 'sheet' },
+      setRow('Convention', 'how angles and names are shown in results, steps and the mission workspace. the numbers behind them, the presets and the test cases always stay in the course convention',
+        seg([['course', 'Course'], ['gmat', 'GMAT']], SET.convention || 'course', v => { SET.convention = v; S.conv = null; saveSet(); redo3d(); if (isMod()) solveSoon(); renderUtil(); })),
+      el('div', { class: 'dim', style: 'margin:10px 0 6px' }, 'what changes in gmat mode (each converted line also shows the course value):'),
+      table(['Quantity', 'Course', 'GMAT'], [['Flight-path angle', 'γ from the local horizon, positive when ṙ > 0', 'HFPA = γ and VFPA = 90° − γ (from the radius vector)'], ['Anomalies', 'θ*, M, E in (−180°, 180°]', 'TA, MA, EA in [0°, 360°)'],
+        ['Impulse', 'Δv, α, β in VNC (α from v̄⁻ toward Ĉ)', 'Element1..3 in VNB: E1 = Δv cosβ cosα, E2 = Δv sinβ, E3 = Δv cosβ sinα'], ['Energy', 'ε', 'Energy and C3Energy = 2ε'], ['Moon', 'Moon', 'Luna'],
+        ['Dates', 'calendar / Julian date', 'UTCGregorian and UTCModJulian = JD − 2430000.0']]),
+      el('div', { class: 'dim', style: 'margin-top:10px' }, 'the constants switch (course table / exam rounded) is separate and unaffected. exported gmat scripts are always written in gmat convention.')),
+    'Ephemeris and GMAT': () => ephemPage(),
     'Figure Title': () => el('div', { class: 'sheet' },
       setRow('Your Name', 'printed in every figure title (homework figures must carry it)', el('input', { type: 'text', value: SET.name, placeholder: 'your name', oninput: e => { SET.name = e.target.value; saveSet(); } })),
       setRow('Problem Label', 'for example hw7 p2; also printed in the figure title', el('input', { type: 'text', value: SET.label, placeholder: 'problem label', oninput: e => { SET.label = e.target.value; saveSet(); } }))),
@@ -755,7 +770,7 @@ function settingsPage(main) {
       setRow('Screenshots', 'saved by the screenshot key', el('span', { class: 'path' }, META.paths.screenshots), el('button', { class: 'btn', onclick: () => api('open_folder', { which: 'screenshots' }) }, 'Open')),
       setRow('Exports', 'png, pdf, 3d pages, python and matlab scripts saved from the export tab', el('span', { class: 'path' }, META.paths.exports), el('button', { class: 'btn', onclick: () => api('open_folder', { which: 'exports' }) }, 'Open'))),
     'Help and Feedback': helpPage,
-    'About': () => el('div', { class: 'sheet' }, setRow('Orbit Simulator', 'version ' + META.version), setRow('Project Page', 'source code, installation notes and the issue tracker', el('span', { class: 'path' }, 'github.com/Chiyami1213/orbit-simulator')))
+    'About': () => aboutPage()
   };
   main.append(el('div', { class: 'setp' }, el('div', { class: 'sh1' }, 'Settings'),
     el('div', { class: 'stabs' }, ...SET_TABS.map(t => el('button', { class: 'stab' + (t === tab ? ' on' : ''), onclick: () => { S.setTab = t; if (t === 'Backup') S.backups = null; renderUtil(); } }, t))),
@@ -812,3 +827,31 @@ async function boot() {
   await go(META.modules.some(m => m.id === SET.lastPage) ? SET.lastPage : S.page); splash(100, 'ready'); SPLASH.done = true; restyle();
 }
 boot();
+
+
+/* ---------- settings: ephemeris + GMAT, About with the licences ---------- */
+function ephemPage() {
+  const host = el('div', { class: 'sheet' }); const draw = async () => {
+    const r = await api('ephem_status', {}); const k = r.kernel, g = r.progress; host.replaceChildren(
+      setRow('Active Ephemeris', r.ephemeris.accuracy, el('b', {}, r.ephemeris.name)),
+      setRow('Source', 'auto uses the DE440s kernel when it is present; built-in always uses the offline analytic model', seg([['auto', 'Auto'], ['analytic', 'Built-in']], SET.ephemMode || 'auto', v => { SET.ephemMode = v; saveSet(); MIS.meta = null; draw(); })),
+      setRow('DE440s Kernel', `JPL planetary ephemeris, 1849–2150, about ${(k.expected_size / 1e6).toFixed(0)} MB, downloaded from ${k.url} only when you press the button. stored in ${k.folder}`,
+        k.path ? el('span', {}, el('b', {}, 'installed'), el('span', { class: 'dim' }, ` ${(k.size / 1e6).toFixed(1)} MB`)) : el('button', { class: 'btn pri', disabled: g.state === 'running' || !k.jplephem, onclick: async () => {
+          if (!confirm(`download the DE440s kernel (${(k.expected_size / 1e6).toFixed(0)} MB) from NASA/JPL NAIF now?`)) return; await api('ephem_download', {}); draw(); const t = setInterval(async () => { const q = await api('ephem_status', {}); if (q.progress.state !== 'running') { clearInterval(t); MIS.meta = null; draw(); } else { host.querySelector('.dlp')?.replaceChildren(`${(q.progress.done / 1e6).toFixed(1)} / ${(q.progress.total / 1e6).toFixed(1)} MB`); } }, 700); } }, 'Download DE440s')),
+      g.state === 'running' ? el('div', { class: 'dim dlp' }, 'starting…') : '', g.state === 'error' ? el('div', { class: 'chk err' }, el('span', { class: 'ic' }, '✕'), el('span', {}, 'download failed: ' + g.error)) : '',
+      g.state === 'done' ? el('div', { class: 'dim' }, 'downloaded; sha-256 ' + g.sha256) : '', !k.jplephem ? el('div', { class: 'chk warn' }, el('span', { class: 'ic' }, '!'), el('span', {}, 'the jplephem package is not available in this installation, so only the built-in ephemeris can be used')) : '',
+      setRow('My Own Kernel', 'path to a .bsp file (for example de440s.bsp or a mission kernel); leave empty to use the downloaded one', el('input', { type: 'text', value: SET.ephemPath || '', style: 'width:300px', placeholder: 'C:\\path\\de440s.bsp', onchange: e => { SET.ephemPath = e.target.value.trim(); saveSet(); MIS.meta = null; draw(); } })),
+      el('div', { class: 'sh2', style: 'margin-top:26px' }, 'GMAT'),
+      setRow('GMAT Folder', 'optional: the folder of an installed GMAT (the one that contains bin/GmatConsole). when set, the mission comparison also runs your exported script in GMAT and fills the GMAT column. nothing is bundled and nothing is downloaded',
+        el('input', { type: 'text', value: SET.gmatPath || '', style: 'width:300px', placeholder: 'C:\\GMAT\\R2022a', onchange: async e => { SET.gmatPath = e.target.value.trim(); saveSet(); const c = await api('gmat_check', { path: SET.gmatPath }); toast(SET.gmatPath ? (c.ok ? 'GMAT console found' : 'GmatConsole was not found in that folder') : 'GMAT path cleared', c.ok || !SET.gmatPath ? 'ok' : 'err'); } })));
+  }; draw(); return host;
+}
+let LIC = null;
+function aboutPage() {
+  const host = el('div', { class: 'sheet' }, setRow('Orbit Simulator', 'version ' + META.version), setRow('Project Page', 'source code, installation notes and the issue tracker', el('span', { class: 'path' }, 'github.com/Chiyami1213/orbit-simulator')),
+    el('div', { class: 'sh2', style: 'margin-top:22px' }, 'Licenses and Credits'),
+    el('div', { class: 'dim', style: 'margin-bottom:8px' }, 'this program contains portions derived from nasa gmat (general mission analysis tool), licensed under the apache license 2.0: the runge-kutta coefficient tables of its integrators, translated and modified. it is not affiliated with or endorsed by nasa, and no gmat binaries are included. the jpl ephemeris kernel, if you download it, comes from nasa/jpl naif.'));
+  const draw = items => { host.append(...items.map(it => el('details', { class: 'lic' }, el('summary', {}, it.name), el('pre', {}, it.text)))); };
+  if (LIC) draw(LIC); else api('licenses', {}).then(r => { LIC = r.items; if (S.page === 'settings' && S.setTab === 'About') draw(LIC); });
+  return host;
+}

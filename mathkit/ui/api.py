@@ -1,6 +1,7 @@
 """JSON API behind the desktop UI. Pure functions: dict in -> dict out (everything JSON-serialisable)."""
 from __future__ import annotations
 import io
+import pathlib
 import threading
 import traceback
 import numpy as np
@@ -15,7 +16,8 @@ from ..presets.hw_problems import PRESETS
 from ..presets.runner import run_preset, all_presets, defaults
 from ..plots2d.render import render
 from ..view3d.animate import build_html
-from ..results import Result
+from ..results import Result, Step
+from ..conventions import Convention, present_step
 from .present import summary_cards, extra_tabs
 from ..theme import apply_palette
 from . import shell, backup
@@ -132,12 +134,18 @@ def solve(p: dict) -> dict:
             problems.append(f'the figures could not be drawn ({type(ex).__name__}: {ex}); the numbers and steps are still available')
             scenes = [dict(name='main', svg='', html3d='', overlaps=0, has_anim=False, notes=[], is3d=False)]; extra_figs = []
         _prog('done', 1.0)
-        LAST.clear(); LAST.update(palette=(p.get('opts') or {}).get('palette', 'prussian'), res=res, name=user, label=vals['_label'], mid=mid, body=(p.get('opts') or {}).get('body', 'symbol'))
+        LAST.clear(); LAST.update(vals=dict(vals), consts_mode=C.mode, palette=(p.get('opts') or {}).get('palette', 'prussian'), res=res, name=user, label=vals['_label'], mid=mid, body=(p.get('opts') or {}).get('body', 'symbol'))
+    conv = Convention.of((p.get('opts') or {}).get('convention', 'course'))
     groups = []
     for g in dict.fromkeys(s.group for s in res.steps):
-        groups.append(dict(name=g, rows=[[s.name, s.symbol, s.display(), s.units, s.equation, s.note] for s in res.steps if s.group == g]))
+        rows = []
+        for s in (x for x in res.steps if x.group == g):
+            for nm, sym, val, un, note in present_step(s.name, s.symbol, s.value, s.units, conv):
+                unchanged = (nm == s.name and sym == s.symbol and val is s.value)
+                rows.append([nm, sym, s.display() if unchanged else Step(nm, sym, val, un).display(), un, s.equation if unchanged else '', note or (s.note if unchanged else '')])
+        groups.append(dict(name=g, rows=rows))
     return dict(title=res.title, label=res.label, warnings=res.warnings, checks=res.checks, groups=groups, scenes=scenes, figs=extra_figs,
-                cards=summary_cards(mid, res), tabs=extra_tabs(mid, res), inputs=_jsonable(res.inputs), problems=problems)
+                cards=summary_cards(mid, res), tabs=extra_tabs(mid, res), inputs=_jsonable(res.inputs), problems=problems, convention=conv.value)
 
 
 def export(idx: int, fmt: str, theme: str = 'light'):
@@ -148,6 +156,11 @@ def export(idx: int, fmt: str, theme: str = 'light'):
     stem = ((LAST['name'] + '_') if LAST['name'] else '') + LAST['label'].replace(' ', '_') + ('' if name == 'main' else '_' + name.split()[0])
     with LOCK:
         if fmt == 'html': return build_html(sc, theme, LAST['name'], plotlyjs='cdn', body=LAST.get('body', 'symbol')).encode('utf-8'), 'text/html', stem + '_3D.html'
+        if fmt == 'script':
+            from ..mission.from_module import from_module
+            from ..gmat.export import export_script
+            m = from_module(LAST['mid'], LAST['vals'], res, ConstantSet(LAST.get('consts_mode', 'Course table')))
+            return export_script(m).encode('utf-8'), 'text/plain', stem + '.script'
         if fmt in ('py', 'm'):
             from . import codegen
             title = (LAST['name'] + ' — ' if LAST['name'] else '') + f'{sc.label}: {sc.title}'; fname = codegen.safe_name(stem) + '_plots.' + fmt
@@ -157,6 +170,227 @@ def export(idx: int, fmt: str, theme: str = 'light'):
         fig = render(sc, theme, LAST['name'], body=LAST.get('body', 'symbol')); buf = io.BytesIO()
         fig.savefig(buf, format=fmt, dpi=300, bbox_inches='tight', facecolor=fig.get_facecolor()); plt.close(fig)
     return buf.getvalue(), ('image/png' if fmt == 'png' else 'application/pdf'), f'{stem}.{fmt}'
+
+
+# ------------------------------------------------------------------------------------------------ Mission workspace
+MPROG = dict(stage='', frac=0.0)
+
+
+def _settings() -> dict:
+    try: return shell.load_settings()
+    except Exception: return {}
+
+
+def _eph():
+    from ..ephem import get_provider
+    st = _settings(); return get_provider(st.get('ephemPath') or None, 'analytic' if st.get('ephemMode') == 'analytic' else 'auto')
+
+
+def mission_meta(p: dict) -> dict:
+    from ..mission import service as MS
+    from ..mission.model import INTEGRATORS, DYNAMICS_LABEL
+    from ..mission import params as MP
+    e = _eph(); return dict(starters=list(MS.STARTERS), integrators=list(INTEGRATORS), dynamics=DYNAMICS_LABEL, bodies=list(BODIES), params=list(MP.ALL_PARAMS), units=MP.UNITS,
+                            ephemeris=dict(name=e.name, accuracy=e.accuracy, bodies=list(getattr(e, 'bodies', ()))), kernel=_kernel_status())
+
+
+def mission_starter(p: dict) -> dict:
+    from ..mission import service as MS
+    return dict(mission=MS.starter(p['name']).to_dict())
+
+
+def mission_run(p: dict) -> dict:
+    from ..mission import service as MS
+    opts = dict(p.get('opts') or {}); opts['theme'] = p.get('theme', 'dark')
+    with LOCK:
+        apply_palette(opts.get('palette', 'prussian'))
+        MPROG.update(stage='starting', frac=0.0)
+        out = MS.run_mission(p['mission'], opts, lambda n, sc, th, u, w3, o: _scene_payload(n, sc, th, u, w3, o), _eph(), lambda s, f: MPROG.update(stage=s, frac=f))
+        MPROG.update(stage='done', frac=1.0)
+    return out
+
+
+def mission_progress(p: dict) -> dict: return dict(MPROG)
+
+
+def mission_convert(p: dict) -> dict:
+    """Convert one spacecraft's state between Cartesian and Keplerian (live sync in the editor)."""
+    from ..mission.model import Mission
+    from ..mission import run as MR, params as MP
+    try:
+        m = Mission.from_dict(p['mission']); sc = m.spacecraft[int(p['index'])]; consts = ConstantSet(m.constants)
+        cs = m.coord(sc.coord); st = MR.initial_state(m, sc, consts)
+        M = MP.axes_matrix(cs.axes, cs.origin); r, v = M @ st.r, M @ st.v
+        d = MP.keplerian(consts.mu(cs.origin), r, v); keys = MP.KEP_PARAMS[:6] if p['to'] == 'Keplerian' else MP.CART_PARAMS[:6]
+        return dict(ok=True, state={k: float(d[k]) for k in keys})
+    except Exception as ex: return dict(ok=False, error=str(ex))
+
+
+def mission_compare(p: dict) -> dict:
+    from ..mission import service as MS
+    out = MS.compare(p['mission'], _eph())
+    st = _settings(); g = st.get('gmatPath')
+    if g and 'rows' in out:
+        from ..gmat import runner
+        from ..gmat.export import export_script
+        from ..mission.model import Mission
+        con = runner.find_console(g)
+        if con is None: out['gmat_status'] = 'GMAT console not found in the configured folder'
+        else:
+            m = Mission.from_dict(p['mission']); r = runner.run_script(con, export_script(m)); out['gmat_status'] = 'GMAT ran' if r['ok'] else (r.get('error') or 'GMAT produced no report')
+            if r['ok'] and m.reports:
+                rows = runner.parse_report(next(iter(r['reports'].values())), m.reports[0].params)
+                if rows:
+                    last = rows[-1]; keymap = {'a': 'SMA', 'e': 'ECC', 'i': 'INC', 'r': 'RMAG', 'v': 'VMAG', 'VFPA': 'VFPA', 'TA': 'TA'}
+                    for row in out['rows']:
+                        key = keymap.get(row['quantity'])
+                        for c, v in last.items():
+                            if key and c.endswith('.' + key) and c.startswith(row['sat'] + '.'): row['gmat'] = v
+    else: out['gmat_status'] = 'GMAT not configured'
+    return out
+
+
+def mission_script(p: dict) -> dict:
+    from ..mission.model import Mission
+    from ..gmat.export import export_script
+    from ..gmat.importer import import_script
+    m = Mission.from_dict(p['mission']); text = export_script(m); back = import_script(text)
+    return dict(script=text, skipped=back.skipped, round_trip_commands=len(back.mission.commands) == len([c for c in m.commands if c.enabled]))
+
+
+def mission_import(p: dict) -> dict:
+    from ..gmat.importer import import_script
+    from ..mission.model import Mission
+    name = (p.get('filename') or 'Imported mission').rsplit('.', 1)[0]; txt = p['text']
+    if (p.get('filename') or '').endswith('.orbitmission'):
+        try: return dict(ok=True, mission=Mission.from_json(txt).to_dict(), skipped=[], notes=[])
+        except Exception as ex: return dict(ok=False, error=f'not a valid .orbitmission file: {ex}')
+    r = import_script(txt, name)
+    if not r.mission.spacecraft and not r.mission.commands: return dict(ok=False, error='no spacecraft or mission commands were found in this script', skipped=r.skipped)
+    return dict(ok=True, mission=r.mission.to_dict(), skipped=r.skipped, notes=r.notes)
+
+
+def mission_from_module(p: dict) -> dict:
+    from ..mission.from_module import from_module, NotAvailable
+    if not LAST: return dict(ok=False, error='solve a module first')
+    try: m = from_module(LAST['mid'], LAST['vals'], LAST['res'], ConstantSet(LAST.get('consts_mode', 'Course table')))
+    except NotAvailable as ex: return dict(ok=False, error=str(ex))
+    except Exception as ex: return dict(ok=False, error=f'could not build a mission from this result: {ex}')
+    return dict(ok=True, mission=m.to_dict())
+
+
+def mission_save(p: dict) -> dict:
+    from ..mission.model import Mission
+    from ..mission import service as MS
+    try:
+        m = Mission.from_dict(p['mission']); kind = p.get('kind', 'orbitmission'); stem = ''.join(c if c.isalnum() or c in '-_' else '_' for c in m.name)[:60] or 'mission'
+        if kind == 'script':
+            from ..gmat.export import export_script
+            data, ext = export_script(m).encode('utf-8'), 'script'
+        elif kind == 'orbitmission': data, ext = m.to_json().encode('utf-8'), 'orbitmission'
+        elif kind in ('csv', 'txt'):
+            rep = p['report']; data, ext = (MS.report_csv(rep) if kind == 'csv' else MS.report_table(rep)).encode('utf-8'), kind
+            stem = ''.join(c if c.isalnum() or c in '-_' else '_' for c in rep.get('filename', 'report').rsplit('.', 1)[0]) or 'report'
+        else: return dict(ok=False, error='unknown export type')
+        out = shell.unique_path(shell.folder('exports'), stem, ext); out.write_bytes(data); return dict(ok=True, path=str(out))
+    except Exception as ex: return dict(ok=False, error=str(ex))
+
+
+def _kernel_status() -> dict:
+    from .. import ephem
+    k = ephem.find_kernel(_settings().get('ephemPath') or None)
+    try:
+        import jplephem  # noqa: F401
+        have = True
+    except Exception: have = False
+    return dict(path=str(k) if k else '', size=k.stat().st_size if k else 0, jplephem=have, folder=str(ephem.kernel_dir()), url=ephem.DE440S_URL, expected_size=ephem.DE440S_SIZE)
+
+
+KPROG = dict(done=0, total=0, state='idle', error='', sha256='')
+
+
+def ephem_status(p: dict) -> dict:
+    e = _eph(); return dict(kernel=_kernel_status(), progress=dict(KPROG), ephemeris=dict(name=e.name, accuracy=e.accuracy))
+
+
+def ephem_download(p: dict) -> dict:
+    """Download DE440s into the app data folder (only when the user clicks). Runs in a thread; poll ``ephem_status``."""
+    import hashlib
+    import urllib.request
+    from .. import ephem
+    if KPROG['state'] == 'running': return dict(ok=True)
+
+    def work():
+        KPROG.update(done=0, total=ephem.DE440S_SIZE, state='running', error='', sha256='')
+        dest = ephem.kernel_dir() / 'de440s.bsp'; tmp = dest.with_suffix('.part'); h = hashlib.sha256()
+        try:
+            req = urllib.request.Request(ephem.DE440S_URL, headers={'User-Agent': 'OrbitSimulator'})
+            with urllib.request.urlopen(req, timeout=60) as r, open(tmp, 'wb') as f:
+                KPROG['total'] = int(r.headers.get('Content-Length') or ephem.DE440S_SIZE)
+                while True:
+                    b = r.read(1 << 18)
+                    if not b: break
+                    f.write(b); h.update(b); KPROG['done'] += len(b)
+            if KPROG['done'] < 1_000_000: raise OSError('the download is too small to be the kernel')
+            tmp.replace(dest); KPROG.update(state='done', sha256=h.hexdigest())
+        except Exception as ex:
+            try: tmp.unlink()
+            except OSError: pass
+            KPROG.update(state='error', error=str(ex))
+    threading.Thread(target=work, daemon=True).start(); return dict(ok=True)
+
+
+def licenses(p: dict) -> dict:
+    """Third-party notices shown in Settings > About (the NOTICE file and the licence texts shipped with the program)."""
+    import sys
+    base = pathlib.Path(getattr(sys, '_MEIPASS', pathlib.Path(__file__).resolve().parents[2])) if getattr(sys, 'frozen', False) else pathlib.Path(__file__).resolve().parents[2]
+    out = []
+    n = base / 'NOTICE'
+    if n.exists(): out.append(dict(name='Notice', text=n.read_text(encoding='utf-8', errors='replace')))
+    for f in sorted((base / 'LICENSES').glob('*.txt')) if (base / 'LICENSES').exists() else []:
+        out.append(dict(name=f.stem.replace('-', ' '), text=f.read_text(encoding='utf-8', errors='replace')))
+    return dict(items=out)
+
+
+def mission_porkchop(p: dict) -> dict:
+    """Departure x arrival grid (Earth to Mars by default). Dates are 'YYYY-MM-DD'."""
+    from ..mission import porkchop as PK
+    from ..core.timeutil import calendar_to_jd, format_gregorian
+    def jd_of(x):
+        y, m, d = (int(v) for v in str(x).split('-')); return calendar_to_jd(y, m, d)
+    try:
+        o, t = p.get('origin', 'Earth'), p.get('target', 'Mars'); d0, a0 = jd_of(p['dep_start']), jd_of(p['arr_start']); n = int(min(60, max(8, p.get('n', 30))))
+        with LOCK:
+            apply_palette(p.get('palette', 'prussian')); MPROG.update(stage='porkchop', frac=0.0)
+            g = PK.grid(_eph(), o, t, d0, float(p['dep_days']), a0, float(p['arr_days']), n, ConstantSet(p.get('constants', 'Course table')), lambda s_, f: MPROG.update(stage=s_, frac=f))
+            svg = PK.render_svg(g, o, t, p.get('theme', 'dark')); MPROG.update(stage='done', frac=1.0)
+        b = g['best']
+        if not b: return dict(ok=False, error='no valid transfers in this date range (check that the arrival dates are after the departure dates)')
+        return dict(ok=True, svg=svg, best=dict(b, dep=format_gregorian(b['dep_jd']), arr=format_gregorian(b['arr_jd']), tof_days=b['arr_jd'] - b['dep_jd']), origin=o, target=t, ephemeris=_eph().name)
+    except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
+
+
+def mission_from_porkchop(p: dict) -> dict:
+    from ..mission import porkchop as PK
+    try: return dict(ok=True, mission=PK.transfer_mission(_eph(), p.get('origin', 'Earth'), p.get('target', 'Mars'), float(p['dep_jd']), float(p['arr_jd']), ConstantSet(p.get('constants', 'Course table'))).to_dict())
+    except Exception as ex: return dict(ok=False, error=str(ex))
+
+
+def mission_trajectory(p: dict) -> dict:
+    """Save a spacecraft trajectory as CSV or CCSDS OEM into the exports folder."""
+    from ..mission.model import Mission
+    from ..mission import service as MS
+    from ..mission.run import run
+    try:
+        m = Mission.from_dict(p['mission']); res = run(m, _eph(), ConstantSet(m.constants)); sat = p.get('sat') or m.spacecraft[0].name; kind = p.get('kind', 'csv')
+        text = MS.trajectory_csv(res, sat) if kind == 'csv' else MS.trajectory_oem(res, sat); ext = 'csv' if kind == 'csv' else 'oem'
+        out = shell.unique_path(shell.folder('exports'), f'{sat}_trajectory', ext); out.write_text(text, encoding='utf-8'); return dict(ok=True, path=str(out))
+    except Exception as ex: return dict(ok=False, error=str(ex))
+
+
+def gmat_check(p: dict) -> dict:
+    from ..gmat import runner
+    c = runner.find_console(p.get('path') or _settings().get('gmatPath')); return dict(ok=bool(c), console=str(c or ''))
 
 
 def run_tests(_: dict | None = None) -> dict:
@@ -278,6 +512,8 @@ def report_issue(p: dict) -> dict:
     return dict(ok=True, url=url)
 
 
-ROUTES = {'meta': lambda p: meta(), 'visible': visible, 'solve': solve, 'progress': progress, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
+ROUTES = {'meta': lambda p: meta(), 'visible': visible, 'solve': solve, 'progress': progress, 'mission_meta': mission_meta, 'mission_starter': mission_starter, 'mission_run': mission_run, 'mission_progress': mission_progress, 'mission_convert': mission_convert,
+          'mission_compare': mission_compare, 'mission_script': mission_script, 'mission_import': mission_import, 'mission_from_module': mission_from_module, 'mission_save': mission_save,
+          'ephem_status': ephem_status, 'mission_porkchop': mission_porkchop, 'mission_from_porkchop': mission_from_porkchop, 'mission_trajectory': mission_trajectory, 'licenses': licenses, 'ephem_download': ephem_download, 'gmat_check': gmat_check, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
           'fullscreen': fullscreen, 'open_folder': open_folder, 'export_save': export_save, 'report_issue': report_issue,
           'backup_create': _bk(_bk_create), 'backup_list': _bk(_bk_list), 'backup_restore': _bk(_bk_restore), 'backup_import': _bk(_bk_import), 'backup_delete': _bk(_bk_delete)}

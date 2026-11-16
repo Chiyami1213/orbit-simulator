@@ -53,6 +53,16 @@ code{font-family:ui-monospace,Consolas,monospace;background:var(--bg);padding:1p
 <tr><td>Lambert Transfer</td><td>two-position problems, both p roots, burns and phase angle</td></tr>
 </table></div>
 
+<h2>Mission workspace</h2>
+<ul>
+<li><b>Resources</b> hold spacecraft, propagators, burns, coordinate systems, report files and views (GMAT names are used throughout). Editing a Cartesian state updates the Keplerian one and the other way round.</li>
+<li><b>Sequence</b> is the command list. A <code>Propagate</code> command stops at the first of its stop conditions, for example <code>Sat.Earth.Periapsis</code>, <code>Sat.Earth.TA = 120</code>, <code>Sat.ElapsedDays = 2</code>.</li>
+<li><b>Run Mission</b> shows a progress bar; <b>Plots</b>, <b>Reports</b> and <b>Compare</b> show the results. <b>Compare</b> sets the exact course answer against the propagation as built.</li>
+<li><b>GMAT Script</b> shows the exported <code>.script</code>. <b>Import…</b> reads GMAT scripts (a subset) and saved <code>.orbitmission</code> files; anything unsupported is listed.</li>
+<li>Every module result has <b>Open in Mission</b> and an Export button for a GMAT script. <i>Settings → Conventions</i> switches between the course and GMAT way of showing results.</li>
+<li><i>Settings → Ephemeris and GMAT</i>: built-in ephemeris or the JPL DE440s kernel (downloaded only when you press the button), and the folder of an installed GMAT.</li>
+</ul>
+
 <h2>Keyboard shortcuts</h2>
 <div class="card"><table>
 <tr><th>Key</th><th>Action</th></tr>
@@ -61,6 +71,8 @@ code{font-family:ui-monospace,Consolas,monospace;background:var(--bg);padding:1p
 <tr><td><kbd>F11</kbd></td><td>toggle full screen</td></tr>
 <tr><td><kbd>S</kbd></td><td>toggle the Settings page</td></tr>
 <tr><td><kbd>M</kbd></td><td>hide or show the whole left menu bar</td></tr>
+<tr><td><kbd>F12</kbd></td><td>maximise the 3D or 2D plot (<kbd>Esc</kbd> leaves)</td></tr>
+<tr><td><kbd>F8</kbd></td><td>put every panel back in the default arrangement</td></tr>
 <tr><td><kbd>F12</kbd></td><td>focus the plot: hide every panel except the 3D or 2D view (<kbd>Esc</kbd> leaves)</td></tr>
 </table>
 <p>Every key can be changed under <b>Settings → Key Bindings</b>.</p></div>

@@ -60,3 +60,58 @@ def et_to_ut(Y: int, M: int, D: int, hour: int, minute: int = 0) -> tuple[int, i
     off = us_eastern_offset_hours(Y, M, D, hour + minute / 60)
     t = _dt.datetime(Y, M, D, hour, minute) + _dt.timedelta(hours=off)
     return t.year, t.month, t.day, t.hour, t.minute, off
+
+
+# ---------------- time systems (additions; GMAT-compatible) ----------------
+# TAI - UTC in seconds, effective from the given UTC calendar date (IERS Bulletin C; the last leap second was 2016-12-31).
+LEAP_SECONDS = [((1972, 1, 1), 10), ((1972, 7, 1), 11), ((1973, 1, 1), 12), ((1974, 1, 1), 13), ((1975, 1, 1), 14), ((1976, 1, 1), 15),
+                ((1977, 1, 1), 16), ((1978, 1, 1), 17), ((1979, 1, 1), 18), ((1980, 1, 1), 19), ((1981, 7, 1), 20), ((1982, 7, 1), 21),
+                ((1983, 7, 1), 22), ((1985, 7, 1), 23), ((1988, 1, 1), 24), ((1990, 1, 1), 25), ((1991, 1, 1), 26), ((1992, 7, 1), 27),
+                ((1993, 7, 1), 28), ((1994, 7, 1), 29), ((1996, 1, 1), 30), ((1997, 7, 1), 31), ((1999, 1, 1), 32), ((2006, 1, 1), 33),
+                ((2009, 1, 1), 34), ((2012, 7, 1), 35), ((2015, 7, 1), 36), ((2017, 1, 1), 37)]
+TT_MINUS_TAI = 32.184                    # s
+A1_MINUS_TAI = 0.0343817                 # s (GMAT)
+GMAT_MJD_OFFSET = 2430000.0              # GMAT ModJulian = JD - 2430000.0 (epoch 05 Jan 1941 12:00)
+JD_J2000 = 2451545.0
+
+
+def tai_minus_utc(jd_utc: float) -> float:
+    """TAI - UTC (s) for a UTC Julian date; 10 s before 1972 (no rubber-second model)."""
+    n = 10.0
+    for (Y, M, D), s in LEAP_SECONDS:
+        if jd_utc >= julian_date(Y, M, D, 0.0): n = float(s)
+    return n
+
+
+def utc_to_tai(jd_utc: float) -> float: return jd_utc + tai_minus_utc(jd_utc) / 86400.0
+def tai_to_tt(jd_tai: float) -> float: return jd_tai + TT_MINUS_TAI / 86400.0
+def tai_to_a1(jd_tai: float) -> float: return jd_tai + A1_MINUS_TAI / 86400.0
+
+
+def tt_to_tdb(jd_tt: float) -> float:
+    """TDB = TT + 0.001657 s sin(g), g = 357.53 deg + 0.98560028 deg/day (d = days since J2000); good to about 30 microseconds."""
+    g = np.radians(357.53 + 0.98560028 * (jd_tt - JD_J2000))
+    return jd_tt + (0.001657 * np.sin(g) + 0.000014 * np.sin(2 * g)) / 86400.0
+
+
+def utc_to_tdb(jd_utc: float) -> float: return tt_to_tdb(tai_to_tt(utc_to_tai(jd_utc)))
+def tdb_minus_utc(jd_utc: float) -> float: return (utc_to_tdb(jd_utc) - jd_utc) * 86400.0
+def jd_to_modjulian(jd: float) -> float: return jd - GMAT_MJD_OFFSET
+def modjulian_to_jd(mjd: float) -> float: return mjd + GMAT_MJD_OFFSET
+
+
+_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+
+def format_gregorian(jd_utc: float) -> str:
+    """GMAT UTCGregorian string, e.g. '27 Sep 2024 00:00:00.000'."""
+    Y, M, D, h, mi, s = jd_to_calendar(jd_utc + 0.5e-3 / 86400.0)           # round to the millisecond
+    return f'{D:02d} {_MON[M - 1]} {Y:04d} {h:02d}:{mi:02d}:{min(s, 59.999):06.3f}'
+
+
+def parse_gregorian(text: str) -> float:
+    """Parse '27 Sep 2024 00:00:00.000' (quotes allowed) to a UTC Julian date."""
+    t = text.strip().strip("'\"").split()
+    D, mon, Y, hms = int(t[0]), _MON.index(t[1][:3].title()) + 1, int(t[2]), t[3] if len(t) > 3 else '0:0:0'
+    h, mi, s = (hms.split(':') + ['0', '0'])[:3]
+    return calendar_to_jd(Y, mon, D, int(h), int(mi), float(s))
