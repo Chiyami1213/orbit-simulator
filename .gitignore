@@ -14,3 +14,5 @@ assets/installer/
 !assets/textures/*.png
 !assets/gallery/*.png
 !assets/reference/**/*.png
+*.whl
+*.exr
