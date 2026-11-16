@@ -93,8 +93,8 @@ def propagate(f, y0, t0: float, t_end: float, *, method: str = 'RungeKutta89', a
         ynew, err = S.step(t, y, h)
         if fixed_step is None:
             mag = np.maximum(np.abs(y), np.abs(ynew))
-            if y.size == 6:                                           # scale each 3-vector by its norm, like GMAT: a component near zero must not force tiny steps
-                mag = np.maximum(mag, np.repeat([np.linalg.norm(ynew[:3]), np.linalg.norm(ynew[3:])], 3))
+            if y.size % 3 == 0:                                       # scale each 3-vector by its norm, like GMAT: a component near zero must not force tiny steps
+                mag = np.maximum(mag, np.repeat(np.linalg.norm(ynew.reshape(-1, 3), axis=1), 3))
             sc = atol + accuracy * mag; en = float(np.max(np.abs(err) / sc))
             if not np.isfinite(en): status = 'step_too_small'; break
             if en > 1.0:                                                    # reject, shrink

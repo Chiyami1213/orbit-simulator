@@ -7,6 +7,16 @@ and an interactive 3-D animation, and checks itself against hundreds of publishe
 
 ## What it does
 
+Orbit Simulator has three modes, chosen with the switch at the top left:
+
+| Mode | What you do |
+|---|---|
+| **Solve** | compute homework and exam answers with the twelve course modules, plus the reference tools (Julian date, body constants, test cases) |
+| **Explore** | a live 3D sandbox in the style of Universe Sandbox: the real Solar System, a library to add planets, moons, asteroids and spacecraft, a side panel to edit mass, radius, motion and orbit, N-body physics, time warp forwards and backwards |
+| **Design** | GMAT-style mission planning: resources, a command sequence, numerical propagation, comparison with the course answer, GMAT script import and export |
+
+### Solve
+
 Twelve modules (Bate–Mueller–White conventions; all equations and sign conventions are written out in [`docs/ai_briefing.md`](docs/ai_briefing.md)):
 
 | | Module | | Module |
@@ -27,7 +37,8 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 * **Export** figures as PNG / PDF, a standalone 3-D page, or a **Python (matplotlib)** or **MATLAB** script that redraws the plots.
 * **Homework presets:** every problem with printed answers (HW 3–10, Fall 2024 Exams 1–2, lecture-note examples) loads as a preset, and the *Test Cases* page compares
   computed and printed values. Known errors in the printed solutions are corrected and documented.
-* **Mission workspace (GMAT-style):** define spacecraft, coordinate systems, propagators, impulsive burns, report files and a command sequence
+* **Explore (sandbox):** the real Solar System at any epoch from the ephemeris, textured bodies on a Milky Way sky, a library (planets, moons, small bodies, spacecraft, custom bodies, "what if" edits such as removing Jupiter or a rogue planet flyby), live N-body physics with time warp up to 100 years per second in either direction, undo and redo, saved scenes, and **Send to Design** to turn a spacecraft into a mission.
+* **Design (GMAT-style missions):** define spacecraft, coordinate systems, propagators, impulsive burns, report files and a command sequence
   (`Propagate`, `Maneuver`, `Report`, `Toggle`, with several stop conditions and `Synchronized`), then run it. Propagation is numerical (Verner RK 8(9),
   Prince–Dormand 7(8) and 4(5), or the exact Kepler solution) with the central body alone, selected point masses (Moon, Sun, planets), the whole Solar System,
   or the circular restricted three-body problem. Optional J2, solar radiation pressure and atmospheric drag.
@@ -35,6 +46,8 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 * **GMAT compatibility:** every module result and every mission can be exported as a **GMAT R2022a `.script`**; scripts can be imported back (a subset; anything unsupported is
   listed, never fatal). Parameters use GMAT's names (`Sat.Earth.SMA`, `VFPA`, `UTCModJulian` …). **Open in Mission** turns a module result into the matching mission.
   If you have GMAT installed, set its folder under *Settings → Ephemeris and GMAT* and the comparison also runs your script in GMAT.
+* **Guided tutorial:** a short tour of the window starts on your first launch and can be run again any time from *Help → Start Tutorial*, *Settings → Help and Feedback*, or `F1`.
+* **Patched conics and imports:** a patched-conic model with sphere-of-influence hand-offs; reference trajectories (CSV, CCSDS OEM, SPK kernels) can be imported, drawn next to a mission and compared with it; porkchop plots for transfer windows.
 * **Conventions:** show results the course way or the GMAT way (`VFPA = 90° − γ`, anomalies in 0–360°, `Luna`, VNB burn elements); the numbers and presets never change.
 * **Ephemerides:** a built-in offline model, or the JPL **DE440s** kernel (about 32 MB, downloaded only when you press the button).
 * Light / dark / device appearance and four colour themes, rebindable keys (`F12` maximises a plot, `F8` resets the panel arrangement), movable and closable panels,
@@ -109,7 +122,7 @@ and *Settings → Local Files* opens the folders. Uninstalling keeps this folder
 ## Known limitations
 
 * Modules 1–12 are two-body / patched-conic analytics with planets on circular orbits of mean radius; realistic propagation, perturbations and ephemerides live in the Mission workspace.
-* The Mission workspace models point-mass gravity, J2, cannonball radiation pressure and exponential drag. Spherical-harmonic gravity fields, finite-burn attitude and GMAT's targeting commands (`Target`, `Vary`, `Achieve`) are not modelled; the importer lists them as skipped.
+* The Mission workspace has no three.js "space view", sky box or drag-the-node maneuver editor yet. It models point-mass gravity, J2, cannonball radiation pressure and exponential drag. Spherical-harmonic gravity fields, finite-burn attitude and GMAT's targeting commands (`Target`, `Vary`, `Achieve`) are not modelled; the importer lists them as skipped.
 * Lambert: zero full revolutions in the interface. Gravity assists and patched conics are planar.
 * Formulas and equations shown in the *results tables* of the app window still use Unicode symbols; LaTeX typesetting is applied to figures and exported files.
 * 3-D labels use real sub/superscripts but not full LaTeX (WebGL text cannot typeset it).

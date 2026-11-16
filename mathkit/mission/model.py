@@ -8,8 +8,8 @@ from dataclasses import dataclass, field, asdict
 import json
 
 INTEGRATORS = ('RungeKutta89', 'PrinceDormand78', 'PrinceDormand45', 'Kepler (analytic)')
-DYNAMICS = ('two_body', 'selected_nbody', 'solar_system', 'cr3bp')
-DYNAMICS_LABEL = {'two_body': 'Two-body (course)', 'selected_nbody': 'Selected N-body', 'solar_system': 'Full Solar System', 'cr3bp': 'Restricted three-body'}
+DYNAMICS = ('two_body', 'patched', 'selected_nbody', 'solar_system', 'cr3bp')
+DYNAMICS_LABEL = {'two_body': 'Two-body (course)', 'patched': 'Patched conics (SOI hand-offs)', 'selected_nbody': 'Selected N-body', 'solar_system': 'Full Solar System', 'cr3bp': 'Restricted three-body'}
 KEPLER = ('SMA', 'ECC', 'INC', 'RAAN', 'AOP', 'TA')
 CART = ('X', 'Y', 'Z', 'VX', 'VY', 'VZ')
 AXES = ('MJ2000Eq', 'MJ2000Ec', 'BodyInertial')

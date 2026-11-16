@@ -310,3 +310,71 @@ def test_trajectory_files():
     csv_text = MS.trajectory_csv(res, 'Sat'); assert csv_text.splitlines()[0].startswith('UTC,JD_UTC') and len(csv_text.splitlines()) > 100
     oem = MS.trajectory_oem(res, 'Sat'); assert oem.startswith('CCSDS_OEM_VERS = 2.0') and 'REF_FRAME = EME2000' in oem and 'CENTER_NAME = EARTH' in oem and 'META_START' in oem
     assert api.mission_trajectory(dict(mission=m.to_dict(), kind='oem'))['ok'] and api.mission_trajectory(dict(mission=m.to_dict(), kind='csv'))['ok']
+
+
+# ------------------------------------------------------------------------------------ patched conics, trajectory import, tour files
+def test_patched_conics_hand_off_at_the_earth_sphere_of_influence():
+    from mathkit.mission.patched import PatchedPath, soi
+    eph = AnalyticEphemeris(); jd = TU.calendar_to_jd(2026, 11, 1); re_, ve_ = eph.state('Earth', TU.utc_to_tdb(jd), 'Sun')
+    assert soi('Earth', C) == pytest.approx(9.25e5, rel=0.01) and soi('Moon', C) == pytest.approx(6.6e4, rel=0.02)
+    path = PatchedPath(C, eph, jd, 'Sun', np.array([7000.0, 0, 0]) + re_, np.array([0, 11.5, 0]) + ve_, 'Sun', 100 * 86400.0)
+    assert [a.center for a in path.arcs] == ['Earth', 'Sun'] and path.handoffs[0]['kind'] == 'soi-exit'
+    t = path.handoffs[0]['t']; a = path.state(t - 1e-3); b = path.state(t + 1e-3)
+    assert np.linalg.norm(a[:3] - b[:3]) < 0.1 and np.linalg.norm(a[3:] - b[3:]) < 1e-6          # continuous in the heliocentric frame (the gap is the motion in 2 ms)
+    el_ = elements_from_rv(C.mu('Sun'), path.state(t + 86400)[:3], path.state(t + 86400)[3:]); assert el_['e'] < 1 and el_['a'] > 1.2e8
+
+
+def test_patched_conics_in_a_mission():
+    eph = AnalyticEphemeris(); m = Mission(); m.coords = [CoordSys('SunMJ2000Eq', 'Sun', 'MJ2000Eq')]
+    m.spacecraft = [Spacecraft('Sat', epoch='01 Nov 2026 00:00:00.000', coord='EarthMJ2000Eq', state_type='Cartesian', state=dict(X=7000.0, Y=0.0, Z=0.0, VX=0.0, VY=11.5, VZ=0.0))]
+    m.propagators = [Propagator('PC', 'Sun', 'patched', ['Sun'], 'Kepler (analytic)')]; m.commands = [Command('Propagate', items=[['PC', ['Sat']]], stops=['Sat.ElapsedDays = 30'])]
+    r = run(m, eph, C); assert any(e['kind'] == 'soi-exit' for e in r.events) and r.final['Sat'].central == 'Sun'
+    with pytest.raises(MissionError): run(m, None, C)                                          # no ephemeris, no patched conics
+
+
+def test_trajectory_import_round_trip_and_comparison():
+    from mathkit.mission import trajectory_io as TI
+    m = MS.starter('LEO to GEO Hohmann transfer'); res = run(m, None)
+    csv_ref = TI.import_text('x.csv', MS.trajectory_csv(res, 'Sat')); oem_ref = TI.import_text('x.oem', MS.trajectory_oem(res, 'Sat'))
+    for ref in (csv_ref, oem_ref):
+        assert ref['center'] == 'Earth' and len(ref['jd']) == len(res.samples['Sat']['jd'])
+        d = TI.compare_with(ref, res.samples['Sat']['jd'], np.array(res.samples['Sat']['r'])); assert d['max_km'] < 1e-3              # 1 m (CSV prints 9 decimals; epochs are float JDs)
+    with pytest.raises(ValueError): TI.parse_oem(MS.trajectory_oem(res, 'Sat').replace('EME2000', 'TEME'))
+    with pytest.raises(ValueError): TI.parse_csv('a,b\n1,2\n3,4\n5,6')
+    out = api.mission_run(dict(mission=m.to_dict(), opts={'skip3d': True}, theme='dark', refs=[csv_ref])); assert out['ref_diff'][0]['points'] > 50 and out['ref_diff'][0]['max_km'] < 1e-3
+
+
+@pytest.mark.ephem
+@pytest.mark.skipif(not os.environ.get('ORBIT_DE440S'), reason='DE440s kernel not available')
+def test_spk_import_samples_a_kernel():
+    from mathkit.mission import trajectory_io as TI
+    ref = TI.parse_spk(os.environ['ORBIT_DE440S'], target=301, n=50); assert ref['center'] == 'Earth' and 356000 < np.linalg.norm(ref['r'][0]) < 407000
+
+
+def test_tutorial_is_wired_for_first_launch_and_later_access():
+    web = ROOT / 'mathkit' / 'ui' / 'web'; app = (web / 'app.js').read_text(encoding='utf-8'); tour = (web / 'tour.js').read_text(encoding='utf-8'); html = (web / 'index.html').read_text(encoding='utf-8')
+    assert '/tour.js' in html and 'tourDone' in app and "if (!SET.tourDone) setTimeout(() => startTour()" in app          # first launch
+    assert "label: 'Start Tutorial'" in app and "tour: 'F1'" in app and "'Start the Tutorial'" in app                  # help menu, F1, settings
+    assert tour.count("title:") >= 10 and 'function startTour' in tour
+
+
+# ------------------------------------------------------------------------------------------------------ sky orientation
+def test_sky_rotation_maps_the_galactic_centre_and_pole_to_icrf():
+    from mathkit import sky
+    gc = sky.ICRS_TO_GAL.T @ np.array([1.0, 0, 0]); ngp = sky.ICRS_TO_GAL.T @ np.array([0, 0, 1.0])
+    ra, dec = sky.vec_to_radec(gc); assert ra == pytest.approx(266.405, abs=0.01) and dec == pytest.approx(-28.936, abs=0.01)
+    ra, dec = sky.vec_to_radec(ngp); assert ra == pytest.approx(192.859, abs=0.01) and dec == pytest.approx(27.128, abs=0.01)
+    assert np.allclose(sky.ICRS_TO_GAL @ sky.ICRS_TO_GAL.T, np.eye(3), atol=1e-12) and np.linalg.det(sky.ICRS_TO_GAL) == pytest.approx(1.0)
+    l, b = sky.to_galactic(sky.radec_to_vec(*sky.GALACTIC_CENTER)); assert abs(((l + 180) % 360) - 180) < 0.01 and abs(b) < 0.01
+
+
+def test_sky_map_pixels_hit_the_bright_stars():
+    """The star map's brightest pixels sit exactly where the documented mapping puts Sirius, Arcturus, Canopus, Vega, Capella, Procyon, Betelgeuse and Rigel."""
+    from mathkit import sky
+    from PIL import Image, ImageFilter
+    im = Image.open(ROOT / 'assets' / 'textures' / '2k_stars.jpg').convert('L'); W, H = im.size; a = np.asarray(im.filter(ImageFilter.GaussianBlur(2)), float)
+    for name in ('Sirius', 'Arcturus', 'Canopus', 'Vega', 'Capella', 'Procyon', 'Betelgeuse', 'Rigel'):
+        x, y = sky.pixel(sky.radec_to_vec(*sky.STARS[name]), W, H); x, y = int(round(x)) % W, int(round(y))
+        assert a[max(0, y - 6):y + 7, max(0, x - 6):x + 7].max() >= 10, name
+    x, y = sky.pixel(sky.radec_to_vec(*sky.STARS['Polaris']), W, H); assert 0 <= y < H                         # Polaris is a debug marker only (too faint to test)
+    x0, y0 = sky.pixel(sky.radec_to_vec(*sky.GALACTIC_CENTER), W, H); assert abs(x0 - W / 2) < 1 and abs(y0 - H / 2) < 1

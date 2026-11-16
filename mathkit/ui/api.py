@@ -205,7 +205,7 @@ def mission_run(p: dict) -> dict:
     with LOCK:
         apply_palette(opts.get('palette', 'prussian'))
         MPROG.update(stage='starting', frac=0.0)
-        out = MS.run_mission(p['mission'], opts, lambda n, sc, th, u, w3, o: _scene_payload(n, sc, th, u, w3, o), _eph(), lambda s, f: MPROG.update(stage=s, frac=f))
+        out = MS.run_mission(p['mission'], opts, lambda n, sc, th, u, w3, o: _scene_payload(n, sc, th, u, w3, o), _eph(), lambda s, f: MPROG.update(stage=s, frac=f), p.get('refs') or [])
         MPROG.update(stage='done', frac=1.0)
     return out
 
@@ -350,6 +350,83 @@ def licenses(p: dict) -> dict:
     for f in sorted((base / 'LICENSES').glob('*.txt')) if (base / 'LICENSES').exists() else []:
         out.append(dict(name=f.stem.replace('-', ' '), text=f.read_text(encoding='utf-8', errors='replace')))
     return dict(items=out)
+
+
+def mission_import_trajectory(p: dict) -> dict:
+    """Read a reference trajectory: CSV / CCSDS OEM text, or the path of an SPK kernel (.bsp)."""
+    from ..mission import trajectory_io as TI
+    try:
+        if p.get('path'): ref = TI.parse_spk(p['path'], p.get('target'), name=p.get('name') or pathlib.Path(p['path']).stem)
+        else: ref = TI.import_text(p.get('filename') or 'trajectory.csv', p['text'])
+        return dict(ok=True, ref=ref, points=len(ref['jd']))
+    except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
+
+
+def save_blob(p: dict) -> dict:
+    """Save a recording or a screenshot made in the space view into the exports folder (base64 payload)."""
+    import base64
+    kind = p.get('kind', 'webm')
+    if kind not in ('webm', 'png'): return dict(ok=False, error='unsupported file type')
+    try:
+        out = shell.unique_path(shell.folder('exports'), ''.join(c if c.isalnum() or c in '-_' else '_' for c in p.get('name', 'space_view'))[:60] or 'space_view', kind)
+        out.write_bytes(base64.b64decode(p['data'].split(',')[-1])); return dict(ok=True, path=str(out))
+    except Exception as ex: return dict(ok=False, error=str(ex))
+
+
+# ------------------------------------------------------------------------------------------------ Explore (sandbox)
+def sandbox_meta(p: dict) -> dict:
+    from ..sandbox import service as SS
+    out = SS.meta(ConstantSet(p.get('constants', 'Course table'))); e = _eph(); out['ephemeris'] = dict(name=e.name, accuracy=e.accuracy); return out
+
+
+def sandbox_new(p: dict) -> dict:
+    from ..sandbox import service as SS
+    try:
+        with LOCK:
+            scene = SS.default_scene(_eph(), p.get('jd')); return dict(ok=True, scene=scene, sim=SS.run(scene, p.get('horizon', '1 year')))
+    except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
+
+
+def sandbox_run(p: dict) -> dict:
+    from ..sandbox import service as SS
+    try:
+        with LOCK: return dict(ok=True, sim=SS.run(p['scene'], p.get('horizon', '1 year')))
+    except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
+
+
+def sandbox_edit(p: dict) -> dict:
+    """Apply edit operations at the current simulation time and re-simulate. A bad edit leaves the scene untouched and returns a message."""
+    from ..sandbox import service as SS
+    try:
+        with LOCK:
+            scene = SS.edit(p['scene'], float(p['jd']), p['edits'], _eph(), ConstantSet(p.get('constants', 'Course table')))
+            return dict(ok=True, scene=scene, sim=SS.run(scene, p.get('horizon', '1 year')))
+    except (KeyError, ValueError) as ex: return dict(ok=False, error=str(ex.args[0]) if ex.args else str(ex))
+    except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
+
+
+def sandbox_panel(p: dict) -> dict:
+    from ..sandbox import service as SS
+    try:
+        from ..sandbox import sim as SIM
+        sc = SIM.state_at(p['scene'], float(p['jd'])) if p.get('jd') else p['scene']
+        return dict(ok=True, panel=SS.panel(sc, p['id']))
+    except Exception as ex: return dict(ok=False, error=str(ex))
+
+
+def sandbox_to_mission(p: dict) -> dict:
+    from ..sandbox import service as SS
+    try: return dict(ok=True, mission=SS.to_mission(p['scene'], p['id'], p.get('name'), ConstantSet(p.get('constants', 'Course table'))).to_dict())
+    except Exception as ex: return dict(ok=False, error=str(ex))
+
+
+def sandbox_save(p: dict) -> dict:
+    """Save a scene as an .orbitscene file in the exports folder."""
+    import json
+    try:
+        stem = ''.join(c if c.isalnum() or c in '-_' else '_' for c in p['scene'].get('name', 'scene'))[:60] or 'scene'
+        out = shell.unique_path(shell.folder('exports'), stem, 'orbitscene'); out.write_text(json.dumps(dict(format='orbitscene', version=1, scene=p['scene']), indent=1), encoding='utf-8'); return dict(ok=True, path=str(out))
+    except Exception as ex: return dict(ok=False, error=str(ex))
 
 
 def mission_porkchop(p: dict) -> dict:
@@ -514,6 +591,6 @@ def report_issue(p: dict) -> dict:
 
 ROUTES = {'meta': lambda p: meta(), 'visible': visible, 'solve': solve, 'progress': progress, 'mission_meta': mission_meta, 'mission_starter': mission_starter, 'mission_run': mission_run, 'mission_progress': mission_progress, 'mission_convert': mission_convert,
           'mission_compare': mission_compare, 'mission_script': mission_script, 'mission_import': mission_import, 'mission_from_module': mission_from_module, 'mission_save': mission_save,
-          'ephem_status': ephem_status, 'mission_porkchop': mission_porkchop, 'mission_from_porkchop': mission_from_porkchop, 'mission_trajectory': mission_trajectory, 'licenses': licenses, 'ephem_download': ephem_download, 'gmat_check': gmat_check, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
+          'ephem_status': ephem_status, 'mission_porkchop': mission_porkchop, 'sandbox_meta': sandbox_meta, 'sandbox_new': sandbox_new, 'sandbox_run': sandbox_run, 'sandbox_edit': sandbox_edit, 'sandbox_panel': sandbox_panel, 'sandbox_to_mission': sandbox_to_mission, 'sandbox_save': sandbox_save, 'save_blob': save_blob, 'mission_import_trajectory': mission_import_trajectory, 'mission_from_porkchop': mission_from_porkchop, 'mission_trajectory': mission_trajectory, 'licenses': licenses, 'ephem_download': ephem_download, 'gmat_check': gmat_check, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
           'fullscreen': fullscreen, 'open_folder': open_folder, 'export_save': export_save, 'report_issue': report_issue,
           'backup_create': _bk(_bk_create), 'backup_list': _bk(_bk_list), 'backup_restore': _bk(_bk_restore), 'backup_import': _bk(_bk_import), 'backup_delete': _bk(_bk_delete)}

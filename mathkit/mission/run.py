@@ -204,6 +204,7 @@ def _propagate_command(m, cmd, states, res, consts, eph, record, report_row, seg
         """Propagate one spacecraft from its state; returns (t_s array, y array, stop_events found)."""
         st = states[sat]; sc = m.sat(sat); y0 = np.concatenate([st.r, st.v])
         if prop.dynamics == 'cr3bp': return _cr3bp(prop, st, until_events or [], dt_max, consts, eph)
+        if prop.dynamics == 'patched': return _patched(prop, st, until_events or [], dt_max, consts, eph)
         f = build_rhs(prop, sc, consts, eph, st.jd)
         if prop.integrator == 'Kepler (analytic)':
             return _analytic(prop, st, until_events or [], dt_max, consts)
@@ -240,15 +241,20 @@ def _propagate_command(m, cmd, states, res, consts, eph, record, report_row, seg
             else: t, y, _ = trajectory(prop, sat, [], dt_stop)
             for k in range(len(t)):
                 jd = st.jd + t[k] / 86400.0; record(st, jd, y[k, :3], y[k, 3:]); report_row(sat, st, jd, y[k, :3], y[k, 3:])
-            st.r, st.v, st.jd = y[-1, :3].copy(), y[-1, 3:].copy(), st.jd + t[-1] / 86400.0
+            st_jd0 = st.jd; st.r, st.v, st.jd = y[-1, :3].copy(), y[-1, 3:].copy(), st.jd + t[-1] / 86400.0
+            pp = PATHS.pop(sat, None)
+            if pp is not None:
+                for h in pp.handoffs:
+                    if h['t'] <= t[-1] + 1e-6: res.events.append(dict(sat=sat, jd=st_jd0 + h['t'] / 86400.0, text=h['text'], kind=h['kind']))
             res.events.append(dict(sat=sat, jd=st.jd, text=f'stop: {why}' if sat == who else f'propagated to the common epoch ({why})', kind='stop'))
 
 
-def _analytic(prop, st, events, dt_max, consts):
-    """Kepler solution sampled finely, with event refinement by bracketing on the sampled orbit."""
+def _analytic(prop, st, events, dt_max, consts, state_fn=None):
+    """Kepler solution (or any analytic ``state_fn(t)``) sampled finely, with event refinement by bracketing on the sampled orbit."""
     mu = consts.mu(prop.central); el = elements_from_rv(mu, st.r, st.v)
+    sf = state_fn or (lambda t: np.concatenate(kepler_propagate(mu, st.r, st.v, t)))
     span = dt_max; n = 800 if el['e'] < 1 else 600
-    ts = np.unique(np.concatenate([np.linspace(0.0, span, n + 1), np.geomspace(max(span * 1e-9, 1.0), span, 500)])); n = len(ts) - 1; ys = np.array([np.concatenate(kepler_propagate(mu, st.r, st.v, t)) for t in ts])
+    ts = np.unique(np.concatenate([np.linspace(0.0, span, n + 1), np.geomspace(max(span * 1e-9, 1.0), span, 500)])); n = len(ts) - 1; ys = np.array([sf(t) for t in ts])
     found = []; tcut = span
     if events:
         from ..dyn.integrators import _illinois
@@ -258,14 +264,24 @@ def _analytic(prop, st, events, dt_max, consts):
                 a, b = g[i], g[i + 1]
                 crossed = (a < 0 <= b) if ev.direction > 0 else (a > 0 >= b) if ev.direction < 0 else (a * b < 0)
                 if not crossed: continue
-                te = _illinois(lambda t: ev.fn(t, np.concatenate(kepler_propagate(mu, st.r, st.v, t))), ts[i], ts[i + 1], a, b, tol=1e-9)
-                ye = np.concatenate(kepler_propagate(mu, st.r, st.v, te))
+                te = _illinois(lambda t: ev.fn(t, sf(t)), ts[i], ts[i + 1], a, b, tol=1e-9)
+                ye = sf(te)
                 if ev.accept is not None and not ev.accept(te, ye): continue
                 found.append((te, ye, ev.name)); break
         if found:
             found.sort(key=lambda x: x[0]); tcut = found[0][0]
-    keep = ts < tcut; t_out = np.concatenate([ts[keep], [tcut]]); y_out = np.array([np.concatenate(kepler_propagate(mu, st.r, st.v, t)) for t in t_out])
+    keep = ts < tcut; t_out = np.concatenate([ts[keep], [tcut]]); y_out = np.array([sf(t) for t in t_out])
     return t_out, y_out, found[:1]
+
+
+PATHS: dict = {}                                   # sat -> PatchedPath of the latest patched-conic arc (for the hand-off events)
+
+
+def _patched(prop, st, events, dt_max, consts, eph):
+    from .patched import PatchedPath
+    if eph is None: raise MissionError('the patched-conic model needs an ephemeris')
+    path = PatchedPath(consts, eph, st.jd, prop.central, st.r, st.v, prop.central, dt_max); PATHS[st.name] = path
+    return _analytic(prop, st, events, dt_max, consts, state_fn=path.state)
 
 
 def _cr3bp(prop, st, events, dt_max, consts, eph):

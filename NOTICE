@@ -23,4 +23,6 @@ lunar theory after J. Meeus, Astronomical Algorithms (truncated).
 
 Planet textures: Solar System Scope (2k maps), CC BY 4.0, https://www.solarsystemscope.com/textures/
 
+three.js r160 (MIT, mathkit/ui/web/vendor/, full text LICENSES/three-MIT.txt) draws the Explore and Design space views.
+
 Plotly (MIT), pywebview (BSD-3-Clause), NumPy (BSD-3-Clause) and Matplotlib (PSF-based licence) are used under their own licences.

@@ -52,13 +52,14 @@ const BODY_SYM = { Sun: '☉', Moon: '☽', Mercury: '☿', Venus: '♀', Earth:
 const UTIL = [['jd', 'Julian Date', 'cal'], ['const', 'Body Constants', 'orbit'], ['tests', 'Test Cases', 'check']];
 const OPT = { tof: 'TOF', radec: 'RA / Dec', ths: 'θ*', xy: 'x, y', polar: 'r, v_r, v_θ', h_eps: 'h, ε', rp_ra: 'r_p, r_a', a_e: 'a, e', p_e: 'p, e', ccw: 'counter-clockwise', cw: 'clockwise' };
 const optText = o => OPT[o] || o;
-const KEYS_DEFAULT = { refresh: 'F5', screenshot: 'F2', fullscreen: 'F11', settings: 'S', menu: 'M', focus: 'F12', reset: 'F8' };
+const KEYS_DEFAULT = { refresh: 'F5', screenshot: 'F2', fullscreen: 'F11', settings: 'S', menu: 'M', focus: 'F12', reset: 'F8', tour: 'F1' };
 const KEY_INFO = {
   refresh: ['Refresh Screen', 're-renders the current page and solves it again, keeping your inputs'],
   screenshot: ['Screenshot', 'saves a png of the app window to the screenshots folder in the app data folder'],
   fullscreen: ['Full Screen', 'switches between full screen and the normal window'],
   settings: ['Settings Page', 'opens the settings page, or goes back to where you were'],
   menu: ['Menu Bar', 'hides or shows the whole left menu bar'],
+  tour: ['Tutorial', 'starts the guided tour of the window; you can run it again whenever you need it'],
   reset: ['Reset Panels', 'puts every panel back in the default arrangement and brings back closed panels'],
   focus: ['Maximise Plot', 'hides every panel except the 3d or 2d view; esc leaves. bring panels back with the buttons in the plot header']
 };
@@ -67,9 +68,9 @@ const FRAME_PRESETS = [[240, 'Low'], [480, 'Medium'], [1200, 'High'], [3000, 'Ul
 const fresh = o => JSON.parse(JSON.stringify(o));
 let META = null;
 let SET = { const: 'Course table', moonR: 2000, unit: 'km', appearance: 'dark', name: '', label: '', sliders: true, layout: {}, keys: {},
-  view: 'both', palette: 'prussian', repeat: true, convention: 'course', ephemMode: 'auto', ephemPath: '', gmatPath: '', bodyNotation: 'symbol', frames: 480, textures: false, model: 'marker', fps: false };
+  view: 'both', palette: 'prussian', repeat: true, convention: 'course', tourDone: false, ephemMode: 'auto', ephemPath: '', gmatPath: '', bodyNotation: 'symbol', frames: 480, textures: false, model: 'marker', fps: false };
 const LAY = fresh(LAY_DEFAULT);
-const S = { page: '12', prev: '12', canon: {}, tab: 'Plots', scene: 0, res: null, seq: 0, tests: null, rebind: null, cache: new Map(), last: {}, setTab: 'Appearance', backups: null, gpu: '', focus: null, fshow: { menu: false, inputs: false, results: false } };
+const S = { mode: 'solve', page: '12', prev: '12', canon: {}, tab: 'Plots', scene: 0, res: null, seq: 0, tests: null, rebind: null, cache: new Map(), last: {}, setTab: 'Appearance', backups: null, gpu: '', focus: null, fshow: { menu: false, inputs: false, results: false } };
 const mod = () => META.modules.find(m => m.id === S.page);
 const isMod = () => !!mod();
 
@@ -117,6 +118,7 @@ function toast(msg, kind = '') {
 function applyLayout() {
   const r = document.documentElement.style, a = $('#app'), subOpen = false;
   r.setProperty('--navw', LAY.navw + 'px'); r.setProperty('--panelw', LAY.panelw + 'px'); r.setProperty('--subw', subOpen ? LAY.subw + 'px' : '0px');
+  a.classList.toggle('nonav', S.mode !== 'solve'); a.classList.toggle('explore', S.page === 'explore');
   a.classList.toggle('fold', !!LAY.fold); a.classList.toggle('menuhidden', !!LAY.hidden); 
 }
 function drag(handle, onmove, reset) {
@@ -171,9 +173,11 @@ function menuDefs() {
       { sep: 1 }, { head: 'Color Theme' },
       ...PALETTES.map(([id, name]) => ({ label: name, check: () => (SET.palette || 'prussian') === id, run: () => setPalette(id) })),
       { sep: 1 }, { label: 'Refresh', key: K.refresh, run: ACTIONS.refresh }],
-    'Go': [{ label: 'Mission', check: () => S.page === 'mission', run: () => go('mission') }, { sep: 1 }, { head: 'Modules' }, ...META.modules.map(m => ({ label: m.short, check: () => S.page === m.id, run: () => go(m.id) })),
-      { sep: 1 }, { head: 'Utilities' }, ...UTIL.map(([id, name]) => ({ label: name, check: () => S.page === id, run: () => go(id) }))],
+    'Go': [{ label: 'Explore (Sandbox)', check: () => S.page === 'explore', run: () => go('explore') }, { label: 'Design (Missions)', check: () => S.page === 'mission', run: () => go('mission') }, { sep: 1 }, { head: 'Solve: Modules' }, ...META.modules.map(m => ({ label: m.short, check: () => S.page === m.id, run: () => go(m.id) })),
+      { sep: 1 }, { head: 'Solve: Reference' }, ...UTIL.map(([id, name]) => ({ label: name, check: () => S.page === id, run: () => go(id) }))],
     'Help': [
+      { label: 'Start Tutorial', key: K.tour, run: () => startTour() },
+      { sep: 1 },
       { label: 'Help and Feedback', run: () => goto('settings', 'Help and Feedback') },
       { label: 'Report an Issue', run: () => goto('settings', 'Help and Feedback') },
       { label: 'Key Bindings', run: () => goto('settings', 'Key Bindings') },
@@ -192,11 +196,29 @@ function showMenu(name, btn) {
   }
   document.body.append(d);
 }
+function syncSettingsBtn() { const b = $('#setBtn'); if (b) b.classList.toggle('on', S.page === 'settings'); }
 function buildMenubar() {
+  const sb = $('#setBtn'); sb.replaceChildren(ico('gear'), el('span', {}, 'Settings')); sb.onclick = () => ACTIONS.settings(); syncSettingsBtn();
   const bar = $('#menubar'); bar.replaceChildren(...['File', 'Edit', 'View', 'Go', 'Help'].map(n => el('button', { role: 'menuitem',
     onclick: e => { e.stopPropagation(); if (openMenu === n) closeMenu(); else showMenu(n, e.currentTarget); }, onmouseenter: e => { if (openMenu && openMenu !== n) showMenu(n, e.currentTarget); } }, n)));
   document.addEventListener('click', e => { if (openMenu && !e.target.closest('.mdrop')) closeMenu(); });
   window.addEventListener('blur', closeMenu);
+}
+
+/* ---------- modes: Solve (the course modules), Explore (sandbox), Design (GMAT-style missions) ---------- */
+const MODES = [['solve', 'Solve', 'compute homework and exam problems with the twelve course modules'], ['explore', 'Explore', 'a live 3d sandbox: add and edit bodies, real Solar System, time warp'],
+  ['design', 'Design', 'plan missions: resources, command sequence, numerical propagation, GMAT script import and export']];
+const modeOfPage = pg => (META.modules.some(m => m.id === pg) || ['jd', 'const', 'tests'].includes(pg)) ? 'solve' : pg === 'explore' ? 'explore' : pg === 'mission' ? 'design' : S.mode;
+function syncMode() {
+  S.mode = modeOfPage(S.page); document.querySelectorAll('#modesw button').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode)); applyLayout();
+}
+function setMode(m) {
+  if (m === S.mode && S.page !== 'settings') return;
+  if (m === 'solve') go(META.modules.some(x => x.id === S.lastSolve) || ['jd', 'const', 'tests'].includes(S.lastSolve) ? S.lastSolve : (META.modules.some(x => x.id === SET.lastPage) ? SET.lastPage : '12'));
+  else go(m === 'explore' ? 'explore' : 'mission');
+}
+function buildModeSwitch() {
+  $('#modesw').replaceChildren(...MODES.map(([id, label, tip]) => el('button', { 'data-mode': id, title: tip, class: id === S.mode ? 'on' : '', onclick: () => setMode(id) }, label)));
 }
 
 /* ---------- loading screen ---------- */
@@ -251,13 +273,13 @@ function buildNav() {
     el('div', { class: 'navtop' }, el('button', { class: 'navtoggle', title: LAY.fold ? 'expand menu' : 'collapse menu', onclick: () => { LAY.fold = !LAY.fold; applyLayout(); buildNav(); saveSet(); } }, ico(LAY.fold ? 'right' : 'left'))),
     el('div', { class: 'navlist' },
       navGroup('modules', 'Modules', 'grid', META.modules.map(m => navItem(m.id, m.short, ico(MOD_ICO[m.id]), m.short))),
-      navItem('mission', 'Mission', ico('orbit'), 'GMAT-style mission design: resources, command sequence, propagation and GMAT script import / export'),
-      navGroup('utilities', 'Utilities', 'tools', UTIL.map(([id, name, ic]) => navItem(id, name, ico(ic))))),
-    el('div', { class: 'navbottom' }, navItem('settings', 'Settings', ico('gear'))));            // the gear sits alone at the very bottom
+      navGroup('utilities', 'Reference', 'tools', UTIL.map(([id, name, ic]) => navItem(id, name, ico(ic))))),
+    '');                                                                                 // settings now live in the top bar
 }
 async function go(page) {
+  if (META.modules.some(m => m.id === page) || ['jd', 'const', 'tests'].includes(page)) S.lastSolve = page;
   setFocus(null); if (page !== S.page) S.conv = null;                                   // the per-result convention toggle lasts for one result
-  S.page = page; S.scene = 0; buildNav();
+  S.page = page; S.scene = 0; syncMode(); buildNav(); syncSettingsBtn();
   $('#app').classList.toggle('wide', !isMod());
   if (isMod()) {
     renderPanel(); S.res = S.last[page] || null; if (S.res) showChecks(S.res); renderMain();      // show the last result instantly, refresh behind it
@@ -621,7 +643,9 @@ function renderUtil() {
   if (S.page === 'const') return constPage(main);
   if (S.page === 'jd') return jdPage(main);
   if (S.page === 'settings') return settingsPage(main);
+  if (S.page !== 'explore') exDispose();
   if (S.page === 'mission') return renderMission();
+  if (S.page === 'explore') return renderExplore();
   return testsPage(main);
 }
 function constPage(main) {
@@ -701,6 +725,8 @@ function helpPage() {
   const title = el('input', { type: 'text', placeholder: 'short summary of the problem', style: 'width:100%' }), desc = el('textarea', { placeholder: 'what happened, and what did you expect?', rows: 5 });
   const log = el('input', { type: 'checkbox', checked: true });
   return el('div', {},
+    el('div', { class: 'sheet' }, el('h3', {}, 'Tutorial'), el('div', { class: 'dim' }, 'a guided tour of the window: menus, panels, solving, the 3d and 2d views, the mission workspace and settings. it also starts once on your first launch.'),
+      el('div', { class: 'btnrow' }, el('button', { class: 'btn pri', onclick: () => startTour() }, 'Start the Tutorial'), el('label', { class: 'tgl' }, el('span', { class: 'dim', style: 'margin:0' }, 'show it at every launch'), el('input', { type: 'checkbox', checked: SET.tourDone === false, onchange: e => { SET.tourDone = !e.target.checked; saveSet(); } })))),
     el('div', { class: 'sheet' }, el('h3', {}, 'Report an Issue'),
       el('div', { class: 'dim' }, 'this opens a pre-filled issue form on github (public, searchable, no email needed). you review it and press submit yourself; nothing is sent automatically. your home folder name is removed from log lines.'),
       el('div', { class: 'flab' }, 'Title'), title, el('div', { class: 'flab', style: 'margin-top:10px' }, 'Description'), desc,
@@ -721,10 +747,10 @@ function settingsPage(main) {
   const frames = SET.frames, custom = !FRAME_PRESETS.some(p => p[0] === frames);
   const pages = {
     'Appearance': () => el('div', { class: 'sheet' },
-      el('div', { class: 'sh1' }, 'Mode'),
+      el('div', { class: 'sh3' }, 'Mode'),
       el('div', { class: 'acards' }, ...[['light', 'sun', 'Light'], ['dark', 'moon', 'Dark'], ['device', 'monitor', 'Use Device Settings']].map(([v, ic, label]) =>
         el('button', { class: 'acard' + (SET.appearance === v ? ' on' : ''), onclick: () => { SET.appearance = v; saveSet(); syncChrome(); S.cache.clear(); S.last = {}; renderUtil(); } }, ico(ic), el('span', { class: 'al' }, label)))),
-      el('div', { class: 'sh1', style: 'margin-top:26px' }, 'Color Theme'),
+      el('div', { class: 'sh3', style: 'margin-top:28px' }, 'Color Theme'),
       el('div', { class: 'dim', style: 'margin:0 0 12px' }, 'the accent and background tint of the whole app and its dark figures; independent of light or dark mode'),
       el('div', { class: 'pcards' }, ...PALETTES.map(([id, name, sw]) => el('button', { class: 'pcard' + ((SET.palette || 'prussian') === id ? ' on' : ''), title: name,
         onclick: () => { SET.palette = id; saveSet(); syncChrome(); S.cache.clear(); S.last = {}; renderUtil(); } },
@@ -796,6 +822,7 @@ const ACTIONS = {
   settings: () => { if (S.page === 'settings') go(S.prev || '12'); else { S.prev = S.page; go('settings'); } },
   menu: () => { LAY.hidden = !LAY.hidden; applyLayout(); saveSet(); },
   reset: () => resetPanels(),
+  tour: () => startTour(),
   focus: () => { if (S.focus) setFocus(null); else if (isMod() && S.res && !S.res.error) { S.tab = 'Plots'; setFocus(SET.view === '2d' ? 'v2d' : 'v3d'); } }
 };
 function handleKey(name, e) {
@@ -819,12 +846,12 @@ window.addEventListener('message', e => { if (e.data && e.data.orbitKey) handleK
 /* ---------- boot ---------- */
 async function boot() {
   requestAnimationFrame(splashTick); requestAnimationFrame(fpsLoop); splash(8, 'loading modules');
-  META = await api('meta'); $('#ver').textContent = 'v' + META.version;
+  META = await api('meta');
   Object.assign(SET, META.settings || {}); Object.assign(LAY, fresh(LAY_DEFAULT), SET.layout || {}); LAY.groups = { ...LAY_DEFAULT.groups, ...(LAY.groups || {}) }; SET.layout = LAY; splash(38, 'preparing the interface');
   document.querySelectorAll('[data-const]').forEach(b => b.onclick = () => setSet({ const: b.dataset.const }));
   $('#unitChip').onclick = () => setSet({ unit: { km: 'R_body', R_body: 'AU', AU: 'km' }[SET.unit] });
-  initSplitters(); syncChrome(); buildNav(); buildMenubar(); splash(58, 'drawing the first transfer');
-  await go(META.modules.some(m => m.id === SET.lastPage) ? SET.lastPage : S.page); splash(100, 'ready'); SPLASH.done = true; restyle();
+  initSplitters(); syncChrome(); buildNav(); buildMenubar(); buildModeSwitch(); splash(58, 'drawing the first transfer');
+  await go(META.modules.some(m => m.id === SET.lastPage) ? SET.lastPage : S.page); splash(100, 'ready'); SPLASH.done = true; restyle(); if (!SET.tourDone) setTimeout(() => startTour(), 1800);
 }
 boot();
 

@@ -6,7 +6,7 @@ __pycache__/
 *.png
 !docs/*.png
 build_out/
-mathkit/ui/web/vendor/
+mathkit/ui/web/vendor/plotly.min.js
 edgeprof*/
 assets/icons/icon.png
 assets/icons/icon.icns

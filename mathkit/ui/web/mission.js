@@ -1,5 +1,5 @@
 /* ---------- Mission workspace: GMAT-style resources + command sequence, propagation, comparison, GMAT script import / export ---------- */
-const MIS = { m: null, tab: 'Resources', res: null, cmp: null, script: null, busy: false, stale: true, meta: null, err: '' };
+const MIS = { space: null, refs: [], m: null, tab: 'Resources', res: null, cmp: null, script: null, busy: false, stale: true, meta: null, err: '' };
 const MIS_TABS = ['Resources', 'Sequence', 'Plots', 'Reports', 'Compare', 'Porkchop', 'GMAT Script'];
 const PK = { origin: 'Earth', target: 'Mars', dep_start: '2026-09-01', dep_days: 200, arr_start: '2027-05-01', arr_days: 250, n: 30, res: null, busy: false };
 const KEP = ['SMA', 'ECC', 'INC', 'RAAN', 'AOP', 'TA'], CART = ['X', 'Y', 'Z', 'VX', 'VY', 'VZ'];
@@ -56,7 +56,7 @@ function propCard(p, i) {
   const m = MIS.m, B = Object.keys(META.bodies), integ = ['RungeKutta89', 'PrinceDormand78', 'PrinceDormand45', 'Kepler (analytic)'];
   return mcard(`Propagator · ${p.name}`, m.propagators.length > 1 ? () => { m.propagators.splice(i, 1); misTouch(true); } : null,
     mrow(mfield('Name', '', minput(p, 'name', { width: 110, onch: () => renderMission() })), mfield('Central Body', 'ForceModel.CentralBody', mselect(p, 'central', B, { rerender: true })),
-      mfield('Dynamics', 'two-body is the course model; the others need an ephemeris (built-in or DE440s)', mselect(p, 'dynamics', [['two_body', 'Two-body (course)'], ['selected_nbody', 'Selected N-body'], ['solar_system', 'Full Solar System'], ['cr3bp', 'Restricted three-body']], { rerender: true })),
+      mfield('Dynamics', 'two-body is the course model; the others need an ephemeris (built-in or DE440s)', mselect(p, 'dynamics', [['two_body', 'Two-body (course)'], ['patched', 'Patched conics (SOI hand-offs)'], ['selected_nbody', 'Selected N-body'], ['solar_system', 'Full Solar System'], ['cr3bp', 'Restricted three-body']], { rerender: true })),
       mfield('Integrator', 'Kepler (analytic) solves the two-body problem exactly and instantly', mselect(p, 'integrator', integ))),
     p.dynamics === 'selected_nbody' ? mrow(mfield('Point Masses', 'bodies that attract the spacecraft (the central body always does)', mchips(p, 'gravity', B))) : '',
     p.dynamics === 'cr3bp' ? mrow(mfield('Primary', '', mselect(p, 'cr3bp_primary', B)), mfield('Secondary', '', mselect(p, 'cr3bp_secondary', B))) : '',
@@ -155,11 +155,18 @@ function plotsTab() {
   const fin = r.final.map(f => [f.sat, f.epoch, fmtN(f.elapsed, 10) + ' s', ...(conv ? [`SMA ${fmtN(f.values.SMA, 9)} · ECC ${fmtN(f.values.ECC, 8)} · INC ${fmtN(f.values.INC, 8)}°`, `TA ${fmtN(f.values.TA, 8)}° · VFPA ${fmtN(f.values.VFPA, 8)}° (course γ ${fmtN(f.values.HFPA, 8)}°)`, `r ${fmtN(f.values.RMAG, 9)} km · v ${fmtN(f.values.VMAG, 9)} km/s · C3 ${fmtN(f.values.C3Energy, 8)} km²/s²`]
     : [`a ${fmtN(f.values.SMA, 9)} km · e ${fmtN(f.values.ECC, 8)} · i ${fmtN(f.values.INC, 8)}°`, `θ* ${fmtN(f.values.TA, 8)}° · γ ${fmtN(f.values.gamma, 8)}°`, `r ${fmtN(f.values.RMAG, 9)} km · v ${fmtN(f.values.VMAG, 9)} km/s · ε ${fmtN(f.values.Energy, 8)} km²/s²`])]);
   return el('div', { class: 'mwrap' }, ...(r.warnings.length ? [el('div', { class: 'chk warn' }, el('span', { class: 'ic' }, '!'), el('span', {}, r.warnings.join(' · ')))] : []),
+    spaceCard(r),
     el('div', { class: 'mplots' }, el('div', { class: 'cardx c3d' }, el('h3', {}, el('b', {}, '3D View'), el('span', { class: 'hint' }, ' · ' + r.ephemeris)), el('div', { class: 'body' }, fr)),
       el('div', { class: 'cardx c2d' }, el('h3', {}, el('b', {}, '2D View')), el('div', { class: 'body' }, el('div', { class: 'svgw', html: sc.svg })))),
     el('div', { class: 'sheet' }, el('h3', {}, 'Final States'), table(['Spacecraft', 'Epoch (UTC)', 'Elapsed', 'Elements', 'Angles', 'Magnitudes'], fin)),
     r.burns.length ? el('div', { class: 'sheet' }, el('h3', {}, 'Maneuvers'), table(['When', 'Spacecraft', 'Burn', 'Δv (km·s⁻¹)', conv ? 'GMAT ImpulsiveBurn' : 'Course form', 'Other form'], burnRows)) : '',
     el('div', { class: 'sheet' }, el('h3', {}, 'Events'), table(['When (UTC)', 'Spacecraft', 'Event'], evRows)),
+    el('div', { class: 'sheet' }, el('h3', {}, 'Reference Trajectories'), el('div', { class: 'dim' }, 'import a CSV (utc or jd, x, y, z …), a CCSDS OEM file, or an SPK kernel to draw it dashed next to the mission and measure the difference. only ICRF / EME2000 inertial frames in utc are accepted.'),
+      el('div', { class: 'btnrow' }, (() => { const f = el('input', { type: 'file', accept: '.csv,.oem,.txt', style: 'display:none', onchange: async e => { const fl = e.target.files[0]; if (!fl) return; const x = await api('mission_import_trajectory', { filename: fl.name, text: await fl.text() }); e.target.value = '';
+          if (!x.ok) { toast(x.error, 'err'); return; } MIS.refs.push(x.ref); toast(`imported ${x.points} points; run the mission to draw it`, 'ok'); renderMission(); } }); return el('span', {}, f, mbtn('Import CSV or OEM…', () => f.click())); })(),
+        mbtn('Import SPK Kernel…', async () => { const path = prompt('full path of a .bsp kernel'); if (!path) return; const x = await api('mission_import_trajectory', { path }); if (!x.ok) { toast(x.error, 'err'); return; } MIS.refs.push(x.ref); toast(`imported ${x.points} points`, 'ok'); renderMission(); }),
+        ...(MIS.refs.length ? [mbtn('Clear Imported', () => { MIS.refs = []; renderMission(); })] : [])),
+      ...(MIS.refs.length ? [table(['Imported', 'Centre', 'Points', 'Max difference (km)', 'RMS (km)', 'At the end (km)'], MIS.refs.map((rf, i) => { const d = (r.ref_diff || []).find(x => x.name === rf.name) || {}; return [rf.name, rf.center, rf.jd.length, d.points ? fmtN(d.max_km, 6) : '–', d.points ? fmtN(d.rms_km, 6) : '–', d.points ? fmtN(d.end_km, 6) : (d.error || 'run the mission')]; }))] : [])),
     el('div', { class: 'btnrow' }, ...MIS.m.spacecraft.flatMap(sc => [['csv', 'CSV'], ['oem', 'CCSDS OEM']].map(([k, l]) => mbtn(`${sc.name} Trajectory (${l})`, async () => { const x = await api('mission_trajectory', { mission: MIS.m, sat: sc.name, kind: k }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); })))),
     el('div', { class: 'dim' }, `ephemeris: ${r.ephemeris} — ${r.ephemeris_accuracy}`));
 }
@@ -214,7 +221,7 @@ async function scriptTab() {
 async function runMission() {
   if (MIS.busy) return; if (!$('#mbar')) await renderMission(); MIS.busy = true; MIS.err = ''; const bar = $('#mbar'), i = bar.querySelector('i'), t = bar.querySelector('span'); bar.classList.add('on'); i.style.width = '4%'; let stop = false;
   (async () => { while (!stop) { try { const g = await api('mission_progress', {}); i.style.width = Math.max(4, g.frac * 100) + '%'; t.textContent = (g.stage || '') + ' · ' + Math.round(g.frac * 100) + '%'; } catch (e) { } await new Promise(r => setTimeout(r, 150)); } })();
-  let r; try { r = await api('mission_run', { mission: MIS.m, theme: effTheme(), opts: { ...solveOpts(), convention: MIS.m.convention || SET.convention || 'course', name: SET.name } }); } catch (e) { r = { error: String(e) }; }
+  let r; try { r = await api('mission_run', { mission: MIS.m, theme: effTheme(), refs: MIS.refs, opts: { ...solveOpts(), convention: MIS.m.convention || SET.convention || 'course', name: SET.name } }); } catch (e) { r = { error: String(e) }; }
   stop = true; MIS.busy = false; bar.classList.remove('on');
   if (r.error) { MIS.err = r.error; await askDialog({ title: 'The Mission Could Not Run', intro: r.error, lines: ['nothing was propagated', 'check the command sequence and the propagator, or press undo with the starter missions'], actions: [{ label: 'Adjust Mission', value: 'adjust', pri: true }] }); MIS.res = null; }
   else { MIS.res = r; MIS.stale = false; MIS.cmp = null; if (MIS.tab !== 'Plots' && MIS.tab !== 'Reports') MIS.tab = 'Plots'; }
@@ -253,4 +260,37 @@ async function renderMission() {
   const t = MIS.tab; if (t === 'Resources') body.append(resourcesTab()); else if (t === 'Sequence') body.append(sequenceTab()); else if (t === 'Plots') body.append(plotsTab()); else if (t === 'Reports') body.append(reportsTab());
   else if (t === 'Compare') body.append(await compareTab()); else if (t === 'Porkchop') body.append(porkchopTab()); else body.append(await scriptTab());
   if (MIS.stale && MIS.res && t !== 'Resources' && t !== 'Sequence') body.prepend(el('div', { class: 'chk warn' }, el('span', { class: 'ic' }, '!'), el('span', {}, 'the mission changed since the last run; press run mission to update these results')));
+}
+
+
+/* ---- three.js space view ---- */
+function spaceCard(r) {
+  const sp = r.space; if (!sp || sp.error || !sp.tracks || !sp.tracks.length) return el('div', { class: 'dim' }, sp && sp.error ? 'the space view could not be built: ' + sp.error : '');
+  const host = el('div', { class: 'spaceview' }), bar = el('div', { class: 'spacebar' }), card = el('div', { class: 'cardx spacecard' }, el('h3', {}, el('b', {}, 'Space View'), el('span', { class: 'hint' }, ' · drag to orbit, scroll to zoom, right-drag to pan; time warp up to 10⁷×')), bar, host);
+  setTimeout(async () => {
+    if (MIS.space) { try { MIS.space.dispose(); } catch (e) { } MIS.space = null; }
+    let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(host, sp, { sky: SET.sky || 'milkyway' }); } catch (e) { host.replaceChildren(el('div', { class: 'empty' }, 'the space view needs WebGL: ' + e)); return; }
+    MIS.space = S3; const st = S3.state;
+    const btn = (label, fn, title) => el('button', { class: 'btn small', title: title || '', onclick: fn }, label);
+    const play = btn('▶ Play', () => { S3.play(); sync(); }), rev = btn('◀ Reverse', () => { st.dir = -st.dir; if (!st.playing) S3.play(true); sync(); }, 'play backwards');
+    const date = el('span', { class: 'sdate' }), slider = el('input', { type: 'range', min: 0, max: 10000, value: 0, class: 'sslider', oninput: e => S3.setJD(S3.t0 + (S3.t1 - S3.t0) * e.target.value / 10000) });
+    const warp = el('input', { type: 'range', min: 0, max: 7, step: 1, value: st.warp, oninput: e => { S3.setWarp(+e.target.value); sync(); } }), wl = el('b', {});
+    const focus = el('select', { onchange: e => S3.focus(e.target.value) }, ...S3.names().map(n => el('option', { value: n, selected: n === st.focus }, n)));
+    const chk = (k, label, tip) => el('label', { class: 'mcheck', title: tip || '' }, el('input', { type: 'checkbox', checked: !!st[k], onchange: e => S3.set(k, e.target.checked) }), label);
+    const skysel = el('select', { onchange: e => { SET.sky = e.target.value; saveSet(); S3.setSky(e.target.value); } }, ...[['milkyway', 'Milky Way'], ['stars', 'Stars Only'], ['theme', 'Theme Color'], ['black', 'Black']].map(([v, l]) => el('option', { value: v, selected: (SET.sky || 'milkyway') === v }, l)));
+    const rec = btn('● Record', () => { if (!st.rec) { st.rec = true; rec.textContent = '■ Stop'; S3.record(true); } else { st.rec = false; rec.textContent = '● Record'; S3.record(false, async blob => { const b64 = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); }); const x = await api('save_blob', { kind: 'webm', name: MIS.m.name + '_space', data: b64 }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); }); } }, 'record the view as a webm video while it plays');
+    function sync() { play.textContent = st.playing ? '⏸ Pause' : '▶ Play'; wl.textContent = S3.warpLabel() + (st.dir < 0 ? ' (reverse)' : ''); }
+    host.addEventListener('space-time', () => { slider.value = 10000 * (S3.jd - S3.t0) / Math.max(1e-9, S3.t1 - S3.t0); date.textContent = S3.fmt(S3.jd); }); host.addEventListener('space-state', sync); date.textContent = S3.fmt(S3.jd); sync();
+    bar.append(el('div', { class: 'srow' }, play, rev, btn('Next Event', () => S3.nextEvent(), 'jump to the next burn or stop'), el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Time Warp'), warp), wl, date),
+      el('div', { class: 'srow' }, slider),
+      el('div', { class: 'srow' }, el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Focus'), focus), btn('Top', () => S3.view('top')), btn('Isometric', () => S3.view('iso')), btn('Side', () => S3.view('side')),
+        chk('labels', 'Labels'), chk('paths', 'Orbits'), chk('soi', 'SOI'), chk('lag', 'Lagrange'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic'),
+        el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Background'), skysel),
+        el('label', { class: 'mf', title: 'draw bodies larger than life' }, el('span', { class: 'ml' }, 'Body Size'), el('input', { type: 'range', min: 1, max: 100, value: 1, oninput: e => S3.set('exag', +e.target.value) })),
+        el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Sky Brightness'), el('input', { type: 'range', min: 0, max: 80, value: 30, oninput: e => S3.set('bright', e.target.value / 10) })),
+        chk('markers', 'Sky Markers', 'label the galactic centre, Polaris and bright stars on the sky (checks the sky orientation)'),
+        el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Look Toward'), el('select', { onchange: e => { if (e.target.value) { st.markers = true; S3.look(...e.target.value.split(',').map(Number)); } e.target.value = ''; } }, el('option', { value: '' }, '…'), ...sp.markers.map(mk => el('option', { value: mk.ra + ',' + mk.dec }, mk.name)))),
+        rec, btn('Save Image', async () => { const x = await api('save_blob', { kind: 'png', name: MIS.m.name + '_space', data: S3.png() }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); })));
+  }, 0);
+  return card;
 }

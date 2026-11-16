@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orbit Simulator</title>
 <link rel="stylesheet" href="/style.css">
+<script type="importmap">{"imports":{"three":"/vendor/three.module.min.js"}}</script>
 <script>
 /* apply the saved appearance before first paint (no flash): settings come from the app data folder via /api/meta, so this only
    follows the operating-system preference until the real setting arrives */
@@ -23,12 +24,13 @@ document.documentElement.dataset.boot = matchMedia('(prefers-color-scheme: dark)
 </div>
 <div id="app">
   <header id="top">
-    <div class="brand"><svg class="applogo" viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="32" rx="25" ry="13" transform="rotate(-28 32 32)" fill="none" stroke="var(--orange)" stroke-width="4"/><circle cx="25.5" cy="35.5" r="8" fill="var(--blue)"/><circle cx="47" cy="21" r="3.4" fill="var(--amber)"/></svg><div id="menubar" role="menubar"></div><span class="title">Orbit Simulator</span><span class="pill" id="ver">v1.0.0</span><span class="pill" id="fpsb" hidden></span></div>
+    <div class="brand"><svg class="applogo" viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="32" rx="25" ry="13" transform="rotate(-28 32 32)" fill="none" stroke="var(--orange)" stroke-width="4"/><circle cx="25.5" cy="35.5" r="8" fill="var(--blue)"/><circle cx="47" cy="21" r="3.4" fill="var(--amber)"/></svg><div id="modesw" class="modesw" role="tablist"></div><div id="menubar" role="menubar"></div><span class="pill" id="fpsb" hidden></span></div>
     <div class="top-right">
       <span class="lbl">Constants</span>
       <button class="chip" data-const="Course table">Course Table</button>
       <button class="chip" data-const="Exam rounded">Exam Rounded</button>
       <button class="chip" id="unitChip">Units: km · s</button>
+      <button class="chip setbtn" id="setBtn" title="Settings (S)">Settings</button>
     </div>
   </header>
   <nav id="nav"></nav>
@@ -42,5 +44,7 @@ document.documentElement.dataset.boot = matchMedia('(prefers-color-scheme: dark)
 <script src="/textcase.js"></script>
 <script src="/app.js"></script>
 <script src="/mission.js"></script>
+<script src="/explore.js"></script>
+<script src="/tour.js"></script>
 </body>
 </html>

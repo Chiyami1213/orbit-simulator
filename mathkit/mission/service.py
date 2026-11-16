@@ -118,7 +118,7 @@ def _recentre_samples(res: RunResult, center: str, eph, use_eph: bool):
     return out
 
 
-def build_scene(m: Mission, res: RunResult, eph, theme: str) -> Scene:
+def build_scene(m: Mission, res: RunResult, eph, theme: str, refs: list | None = None) -> Scene:
     center = next((p.central for p in m.propagators), 'Earth'); sc = Scene(title=m.name)
     traj = _recentre_samples(res, center, eph, True); span = 1.0; t0s = {}
     allp = []
@@ -129,6 +129,14 @@ def build_scene(m: Mission, res: RunResult, eph, theme: str) -> Scene:
         span = max(span, (jd[-1] - jd[0]) * 86400.0)
         tt = (jd - jd[0]) * 86400.0
         sc.tracks.append(Track(name, (lambda t, tt=tt, R=R: np.array([np.interp(t, tt, R[:, k]) for k in range(3)])), col))
+    for k, ref in enumerate(refs or []):                                                    # imported reference trajectories, drawn dashed
+        try:
+            R = np.array(ref['r'], float); jdr = np.array(ref['jd'], float)
+            if ref['center'] != center:
+                if eph is None: continue
+                R = np.array([R[i] + eph.state(ref['center'], TU.utc_to_tdb(jdr[i]), center)[0] for i in range(len(jdr))])
+            sc.polys.append(Poly(R, f'{ref["name"]} (imported)', PALETTE[(k + 3) % len(PALETTE)], True, 1.5, 0.3)); allp.append(R)
+        except Exception: continue
     for ev in res.events:
         if ev['kind'] == 'burn' and ev['sat'] in traj:
             jd, R, _ = traj[ev['sat']]; k = int(np.argmin(np.abs(jd - ev['jd']))); sc.pts.append(Pt(R[k], 'burn', 'warn', 'x', 7))
@@ -151,19 +159,21 @@ def build_scene(m: Mission, res: RunResult, eph, theme: str) -> Scene:
     return sc
 
 
-def run_mission(d: dict, opts: dict, scene_payload, eph, progress=None) -> dict:
+def run_mission(d: dict, opts: dict, scene_payload, eph, progress=None, refs: list | None = None) -> dict:
     m = Mission.from_dict(d); consts = ConstantSet(m.constants); conv = Convention.of(opts.get('convention', 'course'))
     try:
         res = run(m, eph, consts, progress)
     except (MissionError, ValueError, KeyError, ZeroDivisionError, np.linalg.LinAlgError) as ex:
         return dict(error=f'{type(ex).__name__}: {ex}')
     try:
-        sc = build_scene(m, res, eph, opts.get('theme', 'dark')); scene = scene_payload('main', sc, opts.get('theme', 'dark'), opts.get('name', ''), not opts.get('skip3d'), opts)
+        sc = build_scene(m, res, eph, opts.get('theme', 'dark'), refs); scene = scene_payload('main', sc, opts.get('theme', 'dark'), opts.get('name', ''), not opts.get('skip3d'), opts)
     except Exception as ex:
         scene = dict(name='main', svg='', html3d='', overlaps=0, has_anim=False, notes=[f'the figure could not be drawn: {ex}'], is3d=False)
-    return dict(scene=scene, events=[dict(text=e['text'], sat=e['sat'], when=TU.format_gregorian(e['jd']), kind=e['kind']) for e in res.events],
+    try: space = space_payload(m, res, eph, refs)
+    except Exception as ex: space = dict(error=str(ex))
+    return dict(scene=scene, space=space, events=[dict(text=e['text'], sat=e['sat'], when=TU.format_gregorian(e['jd']), kind=e['kind']) for e in res.events],
                 burns=[_burn_row(b, conv) for b in res.burns], reports={k: _report_payload(v, conv) for k, v in res.reports.items()}, final=_final_rows(m, res, eph, conv),
-                warnings=res.warnings, ephemeris=getattr(eph, 'name', 'none'), ephemeris_accuracy=getattr(eph, 'accuracy', ''), convention=conv.value)
+                warnings=res.warnings, ref_diff=_ref_diffs(res, refs or [], eph, m), ephemeris=getattr(eph, 'name', 'none'), ephemeris_accuracy=getattr(eph, 'accuracy', ''), convention=conv.value)
 
 
 def _burn_row(b: dict, conv: Convention) -> dict:
@@ -242,7 +252,7 @@ def trajectory_oem(res: RunResult, sat: str) -> str:
     sm = res.samples[sat]; iso = lambda jd: TU.format_gregorian(jd)
     def t(jd):
         Y, M, D, h, mi, s_ = TU.jd_to_calendar(jd); return f'{Y:04d}-{M:02d}-{D:02d}T{h:02d}:{mi:02d}:{min(s_, 59.9999):07.4f}'
-    out = ['CCSDS_OEM_VERS = 2.0', f'CREATION_DATE = {dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")}', 'ORIGINATOR = ORBIT SIMULATOR', '']
+    out = ['CCSDS_OEM_VERS = 2.0', f'CREATION_DATE = {dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")}', 'ORIGINATOR = ORBIT SIMULATOR', '']
     segs = []; cur = None
     for i, c in enumerate(sm['central']):
         if cur is None or c != cur[0]: cur = [c, []]; segs.append(cur)
@@ -252,3 +262,87 @@ def trajectory_oem(res: RunResult, sat: str) -> str:
         for i in idx: out.append(f'{t(sm["jd"][i])} ' + ' '.join(f'{x:.9f}' for x in (*sm['r'][i], *sm['v'][i])))
         out.append('')
     return '\n'.join(out)
+
+
+def _ref_diffs(res: RunResult, refs: list, eph, m: Mission) -> list:
+    """Position difference between each imported trajectory and the first spacecraft, at the reference epochs (both about the reference's own centre)."""
+    from .trajectory_io import compare_with
+    out = []
+    if not res.samples or not refs: return out
+    name = next(iter(res.samples)); sm = res.samples[name]
+    if not len(sm['jd']): return out
+    jd = np.array(sm['jd']); R = np.array(sm['r'])
+    for ref in refs:
+        try:
+            Rc = R.copy()
+            for i, c in enumerate(sm['central']):
+                if c != ref['center']:
+                    if eph is None: raise ValueError('needs an ephemeris')
+                    Rc[i] = R[i] + eph.state(c, TU.utc_to_tdb(jd[i]), ref['center'])[0]
+            d = compare_with(ref, jd, Rc); d['name'] = ref['name']; out.append(d)
+        except Exception as ex: out.append(dict(name=ref['name'], points=0, error=str(ex)))
+    return out
+
+
+BODY_COLOR = {'Sun': '#ffd27a', 'Mercury': '#a79d93', 'Venus': '#e0c28b', 'Earth': '#4c8df6', 'Moon': '#bdbdbd', 'Mars': '#d1603d', 'Jupiter': '#d8b18c', 'Saturn': '#e3d3a2',
+              'Uranus': '#9fd6e0', 'Neptune': '#5a7fe0', 'Pluto': '#c9b9a8'}
+
+
+def _thin(n: int, cap: int) -> np.ndarray:
+    return np.unique(np.linspace(0, n - 1, min(n, cap)).astype(int))
+
+
+def space_payload(m: Mission, res: RunResult, eph, refs: list | None = None, cap: int = 1500) -> dict:
+    """Everything the three.js space view needs: tracks and bodies about the display centre (km, ICRF axes), times as UTC Julian dates."""
+    from ..view3d.models import TEXTURES
+    from .patched import soi as soi_of, PARENT
+    consts = ConstantSet(m.constants); center = next((p.central for p in m.propagators), 'Earth')
+    tracks = []; jd0 = np.inf; jd1 = -np.inf; ext = 1.0
+    traj = _recentre_samples(res, center, eph, True)
+    for i, (name, (jd, R, seg)) in enumerate(traj.items()):
+        k = _thin(len(jd), cap); col = next((s.color for s in m.spacecraft if s.name == name), PALETTE[i % len(PALETTE)])
+        tracks.append(dict(name=name, color=col, jd=jd[k].tolist(), r=R[k].tolist())); jd0 = min(jd0, jd[0]); jd1 = max(jd1, jd[-1]); ext = max(ext, float(np.max(np.abs(R))))
+    if not tracks: return dict(markers=[], tracks=[], bodies=[], jd0=0, jd1=1, center=center, extent=1, events=[], lagrange=[], refs=[])
+    names = []                                                                                      # bodies worth drawing: the centre, whatever the propagators or views mention, and the Sun
+    for p in m.propagators:
+        names += [p.central] + list(p.gravity) + ([p.cr3bp_primary, p.cr3bp_secondary] if p.dynamics == 'cr3bp' else [])
+    for v in m.views: names += [o for o in (c if c != 'Luna' else 'Moon' for c in v.objects) if o in BODIES]
+    if eph is not None and any(p.dynamics in ('selected_nbody', 'solar_system', 'patched') for p in m.propagators): names.append('Sun')
+    names = [center] + [n for n in dict.fromkeys(names) if n in BODIES and n != center]
+    bodies = []; jds = np.linspace(jd0, max(jd1, jd0 + 1e-6), 160)
+    patched = any(p.dynamics == 'patched' for p in m.propagators)
+    for n in names:
+        b = dict(name=n, R=consts.R(n), texture=TEXTURES.get(n), color=BODY_COLOR.get(n, '#8aa0c8'))
+        if n != center:
+            if eph is None or n not in getattr(eph, 'bodies', ()): continue
+            B = np.array([eph.state(n, TU.utc_to_tdb(j), center)[0] for j in jds]); b['path'] = dict(jd=jds.tolist(), r=B.tolist())
+            if n in PARENT and (patched or n == 'Moon'): b['soi'] = float(soi_of(n, consts, eph, TU.utc_to_tdb(jd0)))
+        bodies.append(b)
+    ev = []
+    for e in res.events:
+        if e['sat'] in traj:
+            jd, R, _ = traj[e['sat']]; k = int(np.argmin(np.abs(jd - e['jd']))); ev.append(dict(jd=float(e['jd']), r=R[k].tolist(), kind=e['kind'], text=e['text']))
+    lagr = []
+    for p in m.propagators:
+        if p.dynamics == 'cr3bp' and eph is not None:
+            try: lagr = _lagrange_paths(p, consts, eph, jd0, jd1, center)
+            except Exception: lagr = []
+    from .. import sky as SK
+    markers = [dict(name='Galactic Center', ra=SK.GALACTIC_CENTER[0], dec=SK.GALACTIC_CENTER[1]), dict(name='North Galactic Pole', ra=SK.NORTH_GALACTIC_POLE[0], dec=SK.NORTH_GALACTIC_POLE[1])] + [dict(name=k, ra=r_, dec=d_) for k, (r_, d_) in SK.STARS.items()]
+    return dict(markers=markers, center=center, jd0=float(jd0), jd1=float(jd1), tracks=tracks, bodies=bodies, events=ev, lagrange=lagr, extent=ext,
+                refs=[dict(name=r_['name'], r=[x for x in np.array(r_['r'])[_thin(len(r_['r']), cap)].tolist()]) for r_ in (refs or []) if r_.get('center') == center])
+
+
+def _lagrange_paths(p: Propagator, consts: ConstantSet, eph, jd0: float, jd1: float, center: str) -> list:
+    """L1-L5 of the circular restricted problem as moving points in the display frame (centred on the primary when the display centre is the primary)."""
+    from ..dyn.models import CR3BP
+    mu1, mu2 = consts.mu(p.cr3bp_primary), consts.mu(p.cr3bp_secondary)
+    rs, vs = eph.state(p.cr3bp_secondary, TU.utc_to_tdb(jd0), p.cr3bp_primary); L = float(np.linalg.norm(rs)); sys_ = CR3BP.from_bodies(mu1, mu2, L); T = sys_.T
+    ex = rs / L; ez = np.cross(rs, vs); ez /= np.linalg.norm(ez); ey = np.cross(ez, ex); Rm = np.array([ex, ey, ez]); pts = sys_.lagrange_points(); jds = np.linspace(jd0, max(jd1, jd0 + 1e-6), 120); out = []
+    for name, rot in pts.items():
+        path = []
+        for j in jds:
+            t = (j - jd0) * 86400.0 / T; c, s_ = np.cos(t), np.sin(t); R = np.array([[c, -s_, 0], [s_, c, 0], [0, 0, 1]])
+            rin = (R @ rot) * L - sys_.mu * L * np.array([c, s_, 0]); path.append((Rm.T @ rin).tolist())
+        out.append(dict(name=name, jd=jds.tolist(), r=path))
+    return out
