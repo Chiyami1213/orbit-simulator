@@ -21,6 +21,10 @@ https://naif.jpl.nasa.gov/naif/rules.html
 Built-in approximate ephemeris: E. M. Standish, "Keplerian Elements for Approximate Positions of the Major Planets", JPL Solar System Dynamics;
 lunar theory after J. Meeus, Astronomical Algorithms (truncated).
 
+Milky Way sky map (assets/textures/sky_milkyway_8k.jpg and sky_milkyway_4k.jpg): NASA/Goddard Space Flight Center Scientific Visualization Studio,
+"Deep Star Maps 2020" (https://svs.gsfc.nasa.gov/4851), starmap_2020_8k_gal.exr tone-mapped to JPEG (asinh stretch) and, for the 4k file, resampled. The map is built from ESA Gaia,
+Hipparcos and Tycho-2 star catalogues. NASA-produced material is generally free to use with credit; the terms of the underlying Gaia data still have to be confirmed for redistribution.
+
 Planet textures: Solar System Scope (2k maps), CC BY 4.0, https://www.solarsystemscope.com/textures/
 
 three.js r160 (MIT, mathkit/ui/web/vendor/, full text LICENSES/three-MIT.txt) draws the Explore and Design space views.

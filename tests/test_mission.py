@@ -427,3 +427,22 @@ def test_node_insertion_edge_cases():
     stops = [c.stops for c in late.commands if c.kind == 'Propagate']; assert stops[-1][0].startswith('Sat.ElapsedSecs = ') and float(stops[-1][0].split('=')[1]) < 86164 - 80000        # the remainder of the original stop
     assert 'Node1' in late.notes[-1] and run(late, None).final['Sat'].central == 'Earth'
     assert not MS.preview_node(d, None, 'Sat', trk['idx'][5], [0, 0, 0])['dv']
+
+
+
+@pytest.mark.parametrize('name', ['sky_milkyway_8k.jpg', 'sky_milkyway_4k.jpg'])
+def test_nasa_milky_way_map_orientation(name):
+    """The NASA SVS Deep Star Maps 2020 map (galactic, latitude up): the eight brightest stars sit on bright pixels with b_up=True, and not with the older convention."""
+    from mathkit import sky
+    from PIL import Image, ImageFilter
+    Image.MAX_IMAGE_PIXELS = None
+    im = Image.open(ROOT / 'assets' / 'textures' / name).convert('L'); W, H = im.size; assert (W, H) in ((8192, 4096), (4096, 2048))
+    a = np.asarray(im.filter(ImageFilter.GaussianBlur(1.5)), float); good = bad = 0
+    for star in ('Sirius', 'Arcturus', 'Canopus', 'Vega', 'Capella', 'Procyon', 'Betelgeuse', 'Rigel'):
+        v = sky.radec_to_vec(*sky.STARS[star])
+        for up in (True, False):
+            x, y = sky.pixel(v, W, H, b_up=up); x, y = int(round(x)) % W, int(round(y)); m = a[max(0, y - 8):y + 9, max(0, x - 8):x + 9].max()
+            if up and m > 150: good += 1
+            if not up and m > 150: bad += 1
+    assert good == 8 and bad == 0
+    x, y = sky.pixel(sky.radec_to_vec(*sky.GALACTIC_CENTER), W, H, b_up=True); assert abs(x - W / 2) < 1 and abs(y - H / 2) < 1

@@ -132,6 +132,7 @@ and *Settings → Local Files* opens the folders. Uninstalling keeps this folder
 
 ## Credits and licence
 
+* The Milky Way sky is NASA/Goddard SVS **Deep Star Maps 2020** (<https://svs.gsfc.nasa.gov/4851>; built from ESA Gaia, Hipparcos and Tycho-2 data), shown in galactic orientation. Credit is given in `NOTICE` and under *Settings → About*; the terms for redistributing the Gaia-derived data should be confirmed.
 * Planet texture maps in `assets/textures` appear to be **Solar System Scope** 2k textures (CC BY 4.0, <https://www.solarsystemscope.com/textures/>); attribution is required and the licence should be confirmed by the project owner before redistribution.
 * **NASA GMAT** (General Mission Analysis Tool) is licensed under the **Apache License 2.0**. This program contains portions derived from GMAT: the Runge–Kutta coefficient tables of its
   RungeKutta89, PrinceDormand78 and PrinceDormand45 integrators, translated to Python and modified. Copyright (c) 2002–2026 United States Government as represented by the Administrator of

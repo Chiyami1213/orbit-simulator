@@ -288,7 +288,7 @@ function spaceCard(r) {
         chk('labels', 'Labels'), chk('paths', 'Orbits'), chk('soi', 'SOI'), chk('lag', 'Lagrange'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic'),
         el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Background'), skysel),
         el('label', { class: 'mf', title: 'draw bodies larger than life' }, el('span', { class: 'ml' }, 'Body Size'), el('input', { type: 'range', min: 1, max: 100, value: 1, oninput: e => S3.set('exag', +e.target.value) })),
-        el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Sky Brightness'), el('input', { type: 'range', min: 0, max: 80, value: 30, oninput: e => S3.set('bright', e.target.value / 10) })),
+        el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Sky Brightness'), el('input', { type: 'range', min: 0, max: 40, value: 10, oninput: e => S3.set('bright', e.target.value / 10) })),
         chk('markers', 'Sky Markers', 'label the galactic centre, Polaris and bright stars on the sky (checks the sky orientation)'),
         el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Look Toward'), el('select', { onchange: e => { if (e.target.value) { st.markers = true; S3.look(...e.target.value.split(',').map(Number)); } e.target.value = ''; } }, el('option', { value: '' }, '…'), ...sp.markers.map(mk => el('option', { value: mk.ra + ',' + mk.dec }, mk.name)))),
         rec, btn('Save Image', async () => { const x = await api('save_blob', { kind: 'png', name: MIS.m.name + '_space', data: S3.png() }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); })));

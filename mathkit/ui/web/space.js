@@ -82,20 +82,23 @@ export function createSpace(host, data, opts = {}) {
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(50, W() / H(), 1e-3, 1e14); camera.up.set(0, 0, 1);
   const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.zoomSpeed = 1.2;
   const world = new THREE.Group(); scene.add(world);
-  const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 3.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1 };
+  const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 1.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1 };
   const loader = new THREE.TextureLoader(), t0 = data.jd0, t1 = data.jd1, span = Math.max(1e-9, t1 - t0);
   let jd = t0, raf = 0, last = 0, flyTo = null;
 
   // ---- sky: a sphere that follows the camera, sampling the galactic map along the ICRF direction
   const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, depthTest: false,
-    uniforms: { map: { value: null }, gal: { value: new THREE.Matrix3().set(...GAL) }, gain: { value: state.bright }, mode: { value: 0 } },
+    uniforms: { map: { value: null }, gal: { value: new THREE.Matrix3().set(...GAL) }, gain: { value: state.bright }, mode: { value: 0 }, flip: { value: 1 } },
     vertexShader: 'varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position = p.xyww; }',
-    fragmentShader: 'uniform sampler2D map; uniform mat3 gal; uniform float gain; uniform float mode; varying vec3 vDir; const float PI = 3.14159265359;' +
+    fragmentShader: 'uniform sampler2D map; uniform mat3 gal; uniform float gain; uniform float mode; uniform float flip; varying vec3 vDir; const float PI = 3.14159265359;' +
       'void main(){ if (mode > 1.5) { gl_FragColor = vec4(0.0,0.0,0.0,1.0); return; } vec3 g = gal * normalize(vDir); float l = atan(g.y, g.x); float b = asin(clamp(g.z,-1.0,1.0));' +
-      'vec2 uv = vec2(0.5 - l/(2.0*PI), 0.5 - b/PI); vec3 c = texture2D(map, uv).rgb * gain; if (mode > 0.5) c = vec3(0.02,0.03,0.07) + c; gl_FragColor = vec4(c,1.0); }' });
+      'vec2 uv = vec2(0.5 - l/(2.0*PI), 0.5 + flip * b/PI); vec3 c = texture2D(map, uv).rgb * gain; if (mode > 0.5) c = vec3(0.02,0.03,0.07) + c; gl_FragColor = vec4(c,1.0); }' });
   const skyMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), skyMat); skyMesh.renderOrder = -10; skyMesh.frustumCulled = false; scene.add(skyMesh);
-  const loadSky = name => loader.load('/assets/textures/' + name, tx => { tx.generateMipmaps = false; tx.minFilter = THREE.LinearFilter; tx.colorSpace = THREE.SRGBColorSpace; skyMat.uniforms.map.value = tx; });
-  const setSky = k => { state.sky = k; skyMat.uniforms.mode.value = k === 'black' ? 2 : k === 'theme' ? 1 : 0; loadSky(k === 'stars' ? '2k_stars.jpg' : '2k_stars_milky_way.jpg'); };
+  // NASA SVS "Deep Star Maps 2020" (galactic, latitude up, display-referred): 8k when the GPU allows it, else 4k. The older 2k star map has latitude downward and needs a gain.
+  const big = renderer.capabilities.maxTextureSize >= 8192; let skyScale = 1;
+  const loadSky = (name, legacy) => loader.load('/assets/textures/' + name, tx => { tx.generateMipmaps = false; tx.minFilter = THREE.LinearFilter; tx.colorSpace = legacy ? THREE.SRGBColorSpace : THREE.NoColorSpace; skyMat.uniforms.map.value = tx; });
+  const setSky = k => { state.sky = k; skyMat.uniforms.mode.value = k === 'black' ? 2 : k === 'theme' ? 1 : 0; const legacy = k === 'stars'; skyMat.uniforms.flip.value = legacy ? -1 : 1; skyScale = legacy ? 3 : 1;
+    if (k !== 'black') loadSky(legacy ? '2k_stars.jpg' : (big ? 'sky_milkyway_8k.jpg' : 'sky_milkyway_4k.jpg'), legacy); };
   setSky(state.sky);
 
   // ---- lights
@@ -196,7 +199,7 @@ export function createSpace(host, data, opts = {}) {
   function frame(now) {
     raf = requestAnimationFrame(frame); const dt = last ? Math.min(0.1, (now - last) / 1000) : 0; last = now;
     if (state.playing) { jd += state.dir * dt * (state.rate != null ? state.rate : WARPS[state.warp]) / 86400; if (jd > t1) { jd = t1; state.playing = false; host.dispatchEvent(new CustomEvent('space-state')); } if (jd < t0) { jd = t0; state.playing = false; host.dispatchEvent(new CustomEvent('space-state')); } host.dispatchEvent(new CustomEvent('space-time')); }
-    followFocus(dt); controls.update(); layout(); skyMat.uniforms.gain.value = state.bright; renderer.render(scene, camera);
+    followFocus(dt); controls.update(); layout(); skyMat.uniforms.gain.value = state.bright * skyScale; renderer.render(scene, camera);
   }
   frame(0);
   const ro = new ResizeObserver(() => { renderer.setSize(W(), H()); camera.aspect = W() / H(); camera.updateProjectionMatrix(); }); ro.observe(host);

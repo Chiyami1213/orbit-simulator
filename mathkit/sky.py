@@ -1,9 +1,11 @@
 """Orientation of the Milky Way / star sky maps (assets/textures/2k_stars*.jpg) in ICRF.
 
-The maps are equirectangular in **galactic** coordinates: the galactic centre is the middle of the image, longitude l increases to the LEFT and
-latitude b increases DOWNWARD (rows from the top). This was found by locating the eight brightest stars (Sirius, Arcturus, Canopus, Vega, Capella,
-Procyon, Betelgeuse, Rigel): all of them sit on the brightest pixels of the map at exactly these positions (see tests).
-    pixel x = (0.5 - l'/360) * W,   pixel y (from the top) = (0.5 + b/180) * H,   with l' = l wrapped to (-180, 180].
+The maps are equirectangular in **galactic** coordinates with the galactic centre in the middle of the image and longitude l increasing to the LEFT:
+    pixel x = (0.5 - l'/360) * W,   with l' = l wrapped to (-180, 180].
+Two latitude conventions occur, found by locating the eight brightest stars (Sirius, Arcturus, Canopus, Vega, Capella, Procyon, Betelgeuse, Rigel):
+    * NASA SVS "Deep Star Maps 2020" (assets/textures/sky_milkyway_8k.jpg and _4k.jpg): b increases UPWARD,    pixel y (from the top) = (0.5 - b/180) * H.
+      (Cross-check: the Large Magellanic Cloud, b = -33 deg, sits below the plane.)
+    * the older 2k maps (2k_stars*.jpg): b increases DOWNWARD,  pixel y (from the top) = (0.5 + b/180) * H.
 The viewer applies the same mapping, after rotating a direction from ICRF to galactic axes with the Hipparcos matrix below.
 """
 from __future__ import annotations
@@ -33,7 +35,7 @@ def to_galactic(v_icrs) -> tuple[float, float]:
     g = ICRS_TO_GAL @ (np.asarray(v_icrs, float) / np.linalg.norm(v_icrs)); return float(np.degrees(np.arctan2(g[1], g[0])) % 360), float(np.degrees(np.arcsin(g[2])))
 
 
-def pixel(v_icrs, width: int, height: int) -> tuple[float, float]:
-    """Pixel (x, y from the top) of an ICRS direction in the galactic sky maps."""
+def pixel(v_icrs, width: int, height: int, b_up: bool = False) -> tuple[float, float]:
+    """Pixel (x, y from the top) of an ICRS direction in a galactic sky map. ``b_up=True`` for the NASA SVS maps, False for the older 2k maps."""
     l, b = to_galactic(v_icrs); lp = (l + 180) % 360 - 180
-    return (0.5 - lp / 360.0) * width, (0.5 + b / 180.0) * height
+    return (0.5 - lp / 360.0) * width, (0.5 + (-b if b_up else b) / 180.0) * height

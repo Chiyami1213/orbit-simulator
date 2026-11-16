@@ -15,7 +15,7 @@ const MASS_UNITS = [['Earth masses', 5.9722e24], ['Moon masses', 7.342e22], ['Ju
 const RAD_UNITS = [['km', 1], ['Earth radii', 6378.137], ['Moon radii', 1737.4], ['Jupiter radii', 71492], ['Solar radii', 695700]];
 const G_KM = 6.6743e-20, KIND_NAME = { star: 'Star', planet: 'Planet', moon: 'Moon', small: 'Small Body', spacecraft: 'Spacecraft', custom: 'Custom Body' };
 const EX = { scene: null, sim: null, sel: null, space: null, undo: [], redo: [], cat: 'All', q: '', libOpen: true, panelOpen: true, tab: 'Basic', meta: null, horizon: '1 year', busy: false, rateExp: 6.0, playing: false,
-  view: { labels: true, paths: true, axes: false, ecl: false, markers: false }, thumbs: {}, mu: 'Earth masses', ru: 'km', pd: null, live: null, pop: null, sky: 'milkyway', bright: 3.0, exag: 1 };
+  view: { labels: true, paths: true, axes: false, ecl: false, markers: false }, thumbs: {}, mu: 'Earth masses', ru: 'km', pd: null, live: null, pop: null, sky: 'milkyway', bright: 1.0, exag: 1 };
 
 function exDispose() { if (EX.live) { clearInterval(EX.live); EX.live = null; } if (EX.space) { try { EX.space.dispose(); } catch (e) { } EX.space = null; } closePop(); }
 const fmtNum = (x, d = 6) => (Number.isFinite(x) ? (Math.abs(x) >= 1e-3 && Math.abs(x) < 1e9 || x === 0 ? +x.toPrecision(d) : x.toExponential(4)) : '–');
