@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Orbit Simulator Help</title>
+<style>
+:root{color-scheme:light dark;--bg:#f3f5fa;--card:#fff;--line:#dde3ef;--text:#16203a;--muted:#5d6985;--accent:#ff6b4a}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1628;--card:#162039;--line:#223152;--text:#e8ecf5;--muted:#9aa6bf}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 "Segoe UI",system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:36px 22px 60px}
+h1{font-size:34px;margin:0 0 6px}h2{margin:34px 0 10px;font-size:22px}h3{margin:18px 0 6px}
+.sub{color:var(--muted);margin:0 0 22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px 20px 16px;margin:14px 0}
+a{color:var(--accent)}kbd{border:1px solid var(--line);border-bottom-width:3px;border-radius:7px;padding:2px 8px;font:600 13px ui-monospace,Consolas,monospace;background:var(--bg)}
+table{width:100%;border-collapse:collapse}td,th{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600}
+code{font-family:ui-monospace,Consolas,monospace;background:var(--bg);padding:1px 6px;border-radius:6px}
+.btn{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;font-weight:700;border-radius:10px;padding:11px 20px;margin:6px 8px 0 0}
+</style>
+</head>
+<body>
+<main>
+<h1>Orbit Simulator</h1>
+<p class="sub">Help and quick start · version 1.0.0</p>
+<a class="btn" href="https://github.com/Chiyami1213/orbit-simulator">Project page on GitHub</a>
+<a class="btn" href="https://github.com/Chiyami1213/orbit-simulator/issues">Report an issue</a>
+
+<h2>Quick start</h2>
+<div class="card">
+<ol>
+<li>Open <b>Modules</b> in the left menu and pick a module (for example <i>Lambert Transfer</i>).</li>
+<li>Choose a homework or exam problem from <b>Load a homework / exam problem</b>, or type your own values. Sliders and number boxes accept exact values.</li>
+<li>The results table, the 3D animation and the annotated 2D figure update as you type. Press <b>Solve &amp; Draw</b> to force an update.</li>
+<li>Use the <b>Export Figure</b> tab to save PNG, PDF, 3D page, Python or MATLAB files.</li>
+<li>Enter your name under <b>Settings → Figure Title</b>: it is printed in every figure title.</li>
+</ol>
+</div>
+
+<h2>Modules</h2>
+<div class="card"><table>
+<tr><th>Module</th><th>What it solves</th></tr>
+<tr><td>N-Body Accelerations</td><td>dominant, direct, indirect and net perturbing accelerations</td></tr>
+<tr><td>Two-Body Constants</td><td>angular momentum, energy, areal velocity, centre of mass</td></tr>
+<tr><td>State ⇄ Planar Conic</td><td>position and velocity to conic elements and back</td></tr>
+<tr><td>Kepler Propagation</td><td>time of flight, f and g functions in both forms</td></tr>
+<tr><td>Hyperbolic Flyby</td><td>asymptotes, aim point, turn angle, capture burn</td></tr>
+<tr><td>Elements ⇄ 3D State</td><td>classical elements and inertial vectors with quadrant checks</td></tr>
+<tr><td>Single-Impulse Maneuver</td><td>all orbit intersections, minimum Δv, α and β angles</td></tr>
+<tr><td>Hohmann / Bi-Elliptic</td><td>transfers, phase angle and synodic period</td></tr>
+<tr><td>Plane Change</td><td>single burn against three burns</td></tr>
+<tr><td>Patched Conics</td><td>heliocentric transfer with departure and capture hyperbolas</td></tr>
+<tr><td>Gravity Assist</td><td>flyby in both senses, new orbit, free return</td></tr>
+<tr><td>Lambert Transfer</td><td>two-position problems, both p roots, burns and phase angle</td></tr>
+</table></div>
+
+<h2>Keyboard shortcuts</h2>
+<div class="card"><table>
+<tr><th>Key</th><th>Action</th></tr>
+<tr><td><kbd>F5</kbd></td><td>refresh the screen (re-solves the current page, keeps your inputs)</td></tr>
+<tr><td><kbd>F2</kbd></td><td>save a screenshot of the window</td></tr>
+<tr><td><kbd>F11</kbd></td><td>toggle full screen</td></tr>
+<tr><td><kbd>S</kbd></td><td>toggle the Settings page</td></tr>
+<tr><td><kbd>M</kbd></td><td>fold or unfold the left menu bar</td></tr>
+</table>
+<p>Every key can be changed under <b>Settings → Key Bindings</b>.</p></div>
+
+<h2>Where your files are saved</h2>
+<div class="card">
+<p>Everything the program writes on your computer goes to <code>%APPDATA%\Orbit Simulator\</code> and is never uploaded:</p>
+<table>
+<tr><td><code>settings.json</code></td><td>your settings</td></tr>
+<tr><td><code>screenshots\</code></td><td>pictures saved with <kbd>F2</kbd></td></tr>
+<tr><td><code>exports\</code></td><td>figures and scripts saved from the Export Figure tab</td></tr>
+<tr><td><code>logs\</code></td><td>error log, useful when reporting an issue</td></tr>
+</table>
+<p>Uninstalling the program leaves this folder in place, so your settings survive a reinstall.</p>
+</div>
+
+<h2>Tips</h2>
+<div class="card">
+<ul>
+<li>Drag the borders between panels to resize them; double-click a border to reset it.</li>
+<li>The <b>Test Cases</b> page re-runs every homework and exam problem against the printed answers.</li>
+<li>Switch between <i>Course Table</i> and <i>Exam Rounded</i> constants at the top of the window.</li>
+<li>Choose light, dark or your device setting under <b>Settings → Appearance</b>.</li>
+</ul>
+</div>
+
+<p class="sub">Source code, installation instructions and issue tracker:
+<a href="https://github.com/Chiyami1213/orbit-simulator">github.com/Chiyami1213/orbit-simulator</a></p>
+</main>
+</body>
+</html>

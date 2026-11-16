@@ -1,4 +1,4 @@
-"""AAE 532 reference core: verified equations (lecture notes + BMW), used to cross-check HW solutions.
+"""Reference core: verified equations (lecture notes + BMW), used to cross-check HW solutions.
 Conventions (course notes):
   gamma > 0 when r_dot > 0 (ascending);  tan(gamma) = e sin(th)/(1 + e cos(th))
   theta = omega + theta*  (argument of latitude);  3-1-3 rotation (Omega, i, theta)

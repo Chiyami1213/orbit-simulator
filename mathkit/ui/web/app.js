@@ -1,0 +1,554 @@
+'use strict';
+/* Orbit Simulator — front end. All maths runs in Python (mathkit.ui.api); this file only builds forms and shows results.
+   Text style: headers and labels use APA title case (apa), explanatory text is lower case (lc); both come from textcase.js and are
+   applied centrally by restyle(), so any string added later follows the same rules.
+   Local data (settings, screenshots, exports, backups) is written by the backend to the per-user app data folder, never by this file. */
+const $ = (s, r = document) => r.querySelector(s);
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v; else if (k === 'html') e.innerHTML = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(c));
+  return e;
+};
+const api = async (name, payload = {}) => {
+  const r = await fetch('/api/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  return r.json();
+};
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const ICO = {
+  cal: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  orbit: '<circle cx="12" cy="12" r="2.4"/><ellipse cx="12" cy="12" rx="10" ry="4.6" transform="rotate(-30 12 12)"/>',
+  check: '<path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4 12 14.01l-3-3"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  left: '<path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/>', right: '<path d="M13 17l5-5-5-5M6 17l5-5-5-5"/>',
+  grid: '<rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/>',
+  tools: '<path d="M4 6h9M19 6h1M4 12h3M13 12h7M4 18h11M21 18h-1"/><circle cx="16" cy="6" r="2.2"/><circle cx="10" cy="12" r="2.2"/><circle cx="18" cy="18" r="2.2"/>',
+  down: '<path d="M6 9l6 6 6-6"/>', rc: '<path d="M9 6l6 6-6 6"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  nbody: '<circle cx="6" cy="6.5" r="2.6"/><circle cx="18" cy="8" r="2"/><circle cx="11" cy="17.5" r="3.2"/>',
+  twobody: '<circle cx="6" cy="12" r="3.2"/><circle cx="18.5" cy="12" r="2"/><path d="M9.5 12h6.5" stroke-dasharray="1.5 2.5"/>',
+  conic: '<ellipse cx="12" cy="12" rx="9.5" ry="6"/><circle cx="8" cy="12" r="1.3"/><path d="M12 6v12" stroke-dasharray="1.5 2.5"/>',
+  kepler: '<ellipse cx="12" cy="12" rx="9.5" ry="6.5"/><path d="M8 12 17.6 8.4M8 12l9.6 3.6"/><circle cx="8" cy="12" r="1.3"/>',
+  hyper: '<path d="M3 1c2 8 6 10 18 10M3 19c2-8 6-10 18-10"/><circle cx="6.5" cy="10" r="1.3"/>',
+  cube: '<path d="M12 2.5 3.5 7v10L12 21.5 20.5 17V7z"/><path d="M3.5 7 12 11.5 20.5 7M12 11.5v10"/>',
+  zap: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  hohmann: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/><path d="M12 3a6 9 0 0 1 0 18" stroke-dasharray="2 2.5"/>',
+  layers: '<path d="M12 2.5 2.5 7.2 12 12l9.5-4.8z"/><path d="M2.5 12 12 16.8l9.5-4.8M2.5 16.8 12 21.5l9.5-4.7"/>',
+  globe: '<circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19M12 2.5a14 14 0 0 1 0 19M12 2.5a14 14 0 0 0 0 19"/>',
+  assist: '<path d="M3 19c6 0 8-12 18-13"/><circle cx="13" cy="13" r="3.2"/>',
+  lambert: '<circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/><path d="M6.5 17.2C9 8 13.5 6 17.2 6.4"/>'
+};
+const MOD_ICO = { 1: 'nbody', 2: 'twobody', 3: 'conic', 4: 'kepler', 5: 'hyper', 6: 'cube', 7: 'zap', 8: 'hohmann', 9: 'layers', 10: 'globe', 11: 'assist', 12: 'lambert' };
+const ico = n => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.innerHTML = ICO[n]; return s; };
+const BODY_SYM = { Sun: '☉', Moon: '☽', Mercury: '☿', Venus: '♀', Earth: '⊕', Mars: '♂', Jupiter: '♃', Saturn: '♄', Uranus: '♅', Neptune: '♆', Pluto: '♇' };
+
+const UTIL = [['jd', 'Julian Date', 'cal'], ['const', 'Body Constants', 'orbit'], ['tests', 'Test Cases', 'check']];
+const OPT = { tof: 'TOF', radec: 'RA / Dec', ths: 'θ*', xy: 'x, y', polar: 'r, v_r, v_θ', h_eps: 'h, ε', rp_ra: 'r_p, r_a', a_e: 'a, e', p_e: 'p, e', ccw: 'counter-clockwise', cw: 'clockwise' };
+const optText = o => OPT[o] || o;
+const KEYS_DEFAULT = { refresh: 'F5', screenshot: 'F2', fullscreen: 'F11', settings: 'S', menu: 'M' };
+const KEY_INFO = {
+  refresh: ['Refresh Screen', 're-renders the current page and solves it again, keeping your inputs'],
+  screenshot: ['Screenshot', 'saves a png of the app window to the screenshots folder in the app data folder'],
+  fullscreen: ['Full Screen', 'switches between full screen and the normal window'],
+  settings: ['Settings Page', 'opens the settings page, or goes back to where you were'],
+  menu: ['Menu Bar', 'hides or shows the whole left menu bar']
+};
+const LAY_DEFAULT = { navw: 250, subw: 275, panelw: 384, f3d: 0.56, plotsh: 0, fold: false, hidden: false, sub: false, groups: { utilities: true } };
+const FRAME_PRESETS = [[240, 'Low'], [480, 'Medium'], [1200, 'High'], [3000, 'Ultra']];
+const fresh = o => JSON.parse(JSON.stringify(o));
+let META = null;
+let SET = { const: 'Course table', moonR: 2000, unit: 'km', appearance: 'dark', name: '', label: '', sliders: true, layout: {}, keys: {},
+  view: 'both', bodyNotation: 'symbol', frames: 480, textures: false, model: 'marker', fps: false };
+const LAY = fresh(LAY_DEFAULT);
+const S = { page: '12', prev: '12', canon: {}, tab: 'Plots', scene: 0, res: null, seq: 0, tests: null, rebind: null, cache: new Map(), last: {}, setTab: 'Appearance', backups: null, gpu: '' };
+const mod = () => META.modules.find(m => m.id === S.page);
+const isMod = () => !!mod();
+
+/* ---------- settings (stored by the backend in the app data folder) ---------- */
+const saveSet = debounce(() => { SET.layout = LAY; api('settings_set', { settings: SET }); }, 300);
+const keys = () => ({ ...KEYS_DEFAULT, ...(SET.keys || {}) });
+const dark = matchMedia('(prefers-color-scheme: dark)');
+const effTheme = () => SET.appearance === 'device' ? (dark.matches ? 'dark' : 'light') : (SET.appearance === 'light' ? 'light' : 'dark');
+dark.addEventListener('change', () => { if (SET.appearance === 'device') { syncChrome(); S.cache.clear(); if (isMod()) solveNow(); } });
+const solveOpts = () => ({ body: SET.bodyNotation, frames: SET.frames, textures: SET.textures, model: SET.model, fps: SET.fps });
+
+/* ---------- text style (headers: APA title case, explanations: lower case) ---------- */
+const SEL_H = ['.title', '.nv .lbl', '.chip:not(#unitChip)', '.tab', '#panel h2', '.cardx > h3 b', '.sheet h3', '.tbl th', '.flab', '.fld-top label', '.seg button', 'a.btn', 'button.btn',
+  'button.solve', '.sc .hd .t', '.sc .r .a', 'nav h4', '.subhead', '.tbl.c1 td:first-child', '.tbl.c12 td:nth-child(-n+2)', 'select option', '.sp-t', '.setrow .t', '.stab', '.sh1', '.sh2', '.acard .al'].join(',');
+const SEL_X = ['.blurb', '.pnote', '.dim', '.chk span:not(.ic)', '.ovl', '.tbl td.eq', '.empty', '.spin', '.hint', '#splash-msg', '#toast'].join(',');
+function restyle() {
+  for (const [sel, fn] of [[SEL_H, apa], [SEL_X, lc]])
+    document.querySelectorAll(sel).forEach(e => e.childNodes.forEach(n => { if (n.nodeType === 3) { const v = fn(n.nodeValue); if (v !== n.nodeValue) n.nodeValue = v; } }));
+}
+const restyleSoon = debounce(restyle, 16);
+new MutationObserver(restyleSoon).observe(document.body, { childList: true, subtree: true });
+
+/* ---------- units and constants ---------- */
+function bodyR(name) {
+  if (SET.const === 'Exam rounded' && META.exam[name]) return name === 'Moon' ? SET.moonR : META.exam[name].R;
+  return META.bodies[name] ? META.bodies[name].R : 1;
+}
+function factor(m) {
+  if (SET.unit === 'km') return 1;
+  if (SET.unit === 'AU') return META.AU;
+  const bk = m.body_key; return bk ? bodyR(S.canon[m.id][bk]) : 1;
+}
+const unitLabel = f => f.dist ? (SET.unit === 'R_body' ? 'R' : SET.unit) : f.unit;
+const clean = x => String(+(+x).toPrecision(10));
+const parseVec = t => t.replace(/[\[\];]/g, ',').split(',').map(s => s.trim()).filter(Boolean).map(Number);
+
+/* ---------- toast ---------- */
+let toastTimer;
+function toast(msg, kind = '') {
+  const t = $('#toast'); t.textContent = msg; t.className = 'on ' + kind; clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('on'), kind === 'err' ? 6500 : 4500);
+}
+
+/* ---------- layout: hide / fold, sub-menu bar and draggable borders ---------- */
+function applyLayout() {
+  const r = document.documentElement.style, a = $('#app'), subOpen = !!LAY.sub && !LAY.hidden;
+  r.setProperty('--navw', LAY.navw + 'px'); r.setProperty('--panelw', LAY.panelw + 'px'); r.setProperty('--subw', subOpen ? LAY.subw + 'px' : '0px');
+  a.classList.toggle('fold', !!LAY.fold); a.classList.toggle('menuhidden', !!LAY.hidden); a.classList.toggle('subopen', subOpen);
+}
+function drag(handle, onmove, reset) {
+  handle.addEventListener('pointerdown', e => {
+    e.preventDefault(); handle.setPointerCapture(e.pointerId); document.body.classList.add('dragging'); handle.classList.add('on');
+    const mv = ev => onmove(ev);
+    const up = ev => { try { handle.releasePointerCapture(ev.pointerId); } catch (x) { } handle.removeEventListener('pointermove', mv); handle.removeEventListener('pointerup', up);
+      document.body.classList.remove('dragging'); handle.classList.remove('on'); saveSet(); };
+    handle.addEventListener('pointermove', mv); handle.addEventListener('pointerup', up);
+  });
+  if (reset) handle.addEventListener('dblclick', () => { reset(); saveSet(); });
+}
+function initSplitters() {
+  const navNow = () => LAY.fold ? 60 : LAY.navw, subNow = () => (LAY.sub && !LAY.hidden) ? LAY.subw : 0;
+  const maxPanel = () => Math.max(300, Math.min(660, innerWidth - navNow() - subNow() - 520));
+  drag($('#sp1'), e => { LAY.navw = clamp(e.clientX, 170, 420); LAY.panelw = clamp(LAY.panelw, 300, maxPanel()); applyLayout(); }, () => { LAY.navw = LAY_DEFAULT.navw; applyLayout(); });
+  drag($('#sp3'), e => { LAY.subw = clamp(e.clientX - navNow(), 170, 340); applyLayout(); }, () => { LAY.subw = LAY_DEFAULT.subw; applyLayout(); });
+  drag($('#sp2'), e => { LAY.panelw = clamp(e.clientX - navNow() - subNow(), 300, maxPanel()); applyLayout(); }, () => { LAY.panelw = LAY_DEFAULT.panelw; applyLayout(); });
+  applyLayout();
+}
+new ResizeObserver(() => { const p = $('.plots'), m = $('#main'); if (p && m) p.classList.toggle('stack', m.clientWidth < 960 && SET.view === 'both'); }).observe(document.documentElement);
+
+/* ---------- loading screen ---------- */
+const SPLASH = { t0: performance.now(), real: 0, done: false };
+function splashTick() {
+  const bar = $('#splash-bar'); if (!bar) return;
+  const shown = Math.min(SPLASH.real, (performance.now() - SPLASH.t0) / 1200 * 100);              // never faster than 1.2 s overall
+  bar.style.width = shown + '%'; $('#splash-pct').textContent = Math.round(shown) + '%';
+  if (shown >= 100 && SPLASH.done) { const s = $('#splash'); s.classList.add('out'); setTimeout(() => s.remove(), 500); return; }
+  requestAnimationFrame(splashTick);
+}
+const splash = (p, msg) => { SPLASH.real = Math.max(SPLASH.real, p); if (msg) $('#splash-msg').textContent = msg; };
+
+/* ---------- FPS monitor (this page + the 3-D frame) ---------- */
+const FPS = { ui: 0, d3: 0 }; let fpsN = 0, fpsT = performance.now();
+function fpsLoop(now) {
+  if (SET.fps) { fpsN++; if (now - fpsT >= 500) { FPS.ui = Math.round(fpsN * 1000 / (now - fpsT)); fpsN = 0; fpsT = now; showFps(); } } else fpsN = 0;
+  requestAnimationFrame(fpsLoop);
+}
+function showFps() {
+  const b = $('#fpsb'); b.hidden = !SET.fps; if (SET.fps) b.textContent = `UI ${FPS.ui} fps` + (FPS.d3 ? ` · 3D ${FPS.d3} fps` : '');
+}
+window.addEventListener('message', e => { if (e.data && e.data.orbitFps != null) { FPS.d3 = e.data.orbitFps; showFps(); } });
+function gpuInfo() {
+  if (S.gpu) return S.gpu;
+  try {
+    const c = document.createElement('canvas'), gl = c.getContext('webgl2') || c.getContext('webgl'); if (!gl) return (S.gpu = 'WebGL not available (3D view will not work)');
+    const x = gl.getExtension('WEBGL_debug_renderer_info'); const name = x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    return (S.gpu = `${name} (${c.getContext('webgl2') ? 'WebGL 2' : 'WebGL 1'})`);
+  } catch (e) { return (S.gpu = 'unknown'); }
+}
+
+/* ---------- chrome and navigation ---------- */
+function syncChrome() {
+  const th = effTheme(); document.body.dataset.theme = th; document.documentElement.dataset.boot = th;
+  document.querySelectorAll('[data-const]').forEach(b => b.classList.toggle('on', b.dataset.const === SET.const));
+  $('#unitChip').textContent = 'Units: ' + SET.unit + ' · s'; showFps();
+}
+function navItem(id, label, iconNode, tip, on) {
+  return el('button', { class: 'nv' + ((on ?? S.page === id) ? ' on' : ''), title: tip || label, onclick: () => go(id) }, el('span', { class: 'n' }, iconNode), el('span', { class: 'lbl' }, label));
+}
+function toggleSub() { LAY.sub = !LAY.sub; applyLayout(); buildNav(); buildSub(); saveSet(); }
+function utilGroup() {
+  const open = LAY.groups.utilities !== false;
+  return el('div', { class: 'ngrp' },
+    el('button', { class: 'nv grp', title: 'Utilities', 'aria-expanded': String(open), onclick: () => { LAY.groups.utilities = !open; saveSet(); buildNav(); } },
+      el('span', { class: 'n' }, ico('tools')), el('span', { class: 'lbl' }, 'Utilities'), el('span', { class: 'chev' }, ico(open ? 'down' : 'rc'))),
+    open ? el('div', { class: 'nsub' }, ...UTIL.map(([id, name, ic]) => navItem(id, name, ico(ic)))) : null);
+}
+function buildNav() {
+  $('#nav').replaceChildren(
+    el('div', { class: 'navtop' }, el('button', { class: 'navtoggle', title: LAY.fold ? 'expand menu' : 'collapse menu', onclick: () => { LAY.fold = !LAY.fold; applyLayout(); buildNav(); saveSet(); } }, ico(LAY.fold ? 'right' : 'left'))),
+    el('div', { class: 'navlist' },
+      el('button', { class: 'nv grp', title: 'Modules', 'aria-expanded': String(!!LAY.sub), onclick: toggleSub }, el('span', { class: 'n' }, ico('grid')), el('span', { class: 'lbl' }, 'Modules'), el('span', { class: 'chev' }, ico('rc'))),
+      utilGroup()),
+    el('div', { class: 'navbottom' }, navItem('settings', 'Settings', ico('gear'))));            // the gear sits alone at the very bottom
+}
+function buildSub() {
+  $('#subnav').replaceChildren(el('div', { class: 'subhead' }, 'Modules'), ...META.modules.map(m => navItem(m.id, m.short, ico(MOD_ICO[m.id]), m.short)));
+}
+async function go(page) {
+  S.page = page; S.scene = 0; buildNav(); buildSub();
+  $('#app').classList.toggle('wide', !isMod());
+  if (isMod()) {
+    renderPanel(); S.res = S.last[page] || null; if (S.res) { showChecks(S.res); renderMain(); } else $('#main').replaceChildren();      // show the last result instantly, refresh behind it
+    return solveNow();
+  }
+  S.res = null; $('#panel').replaceChildren(); renderUtil();
+}
+function setSet(patch, resolve = true) {
+  Object.assign(SET, patch); saveSet(); syncChrome();
+  if (isMod()) { renderFields(); if (resolve) { S.cache.clear(); solveSoon(); } } else renderUtil();
+}
+
+/* ---------- panel / fields ---------- */
+function ensureCanon(m) {
+  if (!S.canon[m.id]) S.canon[m.id] = Object.fromEntries(m.fields.map(f => [f.key, JSON.parse(JSON.stringify(f.default))]));
+  return S.canon[m.id];
+}
+function renderPanel() {
+  const m = mod(); ensureCanon(m); const p = $('#panel');
+  const sel = el('select', { class: 'preset', onchange: e => { if (e.target.value !== '') loadPreset(m, +e.target.value); } },
+    el('option', { value: '' }, 'Load a homework / exam problem'), ...m.presets.map((pr, i) => el('option', { value: i }, pr.label)));
+  p.replaceChildren(el('h2', {}, m.short), el('div', { class: 'blurb' }, m.blurb), m.presets.length ? sel : '', el('div', { class: 'pnote', id: 'pnote' }),
+    el('div', { id: 'fields' }), el('button', { class: 'solve', onclick: () => solveNow() }, 'Solve & Draw'), el('div', { id: 'checks' }));
+  renderFields();
+}
+function loadPreset(m, i) {
+  const pr = m.presets[i]; S.canon[m.id] = Object.fromEntries(m.fields.map(f => [f.key, JSON.parse(JSON.stringify(f.default))]));
+  Object.assign(S.canon[m.id], JSON.parse(JSON.stringify(pr.vals)));
+  SET.const = pr.consts; if (pr.consts === 'Exam rounded') SET.moonR = pr.moon_R; SET.label = pr.label.split(' — ')[0]; saveSet(); syncChrome();
+  $('#pnote').textContent = pr.note ? 'ℹ ' + pr.note : ''; renderFields(); solveNow();
+}
+function renderFields() {
+  const m = mod(), c = ensureCanon(m), box = $('#fields'); if (!box) return; const fac = factor(m);
+  box.replaceChildren(...m.fields.map(f => fieldEl(m, f, c, fac)));
+  refreshVisible();
+}
+function fieldEl(m, f, c, fac) {
+  const wrap = el('div', { class: 'fld', 'data-key': f.key }); const commit = v => { c[f.key] = v; changed(m, f); };
+  if (f.kind === 'choice') {
+    const short = f.options.length <= 4 && f.options.map(optText).join('').length <= 38;
+    if (short) {
+      wrap.append(el('div', { class: 'flab' }, f.label), el('div', { class: 'seg' }, ...f.options.map(o => el('button', { class: o === c[f.key] ? 'on' : '', onclick: e => { commit(o); e.target.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === e.target)); } }, optText(o)))));
+    } else wrap.append(el('div', { class: 'flab' }, f.label), el('select', { onchange: e => commit(e.target.value) }, ...f.options.map(o => el('option', { value: o, selected: o === c[f.key] }, optText(o)))));
+  } else if (f.kind === 'bool') {
+    wrap.append(el('label', { class: 'tgl' }, el('span', { class: 'flab' }, f.label), el('input', { type: 'checkbox', checked: !!c[f.key], onchange: e => commit(e.target.checked) })));
+  } else if (f.kind === 'text') {
+    wrap.append(el('div', { class: 'flab' }, f.label), el('input', { type: 'text', class: 'wide', value: c[f.key], onchange: e => commit(e.target.value) }));
+  } else if (f.kind === 'vec') {
+    const k = f.dist ? fac : 1;
+    wrap.append(el('div', { class: 'flab' }, `${f.label} (${unitLabel(f)})`), el('input', {
+      type: 'text', class: 'wide', value: c[f.key].map(x => clean(x / k)).join(', '),
+      oninput: e => { const v = parseVec(e.target.value); const ok = v.length && v.every(Number.isFinite); e.target.classList.toggle('bad', !ok); if (ok) commit(v.map(x => x * k)); }
+    }));
+  } else {                                    // float / int
+    const k = f.dist ? factor(m) : 1; const useSlider = f.rng && SET.sliders && f.kind === 'float';
+    const num = el('input', { type: 'text', class: 'num', inputmode: 'decimal', value: clean(c[f.key] / k) });
+    const rng = useSlider ? el('input', { type: 'range', min: f.rng[0], max: f.rng[1], step: f.rng[2] }) : null;
+    const pct = () => { if (rng) rng.style.setProperty('--pct', clamp(100 * (c[f.key] - f.rng[0]) / (f.rng[1] - f.rng[0]), 0, 100) + '%'); };
+    if (rng) { rng.value = c[f.key]; pct(); rng.oninput = () => { c[f.key] = +rng.value; num.value = clean(rng.value); num.classList.remove('bad'); pct(); changed(m, f, true); }; rng.onchange = () => changed(m, f); }
+    num.oninput = () => { const v = Number(num.value.replace(',', '.')); const ok = num.value.trim() !== '' && Number.isFinite(v); num.classList.toggle('bad', !ok); if (ok) { c[f.key] = f.kind === 'int' ? Math.round(v) : v * k; if (rng) { rng.value = c[f.key]; pct(); } changed(m, f); } };
+    wrap.append(el('div', { class: 'fld-top' }, el('label', {}, f.label), el('span', { class: 'val' }, num, el('span', { class: 'u' }, unitLabel(f)))), rng || '');
+  }
+  return wrap;
+}
+const solveLive = debounce(() => solveNow(true), 90), solveFull = debounce(() => solveNow(false), 650), solveSoon = debounce(() => solveNow(), 220);
+function changed(m, f, live) {
+  if (!live) refreshVisible();
+  if (f.key === m.body_key && SET.unit === 'R_body') renderFields();
+  if (live) { solveLive(); solveFull(); } else solveSoon();                     // while dragging a slider only the cheap 2-D view updates; the 3-D page follows once you pause
+}
+const refreshVisible = debounce(async () => {
+  const m = mod(); if (!m) return; const r = await api('visible', { mid: m.id, vals: S.canon[m.id] }); if (r.error) return;
+  document.querySelectorAll('#fields .fld').forEach(e => e.classList.toggle('hidden', !r.visible.includes(e.dataset.key)));
+}, 40);
+
+/* ---------- solving (cached; live drags skip the 3-D page) ---------- */
+async function solveNow(live = false) {
+  const m = mod(); if (!m) return; const id = ++S.seq;
+  const payload = { mid: m.id, vals: S.canon[m.id], consts: { mode: SET.const, moon_R: SET.moonR }, theme: effTheme(), name: SET.name, label: SET.label, opts: solveOpts() };
+  const key = JSON.stringify(payload);
+  if (!live && S.cache.has(key)) { const r = S.cache.get(key); S.cache.delete(key); S.cache.set(key, r); S.res = S.last[m.id] = r; showChecks(r); renderMain(); return; }
+  $('#spin').classList.add('on');
+  let r; try { r = await api('solve', live ? { ...payload, opts: { ...payload.opts, skip3d: true } } : payload); } catch (e) { r = { error: String(e) }; }
+  if (id !== S.seq) return; $('#spin').classList.remove('on');
+  showChecks(r);
+  if (live && !r.error && updateLive(r)) return;                                  // in-place 2-D update, 3-D frame untouched
+  S.res = r; if (S.scene >= (r.scenes || []).length) S.scene = 0;
+  if (!r.error) { S.last[m.id] = r; S.cache.set(key, r); if (S.cache.size > 14) S.cache.delete(S.cache.keys().next().value); }
+  renderMain();
+}
+function updateLive(r) {
+  const sc = r.scenes[S.scene], host = $('.c2d .svgw'); if (!host || S.tab !== 'Plots' || !sc) return false;
+  host.innerHTML = sc.svg; const c4 = $('.cards4'); if (c4) c4.replaceWith(cardsEl(r.cards)); return true;
+}
+function showChecks(r) {
+  const c = $('#checks'); if (!c) return; c.replaceChildren();
+  if (r.error) { c.append(chk('err', '✕', r.error)); return; }
+  for (const w of r.warnings) c.append(chk('warn', '!', w));
+  for (const k of r.checks) c.append(chk('ok', '✓', k));
+}
+const chk = (cls, ic, t) => el('div', { class: 'chk ' + cls }, el('span', { class: 'ic' }, ic), el('span', {}, t));
+
+/* ---------- main area ---------- */
+function renderMain() {
+  const main = $('#main'), r = S.res; main.replaceChildren();
+  if (!r) return;
+  if (r.error) { main.append(el('div', { class: 'empty' }, r.error)); if (r.trace) main.append(el('pre', {}, r.trace)); return; }
+  const tabs = ['Plots', 'Step-by-Step', ...r.tabs.map(t => apa(t.name)), 'Export Figure']; if (!tabs.includes(S.tab)) S.tab = 'Plots';
+  const views = el('div', { class: 'seg viewseg', title: 'choose the 3d view, the 2d figure, or both' }, ...[['3d', '3D'], ['2d', '2D'], ['both', '3D + 2D']].map(([v, l]) =>
+    el('button', { class: SET.view === v ? 'on' : '', onclick: () => { SET.view = v; saveSet(); renderMain(); } }, l)));
+  main.append(el('div', { class: 'tabrow' }, el('div', { class: 'tabs' }, ...tabs.map(t => el('button', { class: 'tab' + (t === S.tab ? ' on' : ''), onclick: () => { S.tab = t; renderMain(); } }, t))), S.tab === 'Plots' ? views : ''));
+  if (S.tab === 'Plots') plots(main, r); else if (S.tab === 'Step-by-Step') steps(main, r);
+  else if (S.tab === 'Export Figure') exportTab(main, r); else extra(main, r.tabs.find(t => apa(t.name) === S.tab));
+}
+function cardsEl(cards) {
+  return el('div', { class: 'cards4' }, ...cards.map(c => el('div', { class: 'cardx sc' },
+    el('div', { class: 'hd' }, el('span', { class: 't' }, c.title), c.pill ? el('span', { class: 'bp' }, c.pill) : el('span', { class: 'h' }, c.headline || '')),
+    ...c.rows.map(([a, b]) => el('div', { class: 'r' }, el('span', { class: 'a' }, a), typeof b === 'object' ? el('span', { class: 'bp g' }, b.pill) : el('span', { class: 'b' }, b))))));
+}
+function plots(main, r) {
+  if (r.scenes.length > 1) main.append(el('div', { class: 'scenebar' }, ...r.scenes.map((s, i) => el('button', { class: 'chip' + (i === S.scene ? ' on' : ''), onclick: () => { S.scene = i; renderMain(); } }, s.name === 'main' ? 'Overview' : s.name))));
+  const sc = r.scenes[S.scene], view = SET.view, show3 = view !== '2d', show2 = view !== '3d';
+  const svg = el('div', { class: 'svgw', html: sc.svg });
+  const c3 = show3 ? el('div', { class: 'cardx c3d' }, el('h3', {}, el('b', {}, '3D View'), el('span', { class: 'hint' }, ' · rotate with mouse')), el('div', { class: 'body' }, (() => { const fr = el('iframe'); fr.srcdoc = sc.html3d; return fr; })())) : null;
+  const c2 = show2 ? el('div', { class: 'cardx c2d' }, el('h3', {}, el('b', {}, '2D Annotated'), el('span', { class: 'hint' }, ' · submit-ready')), el('div', { class: 'body' }, svg, sc.overlaps ? el('div', { class: 'ovl' }, `${sc.overlaps} label overlap(s)`) : null)) : null;
+  const both = show3 && show2;
+  const vs = both ? el('div', { class: 'split h', title: 'drag to resize · double-click to reset' }) : null, rs = el('div', { class: 'split row', title: 'drag to resize · double-click to reset' });
+  const plotsEl = el('div', { class: 'plots view-' + view }, c3, vs, c2); plotsEl.style.setProperty('--f3d', LAY.f3d); if (LAY.plotsh > 0) plotsEl.style.height = LAY.plotsh + 'px';
+  plotsEl.classList.toggle('stack', both && main.clientWidth < 960);
+  main.append(plotsEl, rs);
+  if (vs) drag(vs, e => { const b = plotsEl.getBoundingClientRect(); LAY.f3d = clamp((e.clientX - b.left - 5) / (b.width - 10), 0.25, 0.75); plotsEl.style.setProperty('--f3d', LAY.f3d); }, () => { LAY.f3d = LAY_DEFAULT.f3d; plotsEl.style.setProperty('--f3d', LAY.f3d); });
+  drag(rs, e => { const b = plotsEl.getBoundingClientRect(); LAY.plotsh = clamp(e.clientY - b.top, 260, Math.max(320, $('#main').clientHeight - 150)); plotsEl.style.height = LAY.plotsh + 'px'; }, () => { LAY.plotsh = 0; plotsEl.style.height = ''; });
+  for (const n of sc.notes || []) main.append(el('div', { class: 'dim', style: 'margin-top:8px' }, n));
+  main.append(cardsEl(r.cards));
+  for (const f of r.figs) main.append(el('div', { class: 'cardx', style: 'margin-top:18px;padding:12px' }, el('div', { class: 'svgw', html: f.svg })));
+}
+function table(cols, rows, hl, cls = 'c1') {
+  return el('table', { class: 'tbl ' + cls }, el('thead', {}, el('tr', {}, ...cols.map(c => el('th', {}, c)))),
+    el('tbody', {}, ...rows.map((r, i) => el('tr', { class: i === hl ? 'hl' : '' }, ...r.map(v => el('td', {}, v))))));
+}
+function steps(main, r) {
+  for (const g of r.groups) {
+    const t = el('table', { class: 'tbl c1' }, el('thead', {}, el('tr', {}, ...['Quantity', 'Symbol', 'Value', 'Units', 'Equation / Note'].map(c => el('th', {}, c)))),
+      el('tbody', {}, ...g.rows.map(([n, s, v, u, eq, no]) => el('tr', {}, el('td', {}, n), el('td', { class: 's' }, s), el('td', { class: 'v' }, v.replace(/ \(.*\)$/, '')), el('td', { class: 's' }, u === '—' ? '' : u), el('td', { class: 'eq' }, [eq, no].filter(Boolean).join('  ·  '))))));
+    main.append(el('div', { class: 'sheet' }, g.name ? el('h3', {}, g.name) : null, t));
+  }
+  if (r.checks.length) main.append(el('div', { class: 'sheet' }, el('h3', {}, 'Quadrant and Sanity Checks'), ...r.checks.map(k => chk('ok', '✓', k))));
+}
+function extra(main, t) {
+  main.append(el('div', { class: 'sheet' }, el('h3', {}, t.name), el('div', { class: 'dim' }, t.note), table(t.columns, t.rows, t.highlight)));
+}
+async function saveExport(idx, fmt, theme) {
+  const r = await api('export_save', { idx, fmt, theme }); toast(r.ok ? 'saved to ' + r.path : r.error, r.ok ? 'ok' : 'err');
+}
+function exportTab(main, r) {
+  main.append(el('div', { class: 'sheet' }, el('h3', {}, 'Export Figures'),
+    el('div', { class: 'dim' }, 'png and pdf files are rendered at 300 dpi. python and matlab scripts redraw the 3d and 2d plots with latex labels. the figure title carries your name and the problem label (set both under settings).'),
+    el('div', { class: 'dim' }, 'files are saved to ' + META.paths.exports),
+    el('div', { class: 'btnrow' }, el('button', { class: 'btn', onclick: () => api('open_folder', { which: 'exports' }) }, 'Open Exports Folder'))));
+  r.scenes.forEach((s, i) => main.append(el('div', { class: 'sheet' }, el('h3', {}, s.name === 'main' ? 'Overview' : s.name),
+    el('div', { class: 'btnrow' }, ...['light', 'dark'].flatMap(t => ['png', 'pdf'].map(f => el('button', { class: 'btn', onclick: () => saveExport(i, f, t) }, `${f.toUpperCase()} · ${t}`))),
+      el('button', { class: 'btn', onclick: () => saveExport(i, 'html', 'light') }, '3D Page (.html)'),
+      el('button', { class: 'btn', onclick: () => saveExport(i, 'py', 'light') }, 'Python Script (.py)'),
+      el('button', { class: 'btn', onclick: () => saveExport(i, 'm', 'light') }, 'MATLAB Script (.m)')))));
+  if (!SET.name) main.append(el('div', { class: 'chk warn' }, el('span', { class: 'ic' }, '!'), el('span', {}, 'enter your name under settings: homework figures must carry it.')));
+}
+
+/* ---------- utility pages ---------- */
+function renderUtil() {
+  const main = $('#main'); main.replaceChildren();
+  if (S.page === 'const') return constPage(main);
+  if (S.page === 'jd') return jdPage(main);
+  if (S.page === 'settings') return settingsPage(main);
+  return testsPage(main);
+}
+function constPage(main) {
+  const rows = Object.entries(META.bodies).map(([n, b]) => {
+    const ex = SET.const === 'Exam rounded' && META.exam[n]; const mu = ex ? META.exam[n].mu : b.mu, R = ex ? (n === 'Moon' ? SET.moonR : META.exam[n].R) : b.R;
+    return [n, el('span', { class: 'bsym' }, (BODY_SYM[n] || '') + '︎'), mu.toLocaleString('en-US', { maximumFractionDigits: 6 }), R.toLocaleString('en-US'), b.a ? b.a.toLocaleString('en-US') : '—', b.e != null ? String(b.e) : '—', ex ? 'exam value' : ''];
+  });
+  main.append(el('div', { class: 'sheet' }, el('h3', {}, `Body Constants — ${SET.const}`), table(['Body', 'Symbol', 'μ (km³·s⁻²)', 'R (km)', 'a (km)', 'e', ''], rows),
+    el('div', { class: 'dim', style: 'margin-top:10px' }, `1 au = ${META.AU.toLocaleString('en-US')} km (reproduces the hw4 numbers). the table lists earth’s a = 149 597 898 km: use that for “earth’s orbit radius”. julian year = 365.25 d, hw4 months = 30 d, jd day = 86 400 s.`)));
+}
+function jdPage(main) {
+  const out = () => el('div', { class: 'big' }, '—'), f = (id, v, w) => el('input', { type: 'number', id, value: v, style: w ? `width:${w}px` : '' });
+  const o1 = out(), o2 = out(), o3 = out(), s1 = el('div', { class: 'dim' }), s2 = el('div', { class: 'dim' }), s3 = el('div', { class: 'dim' });
+  const val = id => $('#' + id).value;
+  const c1 = async () => { const r = await api('jd', { type: 'cal2jd', Y: val('y1'), M: val('m1'), D: val('d1'), h: val('h1'), mi: val('i1'), s: val('s1') }); o1.textContent = r.error ? r.error : r.jd.toFixed(6); s1.textContent = (r.weekday || '').toLowerCase(); };
+  const c2 = async () => { const r = await api('jd', { type: 'jd2cal', jd: val('j2') }); o2.textContent = r.error ? r.error : r.text; s2.textContent = (r.weekday || '').toLowerCase(); };
+  const c3 = async () => { const r = await api('jd', { type: 'et2ut', Y: val('y3'), M: val('m3'), D: val('d3'), h: val('h3'), mi: val('i3') }); o3.textContent = r.error ? r.error : r.text; s3.textContent = r.jd ? 'jd ' + r.jd.toFixed(5) : ''; };
+  main.append(el('div', { class: 'grid3' },
+    el('div', { class: 'sheet' }, el('h3', {}, 'Calendar (UT) → Julian Date'), el('div', { class: 'row', oninput: c1 }, f('y1', 2000), f('m1', 1), f('d1', 1), f('h1', 12), f('i1', 0), f('s1', 0)), el('div', { class: 'dim' }, 'year · month · day · h · min · s'), o1, s1),
+    el('div', { class: 'sheet' }, el('h3', {}, 'Julian Date → Calendar (UT)'), el('div', { class: 'row', oninput: c2 }, f('j2', 2451545, 200)), o2, s2),
+    el('div', { class: 'sheet' }, el('h3', {}, 'US Eastern → UT (“Friday 9:30 am ET”)'), el('div', { class: 'row', oninput: c3 }, f('y3', 2024), f('m3', 10), f('d3', 4), f('h3', 9), f('i3', 30)), el('div', { class: 'dim' }, 'year · month · day · et hour · et min (daylight saving applied)'), o3, s3)));
+  c1(); c2(); c3();
+}
+async function testsPage(main) {
+  main.append(el('div', { class: 'sheet' }, el('h3', {}, 'Test Cases — Computed vs. Printed Solution Values'),
+    el('div', { class: 'dim' }, 'every preset runs through the same code as the module pages. tolerance is relative 2×10⁻⁴ unless the solution prints fewer digits. corrected (erratum) values are noted on the problems they affect.'),
+    el('div', { class: 'btnrow' }, el('button', { class: 'btn pri', id: 'runT', onclick: runTests }, 'Run All Test Cases'))), el('div', { id: 'tres' }));
+  if (S.tests) showTests(S.tests); else runTests();
+}
+async function runTests() { $('#spin').classList.add('on'); S.tests = await api('tests'); $('#spin').classList.remove('on'); showTests(S.tests); }
+function showTests(t) {
+  const box = $('#tres'); if (!box) return; const det = {}; t.detail.forEach(d => det[d.mid + ':' + d.idx] = d.rows);
+  const fmt = x => x == null ? '—' : (+x).toPrecision(8).replace(/\.?0+$/, '').replace(/\.?0+e/, 'e');
+  const tb = el('tbody'); t.summary.forEach(s => {
+    const key = s.mid + ':' + s.idx; const row = el('tr', { class: 'clk' }, el('td', {}, 'M' + s.mid + ' · ' + s.module), el('td', {}, s.problem), el('td', {}, `${s.passed}/${s.checks}`), el('td', {}, el('span', { class: 'badge ' + (s.status === 'pass' ? 'pass' : 'fail') }, s.status === 'pass' ? 'pass' : s.status)));
+    const d = el('tr', { hidden: true }, el('td', { colspan: 4 })); row.onclick = () => {
+      d.hidden = !d.hidden; if (d.hidden || d.firstChild.childNodes.length) return; const rows = det[key] || [];
+      d.firstChild.append(el('div', { class: 'sheet', style: 'margin:8px 0' }, s.note ? el('div', { class: 'pnote' }, 'ℹ ' + s.note) : null,
+        table(['Quantity', 'Computed', 'Expected', 'Rel. Error', 'Tol.', ''], rows.map(q => [q.name, fmt(q.got), fmt(q.expected), q.got == null ? '—' : (Math.abs(q.got - q.expected) / Math.abs(q.expected)).toExponential(1), q.rtol.toExponential(0), q.ok ? '✓' : '✕ ' + (q.error || '')])),
+        el('div', { class: 'btnrow', style: 'margin:10px 0 0' }, el('button', { class: 'btn', onclick: ev => { ev.stopPropagation(); const m = META.modules.find(x => x.id === s.mid); S.page = s.mid; buildNav(); buildSub(); $('#app').classList.remove('wide'); renderPanel(); loadPreset(m, s.idx); } }, 'Open in Module'))));
+    };
+    tb.append(row, d);
+  });
+  box.replaceChildren(el('div', { class: 'sheet' }, el('h3', {}, `${t.passed} / ${t.total} Checks Passed`), el('table', { class: 'tbl c12' }, el('thead', {}, el('tr', {}, ...['Module', 'Problem', 'Checks', ''].map(c => el('th', {}, c)))), tb)));
+}
+
+/* ---------- settings page ---------- */
+const seg = (opts, cur, pick) => { const w = el('div', { class: 'seg' }); opts.forEach(([v, label]) => w.append(el('button', { class: v === cur ? 'on' : '', onclick: () => { pick(v); w.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', opts[i][0] === v)); } }, label))); return w; };
+const setRow = (title, desc, ...ctl) => el('div', { class: 'setrow' }, el('div', { class: 'lt' }, el('div', { class: 't' }, title), desc ? el('div', { class: 'dim' }, desc) : null), el('div', { class: 'ctl' }, ...ctl));
+const SET_TABS = ['Appearance', 'Figures and Animation', 'Figure Title', 'Constants and Units', 'Inputs', 'Key Bindings', 'Layout', 'Backup', 'Local Files', 'Help and Feedback', 'About'];
+const redo3d = () => { S.cache.clear(); S.last = {}; };
+async function refreshBackups() { const r = await api('backup_list'); S.backups = r.ok ? r.backups : []; if (S.page === 'settings' && S.setTab === 'Backup') renderUtil(); }
+function afterRestore(r) {
+  Object.assign(SET, r.settings || {}); Object.assign(LAY, fresh(LAY_DEFAULT), SET.layout || {}); LAY.groups = { ...LAY_DEFAULT.groups, ...(LAY.groups || {}) }; SET.layout = LAY;
+  S.backups = r.backups; S.cache.clear(); S.last = {}; applyLayout(); syncChrome(); buildNav(); buildSub(); renderUtil();
+}
+function backupPage() {
+  if (S.backups === null) { refreshBackups(); return el('div', { class: 'sheet' }, el('div', { class: 'dim' }, 'loading backups…')); }
+  const file = el('input', { type: 'file', accept: '.zip', style: 'display:none', onchange: async e => {
+    const f = e.target.files[0]; if (!f) return; const buf = new Uint8Array(await f.arrayBuffer()); let bin = ''; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    const r = await api('backup_import', { filename: f.name, data: btoa(bin) }); e.target.value = '';
+    if (r.ok) { afterRestore(r); toast(`imported ${r.restored} files; a safety backup was made first (${r.safety})`, 'ok'); } else toast(r.error, 'err');
+  } });
+  const rows = S.backups.map(b => [b.name, b.modified, b.invalid ? 'not a valid backup' : `${b.files} files`, `${(b.size / 1024).toFixed(0)} kb`,
+    el('span', { class: 'btnrow', style: 'margin:0;gap:6px' },
+      el('button', { class: 'btn', disabled: !!b.invalid, onclick: async () => { if (!confirm(`restore "${b.name}"? your current data is backed up first.`)) return; const r = await api('backup_restore', { name: b.name }); if (r.ok) { afterRestore(r); toast(`restored ${r.restored} files (safety backup: ${r.safety})`, 'ok'); } else toast(r.error, 'err'); } }, 'Restore'),
+      el('a', { class: 'btn', href: '/backup/' + encodeURIComponent(b.name), download: '' }, 'Save Copy'),
+      el('button', { class: 'btn', onclick: async () => { if (!confirm(`delete "${b.name}"?`)) return; const r = await api('backup_delete', { name: b.name }); if (r.ok) { S.backups = r.backups; renderUtil(); } else toast(r.error, 'err'); } }, 'Delete'))]);
+  return el('div', {},
+    el('div', { class: 'sheet' },
+      setRow('Create a Backup', 'zips your settings, exports and screenshots into the backups folder', el('button', { class: 'btn pri', onclick: async () => { const r = await api('backup_create', {}); if (r.ok) { S.backups = r.backups; renderUtil(); toast('backup saved to ' + r.path, 'ok'); } else toast(r.error, 'err'); } }, 'Create Backup')),
+      setRow('Import a Backup', 'choose a backup zip from anywhere (for example from another computer). your current data is backed up automatically first', file, el('button', { class: 'btn', onclick: () => file.click() }, 'Import Backup…')),
+      setRow('Backups Folder', 'kept in the app data folder; copy files out of it to store them elsewhere', el('button', { class: 'btn', onclick: () => api('open_folder', { which: 'backups' }) }, 'Open'))),
+    el('div', { class: 'sheet' }, el('h3', {}, 'Your Backups'), S.backups.length ? table(['File', 'Created', 'Contents', 'Size', ''], rows, -1, 'c1') : el('div', { class: 'dim' }, 'no backups yet')));
+}
+function helpPage() {
+  const title = el('input', { type: 'text', placeholder: 'short summary of the problem', style: 'width:100%' }), desc = el('textarea', { placeholder: 'what happened, and what did you expect?', rows: 5 });
+  const log = el('input', { type: 'checkbox', checked: true });
+  return el('div', {},
+    el('div', { class: 'sheet' }, el('h3', {}, 'Report an Issue'),
+      el('div', { class: 'dim' }, 'this opens a pre-filled issue form on github (public, searchable, no email needed). you review it and press submit yourself; nothing is sent automatically. your home folder name is removed from log lines.'),
+      el('div', { class: 'flab' }, 'Title'), title, el('div', { class: 'flab', style: 'margin-top:10px' }, 'Description'), desc,
+      el('label', { class: 'tgl', style: 'margin:10px 0' }, el('span', { class: 'dim', style: 'margin:0' }, 'include the last log lines'), log),
+      el('div', { class: 'btnrow' }, el('button', { class: 'btn pri', onclick: async () => {
+        const r = await api('report_issue', { title: title.value, description: desc.value, include_log: log.checked, gpu: gpuInfo(), page: isMod() ? mod().short : S.page, consts: SET.const });
+        toast(r.ok ? 'opened the issue form in your browser' : r.error, r.ok ? 'ok' : 'err'); } }, 'Open Issue Form on GitHub'),
+        el('button', { class: 'btn', onclick: () => api('open_folder', { which: 'logs' }) }, 'Open Logs Folder'))),
+    el('div', { class: 'sheet' }, el('h3', {}, 'Graphics'),
+      setRow('Graphics Card', 'the 3d view needs webgl; a dedicated gpu helps at high animation resolutions', el('span', { class: 'path' }, gpuInfo())),
+      setRow('Frame Rate Monitor', 'shows the page and 3d animation frame rates in the title bar', el('input', { type: 'checkbox', checked: SET.fps, onchange: e => { SET.fps = e.target.checked; saveSet(); redo3d(); showFps(); } }))));
+}
+function settingsPage(main) {
+  const K = keys(); const tab = SET_TABS.includes(S.setTab) ? S.setTab : 'Appearance';
+  const kbd = a => el('kbd', { id: 'kbd-' + a, class: S.rebind === a ? 'wait' : '' }, S.rebind === a ? 'press a key' : K[a]);
+  const reRender = () => { redo3d(); if (isMod()) solveSoon(); };
+  const frames = SET.frames, custom = !FRAME_PRESETS.some(p => p[0] === frames);
+  const pages = {
+    'Appearance': () => el('div', { class: 'acards' }, ...[['light', 'sun', 'Light'], ['dark', 'moon', 'Dark'], ['device', 'monitor', 'Use Device Settings']].map(([v, ic, label]) =>
+      el('button', { class: 'acard' + (SET.appearance === v ? ' on' : ''), onclick: () => { SET.appearance = v; saveSet(); syncChrome(); S.cache.clear(); S.last = {}; renderUtil(); } }, ico(ic), el('span', { class: 'al' }, label)))),
+    'Figures and Animation': () => el('div', { class: 'sheet' },
+      setRow('Plot Layout', 'show the 3d view, the 2d figure, or both side by side', seg([['3d', '3D'], ['2d', '2D'], ['both', '3D + 2D']], SET.view, v => { SET.view = v; saveSet(); })),
+      setRow('Body Notation', 'celestial bodies in labels: astronomical symbols (r⊕) or name subscripts (r_earth)', seg([['symbol', 'Symbols'], ['name', 'Name Subscripts']], SET.bodyNotation, v => { SET.bodyNotation = v; saveSet(); reRender(); })),
+      setRow('Animation Resolution', 'frames per animation: higher is smoother but heavier on the graphics card', seg([...FRAME_PRESETS.map(([n, l]) => [n, l]), ['custom', 'Custom']], custom ? 'custom' : frames, v => { if (v !== 'custom') { SET.frames = v; saveSet(); reRender(); renderUtil(); } else renderUtil(); }),
+        el('input', { type: 'number', min: 60, max: 6000, step: 60, value: frames, style: 'width:90px', title: 'frames (60 to 6000)', onchange: e => { SET.frames = clamp(Math.round(+e.target.value || 480), 60, 6000); saveSet(); reRender(); renderUtil(); } })),
+      setRow('3D Bodies', 'plain color spheres, or real surface textures (sun, moon and the planets except pluto)', seg([[false, 'Plain Color'], [true, 'Real Textures']], !!SET.textures, v => { SET.textures = v; saveSet(); reRender(); })),
+      setRow('Spacecraft', 'a simple marker, or a 3d satellite model that points along the velocity', seg([['marker', 'Marker'], ['comsat', 'Satellite A'], ['probe', 'Satellite B']], SET.model, v => { SET.model = v; saveSet(); reRender(); })),
+      setRow('Frame Rate Monitor', 'show frames per second for the page and the 3d animation', el('input', { type: 'checkbox', checked: SET.fps, onchange: e => { SET.fps = e.target.checked; saveSet(); redo3d(); showFps(); } })),
+      el('div', { class: 'dim', style: 'margin:8px 0 0' }, 'planet textures: solar system scope (2k maps), cc by 4.0, https://www.solarsystemscope.com/textures/')),
+    'Figure Title': () => el('div', { class: 'sheet' },
+      setRow('Your Name', 'printed in every figure title (homework figures must carry it)', el('input', { type: 'text', value: SET.name, placeholder: 'your name', oninput: e => { SET.name = e.target.value; saveSet(); } })),
+      setRow('Problem Label', 'for example hw7 p2; also printed in the figure title', el('input', { type: 'text', value: SET.label, placeholder: 'problem label', oninput: e => { SET.label = e.target.value; saveSet(); } }))),
+    'Constants and Units': () => el('div', { class: 'sheet' },
+      setRow('Constants', 'course table (gmat 2020a / jpl) or the rounded values used on exams', seg([['Course table', 'Course Table'], ['Exam rounded', 'Exam Rounded']], SET.const, v => setSet({ const: v }, false))),
+      setRow('Moon Radius (km)', 'used by exam rounded constants: exam 1 uses 2000, exam 2 uses 1500', el('input', { type: 'number', value: SET.moonR, step: 100, oninput: e => { SET.moonR = +e.target.value || 2000; saveSet(); } })),
+      setRow('Distance Units', 'how distances are entered and shown in the input panels', seg([['km', 'km'], ['R_body', 'R_body'], ['AU', 'AU']], SET.unit, v => setSet({ unit: v }, false)))),
+    'Inputs': () => el('div', { class: 'sheet' },
+      setRow('Sliders for Angles and Time', 'turn off to use plain number boxes only', el('input', { type: 'checkbox', checked: SET.sliders, onchange: e => { SET.sliders = e.target.checked; saveSet(); } }))),
+    'Key Bindings': () => el('div', { class: 'sheet' }, ...Object.keys(KEYS_DEFAULT).map(a => setRow(KEY_INFO[a][0], KEY_INFO[a][1], kbd(a),
+        el('button', { class: 'btn', onclick: () => { S.rebind = S.rebind === a ? null : a; renderUtil(); } }, S.rebind === a ? 'Cancel' : 'Change'))),
+      setRow('Defaults', 'press esc while changing a key to cancel. on a mac the function keys may need the fn key.', el('button', { class: 'btn', onclick: () => { SET.keys = {}; S.rebind = null; saveSet(); renderUtil(); toast('key bindings reset to defaults'); } }, 'Reset Key Bindings'))),
+    'Layout': () => el('div', { class: 'sheet' },
+      setRow('Panel Sizes', 'drag the borders between panels to resize them; double-click a border to reset it', el('button', { class: 'btn', onclick: () => { Object.assign(LAY, fresh(LAY_DEFAULT)); applyLayout(); buildNav(); buildSub(); saveSet(); toast('panel sizes reset'); } }, 'Reset Panel Sizes')),
+      setRow('Side Menu', 'fold the menu bar down to icons with the arrow at its top, or hide it completely', el('button', { class: 'btn', onclick: () => { LAY.fold = !LAY.fold; applyLayout(); buildNav(); saveSet(); renderUtil(); } }, LAY.fold ? 'Expand Menu' : 'Fold Menu'),
+        el('button', { class: 'btn', onclick: () => { LAY.hidden = !LAY.hidden; applyLayout(); saveSet(); renderUtil(); } }, LAY.hidden ? 'Show Menu' : 'Hide Menu'))),
+    'Backup': backupPage,
+    'Local Files': () => el('div', { class: 'sheet' },
+      setRow('App Data Folder', 'settings, screenshots, exports, backups and logs are stored here and never uploaded', el('span', { class: 'path' }, META.paths.root), el('button', { class: 'btn', onclick: () => api('open_folder', { which: 'root' }) }, 'Open')),
+      setRow('Screenshots', 'saved by the screenshot key', el('span', { class: 'path' }, META.paths.screenshots), el('button', { class: 'btn', onclick: () => api('open_folder', { which: 'screenshots' }) }, 'Open')),
+      setRow('Exports', 'png, pdf, 3d pages, python and matlab scripts saved from the export tab', el('span', { class: 'path' }, META.paths.exports), el('button', { class: 'btn', onclick: () => api('open_folder', { which: 'exports' }) }, 'Open'))),
+    'Help and Feedback': helpPage,
+    'About': () => el('div', { class: 'sheet' }, setRow('Orbit Simulator', 'version ' + META.version), setRow('Project Page', 'source code, installation notes and the issue tracker', el('span', { class: 'path' }, 'github.com/Chiyami1213/orbit-simulator')))
+  };
+  main.append(el('div', { class: 'setp' }, el('div', { class: 'sh1' }, 'Settings'),
+    el('div', { class: 'stabs' }, ...SET_TABS.map(t => el('button', { class: 'stab' + (t === tab ? ' on' : ''), onclick: () => { S.setTab = t; if (t === 'Backup') S.backups = null; renderUtil(); } }, t))),
+    el('div', { class: 'sh2' }, tab), pages[tab]()));
+}
+
+/* ---------- key bindings (rebindable in settings) ---------- */
+function keyName(e) {
+  let k = e.key; if (['Control', 'Shift', 'Alt', 'Meta'].includes(k)) return '';
+  if (k.length === 1) k = k.toUpperCase(); if (k === ' ') k = 'Space';
+  return [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', k].filter(Boolean).join('+');
+}
+const ACTIONS = {
+  refresh: async () => { S.cache.clear(); if (isMod()) await solveNow(); else renderUtil(); toast('screen refreshed'); },
+  screenshot: async () => {
+    $('#toast').classList.remove('on'); await new Promise(r => setTimeout(r, 120));               // keep the toast out of the picture
+    const r = await api('screenshot'); toast(r.ok ? 'screenshot saved to ' + r.path : r.error, r.ok ? 'ok' : 'err');
+  },
+  fullscreen: async () => {
+    const r = await api('fullscreen');
+    if (r.mode === 'browser') { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => { }); }
+  },
+  settings: () => { if (S.page === 'settings') go(S.prev || '12'); else { S.prev = S.page; go('settings'); } },
+  menu: () => { LAY.hidden = !LAY.hidden; applyLayout(); saveSet(); }
+};
+function handleKey(name, e) {
+  if (S.rebind) {                                                         // capturing a new binding
+    if (name === 'Escape') { S.rebind = null; renderUtil(); return true; }
+    if (!name) return true;
+    const taken = Object.entries(keys()).find(([a, k]) => k === name && a !== S.rebind);
+    if (taken) { toast(`${name} is already used by ${KEY_INFO[taken[0]][0].toLowerCase()}`, 'err'); return true; }
+    SET.keys = { ...keys(), [S.rebind]: name }; S.rebind = null; saveSet(); renderUtil(); toast('key binding saved'); return true;
+  }
+  const hit = Object.entries(keys()).find(([, k]) => k === name); if (!hit) return false;
+  const typing = e && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '');
+  if (typing && !/^F\d+$/.test(name) && !/^(Ctrl|Alt)\+/.test(name)) return false;                 // never steal normal typing
+  if (e) e.preventDefault(); ACTIONS[hit[0]](); return true;
+}
+document.addEventListener('keydown', e => { if (handleKey(keyName(e), e)) e.stopPropagation(); }, true);
+window.addEventListener('message', e => { if (e.data && e.data.orbitKey) handleKey(e.data.orbitKey, null); });          // keys pressed inside the 3-d frame
+
+/* ---------- boot ---------- */
+async function boot() {
+  requestAnimationFrame(splashTick); requestAnimationFrame(fpsLoop); splash(8, 'loading modules');
+  META = await api('meta'); $('#ver').textContent = 'v' + META.version;
+  Object.assign(SET, META.settings || {}); Object.assign(LAY, fresh(LAY_DEFAULT), SET.layout || {}); LAY.groups = { ...LAY_DEFAULT.groups, ...(LAY.groups || {}) }; SET.layout = LAY; splash(38, 'preparing the interface');
+  document.querySelectorAll('[data-const]').forEach(b => b.onclick = () => setSet({ const: b.dataset.const }));
+  $('#unitChip').onclick = () => setSet({ unit: { km: 'R_body', R_body: 'AU', AU: 'km' }[SET.unit] });
+  initSplitters(); syncChrome(); buildNav(); buildSub(); splash(58, 'drawing the first transfer');
+  await go(META.modules.some(m => m.id === SET.lastPage) ? SET.lastPage : S.page); splash(100, 'ready'); SPLASH.done = true; restyle();
+}
+boot();

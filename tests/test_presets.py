@@ -2,7 +2,7 @@
 import matplotlib
 matplotlib.use('Agg')
 import pytest
-from aae532.presets.runner import all_presets, run_preset
+from mathkit.presets.runner import all_presets, run_preset
 
 CASES = [(mid, p, x) for mid, p in all_presets() for x in p.expected]
 

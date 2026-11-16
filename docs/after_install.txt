@@ -1,0 +1,24 @@
+Orbit Simulator is installed.
+
+GETTING STARTED
+  1. Open the left menu and choose Modules, then pick a module.
+  2. Load a homework or exam problem, or enter your own values.
+  3. Enter your name under Settings > Figure Title (printed in every figure title).
+
+KEYS
+  F5   refresh the screen          F2   screenshot
+  F11  full screen                 S    settings          M    fold the menu
+
+YOUR FILES
+  Settings, screenshots, exports and logs are saved to
+  %APPDATA%\Orbit Simulator\   and are never uploaded.
+  Uninstalling keeps this folder, so your settings survive a reinstall.
+
+HELP AND SOURCE CODE
+  A help page was installed with the program (see the Start menu entry
+  "Orbit Simulator Help"). The project page, installation notes and issue
+  tracker are on GitHub:
+
+      https://github.com/Chiyami1213/orbit-simulator
+
+On the next page you can open the help page and the GitHub project page.

@@ -1,4 +1,4 @@
-"""Regression tests: every expected value is copied from the AAE 532 HW/exam solution PDFs or lecture notes LLex.
+"""Regression tests: every expected value is copied from the course HW/exam solution PDFs or lecture notes LLex.
 
 Converted mechanically from the shipped test_hw.py: each chk(...) call is recorded at import time and becomes one
 parametrized pytest case (173 in total). Tolerance is relative 2e-4 unless noted. Expected values are unchanged
@@ -6,10 +6,10 @@ parametrized pytest case (173 in total). Tolerance is relative 2e-4 unless noted
 """
 import numpy as np
 import pytest
-from aae532.core import *
-from aae532.core.hyperbola import hyperbola
-from aae532.core.flyby import flyby
-from aae532.core.lambert import lambert
+from mathkit.core import *
+from mathkit.core.hyperbola import hyperbola
+from mathkit.core.flyby import flyby
+from mathkit.core.lambert import lambert
 
 B = BODIES; muE = B['Earth']['mu']; RE = B['Earth']['R']; muS = B['Sun']['mu']
 CHECKS = []

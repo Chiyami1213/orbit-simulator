@@ -5,9 +5,9 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pytest
-from aae532.presets.runner import all_presets, run_preset
-from aae532.plots2d.render import render
-from aae532.view3d.animate import build_html, sample_tracks
+from mathkit.presets.runner import all_presets, run_preset
+from mathkit.plots2d.render import render
+from mathkit.view3d.animate import build_html, sample_tracks
 
 PRESETS = [(mid, p) for mid, p in all_presets()]
 IDS = [f'{m}:{p.label.split(" — ")[0]}' for m, p in PRESETS]

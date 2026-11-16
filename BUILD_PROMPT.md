@@ -1,4 +1,4 @@
-# Build prompt: AAE 532 Orbit Toolkit (Python, 3D animation + calculator)
+# Build prompt: Orbit Simulator (Python, 3D animation + calculator)
 
 Paste this whole file into Claude in VS Code. Put `orbitcore.py` and `test_hw.py` (shipped with this prompt) in the project root first.
 
@@ -6,7 +6,7 @@ Paste this whole file into Claude in VS Code. Put `orbitcore.py` and `test_hw.py
 
 ## 0. Goal
 
-Build a local Python app, **AAE 532 Orbit Toolkit**, that solves every recurring problem type from Purdue AAE 532 (Orbit Mechanics, Bate–Mueller–White textbook) and visualizes it:
+Build a local Python app, **Orbit Simulator**, that solves every recurring problem type from a university orbit-mechanics course (Bate–Mueller–White textbook) and visualizes it:
 
 - an annotated **2D figure** in the style required for homework (Cartesian, not polar),
 - an interactive, animated **3D view**,
@@ -25,7 +25,7 @@ Platform: Windows 11, VS Code, Python 3.11+. Stack: **NumPy**, **SciPy** (option
 `test_hw.py` runs **173 checks**, and all of them pass. Each expected value is copied from a solution PDF.
 
 Rules:
-1. Port `orbitcore.py` into the package (`aae532/core/…`) **without changing any formula**. Refactor names and structure as you like, but keep behavior identical.
+1. Port `orbitcore.py` into the package (`mathkit/core/…`) **without changing any formula**. Refactor names and structure as you like, but keep behavior identical.
 2. Convert `test_hw.py` to pytest (`tests/test_hw.py`). It must pass at every commit. Add a test for every new function.
 3. If you think a formula is wrong, **do not "fix" it silently**. Write a failing test that cites the source and stop to ask.
 4. Never use `arccos` alone for an angle that has a quadrant. Use `atan2` or an explicit sign test (on ṙ, ẑ, etc.), and show the quadrant check in the step output.
@@ -116,7 +116,7 @@ Create one reusable annotation layer (matplotlib for 2D, Plotly for 3D) with fun
 ## 7. Structure
 
 ```
-aae532/
+mathkit/
   core/          constants.py  conic.py  kepler.py  fg.py  frames.py  elements.py  hyperbola.py
                  maneuvers.py  transfers.py  patched.py  flyby.py  lambert.py  nbody.py  timeutil.py
   results.py     Result/Step dataclasses (name, symbol, value, units, equation, note)

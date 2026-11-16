@@ -5,3 +5,10 @@ __pycache__/
 *.profile/
 *.png
 !docs/*.png
+build_out/
+mathkit/ui/web/vendor/
+edgeprof*/
+packaging/icon.png
+packaging/icon.icns
+packaging/wizard/
+!mathkit/assets/textures/*.png

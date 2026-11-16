@@ -1,4 +1,4 @@
-"""Regression tests: every expected value is copied from the AAE 532 HW/exam solution PDFs or lecture notes LLex.
+"""Regression tests: every expected value is copied from the course HW/exam solution PDFs or lecture notes LLex.
 Run: python test_hw.py   (prints PASS/FAIL per check; tolerance is relative 2e-4 unless noted)"""
 import numpy as np
 from orbitcore import *
