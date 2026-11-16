@@ -1,4 +1,4 @@
-# Build prompt: Orbit Simulator (Python, 3D animation + calculator)
+# Build prompt: OrbSim (Python, 3D animation + calculator)
 
 Paste this whole file into Claude in VS Code. Put `orbitcore.py` and `test_hw.py` (shipped with this prompt) in the project root first.
 
@@ -6,7 +6,7 @@ Paste this whole file into Claude in VS Code. Put `orbitcore.py` and `test_hw.py
 
 ## 0. Goal
 
-Build a local Python app, **Orbit Simulator**, that solves every recurring problem type from a university orbit-mechanics course (Bate–Mueller–White textbook) and visualizes it:
+Build a local Python app, **OrbSim**, that solves every recurring problem type from a university orbit-mechanics course (Bate–Mueller–White textbook) and visualizes it:
 
 - an annotated **2D figure** in the style required for homework (Cartesian, not polar),
 - an interactive, animated **3D view**,

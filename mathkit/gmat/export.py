@@ -25,7 +25,7 @@ def gmat_text(s: str) -> str:
 
 def export_script(m: Mission, expected: list[str] | None = None, warn_exam: bool | None = None) -> str:
     out: list[str] = []; a = out.append
-    a('%  GMAT script written by Orbit Simulator (compatible with GMAT R2022a).'); a(f'%  Mission: {m.name}')
+    a('%  GMAT script written by OrbSim (compatible with GMAT R2022a).'); a(f'%  Mission: {m.name}')
     if warn_exam is None: warn_exam = (m.constants == 'Exam rounded')
     if warn_exam:
         a('%  WARNING: this mission was built with the "Exam rounded" constants (e.g. mu_Earth = 4.0e5, R_Earth = 6400 km).')

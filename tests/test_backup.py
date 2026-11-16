@@ -8,7 +8,7 @@ from mathkit.ui import backup, shell, api
 
 @pytest.fixture()
 def home(tmp_path, monkeypatch):
-    monkeypatch.setenv('ORBIT_SIMULATOR_HOME', str(tmp_path)); return tmp_path
+    monkeypatch.setenv('ORBSIM_HOME', str(tmp_path)); return tmp_path
 
 
 def seed(home):
@@ -20,7 +20,7 @@ def seed(home):
 def make_zip(entries, manifest=True):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w') as z:
-        if manifest: z.writestr('backup.json', json.dumps(dict(app='Orbit Simulator', files=len(entries))))
+        if manifest: z.writestr('backup.json', json.dumps(dict(app='OrbSim', files=len(entries))))
         for n, d in entries.items(): z.writestr(n, d)
     return buf.getvalue()
 
@@ -75,3 +75,19 @@ def test_api_actions_report_errors_cleanly(home):
     assert api.ROUTES['backup_restore']({'name': 'missing.zip'})['ok'] is False
     import base64
     bad = api.ROUTES['backup_import']({'filename': 'x.zip', 'data': base64.b64encode(b'nope').decode()}); assert bad['ok'] is False and 'zip' in bad['error']
+
+
+def test_old_data_folder_is_renamed_on_first_start(tmp_path, monkeypatch):
+    import sys
+    from mathkit.ui import shell
+    if sys.platform == 'darwin': pytest.skip('macOS keeps the folder under the user library')
+    for k in ('ORBSIM_HOME', 'ORBIT_SIMULATOR_HOME'): monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv('APPDATA', str(tmp_path)); monkeypatch.setenv('XDG_DATA_HOME', str(tmp_path))
+    old = tmp_path / shell.LEGACY_NAME; old.mkdir(); (old / 'settings.json').write_text('{"a": 1}', encoding='utf-8')
+    home = shell.appdata_dir()
+    assert home == tmp_path / 'OrbSim' and (home / 'settings.json').exists() and not old.exists()
+
+
+def test_backups_made_under_the_old_name_still_restore(tmp_path, monkeypatch):
+    from mathkit.ui import backup
+    assert 'Orbit Simulator' in backup.APP_NAMES and 'OrbSim' in backup.APP_NAMES

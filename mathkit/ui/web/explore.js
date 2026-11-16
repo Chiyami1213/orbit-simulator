@@ -17,7 +17,7 @@ const G_KM = 6.6743e-20, KIND_NAME = { star: 'Star', planet: 'Planet', moon: 'Mo
 const EX = { scene: null, sim: null, sel: null, space: null, undo: [], redo: [], cat: 'All', q: '', libOpen: true, panelOpen: true, tab: 'Basic', meta: null, horizon: '1 year', busy: false, rateExp: 6.0, playing: false,
   view: { labels: true, paths: true, axes: false, ecl: false, markers: false }, thumbs: {}, mu: 'Earth masses', ru: 'km', pd: null, live: null, pop: null, sky: 'milkyway', bright: 1.0, exag: 1 };
 
-function exDispose() { if (EX.live) { clearInterval(EX.live); EX.live = null; } if (EX.space) { try { EX.space.dispose(); } catch (e) { } EX.space = null; } closePop(); }
+function exDispose() { EX.placing = null; EX.anchor = null; if (EX.live) { clearInterval(EX.live); EX.live = null; } if (EX.space) { try { EX.space.dispose(); } catch (e) { } EX.space = null; } closePop(); }
 const fmtNum = (x, d = 6) => (Number.isFinite(x) ? (Math.abs(x) >= 1e-3 && Math.abs(x) < 1e9 || x === 0 ? +x.toPrecision(d) : x.toExponential(4)) : '–');
 function fmtRate(sec) {
   const U = [['years', 31557600], ['days', 86400], ['hours', 3600], ['minutes', 60], ['seconds', 1]];
@@ -35,12 +35,20 @@ function openPop(name, anchor, ...kids) {
   if (EX.pop === name) { closePop(); return; } closePop(); EX.pop = name; const r = anchor.getBoundingClientRect();
   const d = el('div', { class: 'xpop', style: `left:${Math.min(innerWidth - 330, Math.max(8, r.left - 120))}px;bottom:${innerHeight - r.top + 10}px` }, ...kids); document.body.append(d);
 }
-document.addEventListener('click', e => { if (EX.pop && !e.target.closest('.xpop') && !e.target.closest('.xtool')) closePop(); });
+document.addEventListener('click', e => { if (EX.pop && !e.target.closest('.xpop') && !e.target.closest('.xtool') && !e.target.closest('[data-pop]')) closePop(); });
 
 /* ---- scene operations ---- */
-async function exNew() {
-  EX.busy = true; exBusy(true); const r = await api('sandbox_new', { horizon: EX.horizon }); EX.busy = false; exBusy(false);
-  if (!r.ok) { toast(r.error, 'err'); return; } EX.scene = r.scene; EX.sim = r.sim; EX.undo = []; EX.redo = []; EX.sel = null; await exBuild(false);
+async function exNew(name) {                                                          // start a scene: the real Solar System unless another one is chosen from the scenes menu
+  const pr = name && EX.meta.presets.find(p => p.name === name); if (pr && pr.horizon) EX.horizon = pr.horizon; else if (!pr && EX.horizon !== '1 year') EX.horizon = '1 year';
+  EX.busy = true; exBusy(true); const r = await api('sandbox_new', { horizon: EX.horizon, preset: name || 'Solar System', constants: SET.const }); EX.busy = false; exBusy(false);
+  if (!r.ok) { toast(r.error, 'err'); return; } EX.scene = r.scene; EX.sim = r.sim; EX.undo = []; EX.redo = []; EX.sel = null; EX.placing = null; EX.anchor = null; exPlaceUI(); if (pr) EX.rateExp = pr.rate; await exBuild(false); exLib(); exBottom();
+}
+function scenePop(anchor) {                                                           // the scenes menu: pick what the sandbox starts with
+  if (EX.pop === 'scenes') { closePop(); return; } closePop(); EX.pop = 'scenes'; const r = anchor.getBoundingClientRect(), cur = EX.scene && EX.scene.name;
+  const pick = async p => { closePop(); if (EX.undo.length && !confirm('replace the current scene with "' + p.name + '"? your changes will be lost (save the scene first if you want to keep them).')) return; await exNew(p.name); };
+  const d = el('div', { class: 'xpop scenepop', style: `left:${Math.max(8, r.left)}px;top:${r.bottom + 8}px` }, el('div', { class: 'xph' }, 'Scenes'),
+    ...EX.meta.presets.map(p => el('button', { class: 'xscene' + (p.name === cur ? ' on' : ''), onclick: () => pick(p) }, el('b', {}, p.name), el('span', {}, p.desc))));
+  document.body.append(d);
 }
 function exBusy(on) { const b = $('#xbusy'); if (b) b.classList.toggle('on', on); }
 async function exEdit(edits, selectAfter) {
@@ -71,8 +79,9 @@ async function exBuild(keepCam) {
   let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(inner, data, { sky: EX.sky }); } catch (e) { inner.replaceChildren(el('div', { class: 'empty' }, 'the sandbox needs WebGL: ' + e)); return; }
   if (EX.sim.status && EX.sim.status !== 'done') toast('the simulation stopped early (a very close encounter or too violent a change); everything up to that moment is shown. undo or move the bodies apart.', 'err');
   EX.space = S3; Object.assign(S3.state, EX.view, { bright: EX.bright, exag: EX.exag, focus: heavy ? heavy.id : 'Sun' }); S3.setJD(EX.scene.epoch_jd); S3.setRate(10 ** EX.rateExp); S3.play(EX.playing); S3.select(EX.sel);
-  if (cam) S3.setCamera(cam); else S3.setCamera({ p: [2.6e8, -2.6e8, 1.7e8], t: [0, 0, 0] });
-  S3.onPick(name => { EX.sel = name; S3.select(name); if (name) { EX.panelOpen = true; S3.state.focus = S3.state.focus; } exPanel(); });
+  if (cam) S3.setCamera(cam); else if (!EX.scene.name || EX.scene.name === 'Solar System') S3.setCamera({ p: [2.6e8, -2.6e8, 1.7e8], t: [0, 0, 0] }); else S3.setCamera({ p: [ext * 1.7, -ext * 1.7, ext * 1.1], t: [0, 0, 0] });
+  S3.canvas.addEventListener('pointermove', e => { if (EX.placing) exPlaceHover(e.clientX, e.clientY); });
+  S3.onPick((name, ev) => { if (EX.placing) { exPlaceClick(ev.clientX, ev.clientY); return; } EX.sel = name; S3.select(name); if (name) { EX.panelOpen = true; S3.state.focus = S3.state.focus; } exPanel(); });
   inner.addEventListener('space-time', exTime); inner.addEventListener('space-state', syncPlay); exTime(); syncPlay(); exPanel();
   if (!EX.live) EX.live = setInterval(exLive, 500);
 }
@@ -90,24 +99,93 @@ function exLib() {
   const items = EX.meta.catalog.filter(it => (EX.cat === 'All' ? it.cat !== 'Scene' : it.cat === EX.cat) && (!EX.q || it.name.toLowerCase().includes(EX.q.toLowerCase())));
   const inScene = it => EX.scene && EX.scene.bodies.some(b => b.name === it.name);
   const file = el('input', { type: 'file', accept: '.orbitscene,.json', style: 'display:none', onchange: async e => { const f = e.target.files[0]; if (!f) return; try { const o = JSON.parse(await f.text()); EX.scene = o.scene; EX.undo = []; EX.redo = []; EX.sel = null; await exRerunFromScene(); } catch (x) { toast('not a valid scene file', 'err'); } e.target.value = ''; } });
-  L.replaceChildren(el('div', { class: 'xhead' }, el('b', {}, 'Add'), el('span', { class: 'xsp' }), el('button', { class: 'xib', title: 'new Solar System', onclick: () => { if (confirm('replace the current scene with the real Solar System?')) exNew(); } }, ico('orb2')),
+  L.replaceChildren(el('div', { class: 'xhead' }, el('b', {}, 'Add'), el('span', { class: 'xsp' }), el('button', { class: 'xib', 'data-pop': '1', title: 'choose a scene to start with (current: ' + ((EX.scene && EX.scene.name) || 'Solar System') + ')', onclick: e => scenePop(e.currentTarget) }, ico('orb2')),
       el('button', { class: 'xib', title: 'open a saved scene', onclick: () => file.click() }, ico('basic')), file, el('button', { class: 'xib', title: 'close', onclick: () => { EX.libOpen = false; exLib(); } }, ico('close'))),
     el('div', { class: 'xsearch' }, ico('search'), el('input', { id: 'xq', type: 'text', placeholder: 'search bodies', value: EX.q, oninput: e => { EX.q = e.target.value; exLibGrid(); } })),
     el('div', { class: 'xcats' }, ...EX.meta.categories.map(c => el('button', { class: 'xcat' + (EX.cat === c ? ' on' : ''), title: c, 'aria-label': c, onclick: () => { EX.cat = c; exLib(); } }, ico(CAT_ICON[c] || 'grid')))), el('div', { class: 'xcatname' }, EX.cat === 'Scene' ? 'Scene · edits that change the whole scene, not objects to add' : EX.cat),
     el('div', { class: 'xgrid', id: 'xgrid' }));
   exLibGrid(); function exLibGrid() {
     const g = $('#xgrid'); if (!g) return; const its = EX.meta.catalog.filter(it => (EX.cat === 'All' ? it.cat !== 'Scene' : it.cat === EX.cat) && (!EX.q || it.name.toLowerCase().includes(EX.q.toLowerCase())));
-    g.replaceChildren(...its.map(it => el('button', { class: 'xitem' + (EX.sel && EX.scene && EX.scene.bodies.some(b => b.id === EX.sel && b.name === it.name) ? ' sel' : ''), title: it.whatif ? 'changes the whole scene (undo is under the lightning-bolt button)' : (it.real ? 'real body from the ephemeris' : 'add on an orbit about the selected body'), onclick: () => exAdd(it) },
+    g.replaceChildren(...its.map(it => el('button', { class: 'xitem' + (EX.placing && EX.placing.name === it.name ? ' placing' : '') + (EX.sel && EX.scene && EX.scene.bodies.some(b => b.id === EX.sel && b.name === it.name) ? ' sel' : ''), title: it.whatif ? 'changes the whole scene (undo is under the lightning-bolt button)' : (it.real ? 'real body from the ephemeris' : 'click, then move the mouse over the scene to preview where it goes (double-click adds it straight away on a default orbit)'), onclick: () => exAdd(it), ondblclick: () => exAddDirect(it) },
       el('span', { class: 'xthumb', style: it.whatif ? 'background:linear-gradient(135deg,#ff6b4a,#9b8cf2);box-shadow:none' : thumbStyle(it) }, it.whatif ? el('i', {}, '?') : ''), el('span', { class: 'xname' }, it.name))));
     if (!its.length) g.append(el('div', { class: 'dim', style: 'padding:14px' }, 'nothing matches'));
   }
 }
 async function exRerunFromScene() { EX.busy = true; exBusy(true); const r = await api('sandbox_run', { scene: EX.scene, horizon: EX.horizon }); EX.busy = false; exBusy(false); if (!r.ok) { toast(r.error, 'err'); return; } EX.sim = r.sim; await exBuild(false); }
 async function exAdd(it) {
+  if (!it.whatif && !it.real) { exPlaceStart(it); return; }
+  await exAddDirect(it);
+}
+async function exAddDirect(it) {
+  if (EX.placing) exPlaceCancel();
   if (it.whatif && it.whatif !== 'rogue') { await exEdit([{ op: 'whatif', name: it.whatif }]); toast('what-if applied; press undo (actions) to go back', 'ok'); return; }
   if (it.real && EX.scene.bodies.some(b => b.name === it.name)) { EX.sel = EX.scene.bodies.find(b => b.name === it.name).id; EX.space.select(EX.sel); EX.space.focus(EX.sel); EX.panelOpen = true; exPanel(); return; }
   const ok = await exEdit([{ op: 'add', item: it, parent: EX.sel || undefined, orbit: {} }], 'last'); if (ok) { EX.panelOpen = true; EX.space.select(EX.sel); exPanel(); toast(`${it.name} added${EX.sel ? '' : ''}; edit it in the panel on the right`, 'ok'); }
 }
+
+/* ---- placement: pick an object in the library, move the mouse over the scene to preview where it goes, click to put it there.
+   Orbit = a circular orbit about the body it is near; Trajectory = click the start, aim, click again to launch; Drop = placed at rest, gravity does the rest ---- */
+const ECL_INC = 23.4393;
+function exPlaceStart(it) { EX.placing = it; EX.anchor = null; if (!EX.placeMode) EX.placeMode = 'orbit'; exPlaceUI(); exLib(); }
+function exPlaceCancel() { EX.placing = null; EX.anchor = null; if (EX.space) { EX.space.setGhost(null); EX.space.setPreview(null, null); } exPlaceUI(); exLib(); }
+function exPlaceUI() {
+  const xp = $('.xp'), v = $('#xview'); let B = $('#xplace'); if (!xp) return;
+  if (!EX.placing) { if (B) B.remove(); if (v) v.classList.remove('placing'); return; }
+  if (!B) { B = el('div', { id: 'xplace', class: 'xplace' }); xp.append(B); } if (v) v.classList.add('placing');
+  const hints = { orbit: 'move over the scene: it goes on a circular orbit about the body you choose (hover a body to orbit that one). click to place.', traj: EX.anchor ? 'now move the mouse to aim: the longer the line, the faster it goes. click to launch, esc to start again.' : 'click where it should start, then aim and click again to launch it.', drop: 'placed at rest next to the body: gravity pulls it in on its own. click to place.' };
+  B.replaceChildren(el('b', {}, 'Placing ' + EX.placing.name),
+    seg([['orbit', 'Orbit'], ['traj', 'Trajectory'], ['drop', 'Drop']], EX.placeMode, m => { EX.placeMode = m; EX.anchor = null; if (EX.space) { EX.space.setGhost(null); EX.space.setPreview(null, null); } exPlaceUI(); }),
+    el('span', { class: 'xh' }, hints[EX.placeMode], el('b', { id: 'xpinfo', style: 'display:block;color:var(--text2)' })),
+    el('button', { class: 'xib', title: 'cancel (esc)', onclick: exPlaceCancel }, ico('close')));
+}
+function exPlaceTarget(cx, cy) {                                                   // which body it would belong to, and where (in the scene's own axes)
+  const S3 = EX.space, mass = EX.scene.bodies.filter(b => b.mu > 0), hit = S3.pick(cx, cy), hb = mass.find(b => b.id === hit);
+  const par = hb || mass.find(b => b.id === EX.sel) || mass.slice().sort((a, b) => b.mu - a.mu)[0]; if (!par) return null;
+  const c = S3.posOf(par.id), inc = par.kind === 'star' ? ECL_INC : 0, i = inc * Math.PI / 180; let a, ta;
+  if (hb) { a = hb.kind === 'star' ? 1.5e8 : Math.max(3 * hb.radius, hb.radius + 400); ta = 0; }
+  else { const q = S3.planePoint(cx, cy, par.id, inc); if (!q) return null; const d = [q[0] - c[0], q[1] - c[1], q[2] - c[2]], u = d[0], w = d[1] * Math.cos(i) + d[2] * Math.sin(i); a = Math.max(Math.hypot(u, w), par.radius * 1.2); ta = Math.atan2(w, u); }
+  const p = [c[0] + a * Math.cos(ta), c[1] + a * Math.sin(ta) * Math.cos(i), c[2] + a * Math.sin(ta) * Math.sin(i)], vp = S3.velOf(par.id);
+  return { par, c, inc, a, ta, p, vp, dir: [-Math.sin(ta), Math.cos(ta) * Math.cos(i), Math.cos(ta) * Math.sin(i)] };
+}
+function exPlacePath(T, v) {                                                       // two-body path of the new object about the body it is near (the preview, not the final simulation)
+  const mu = T.par.mu + (EX.placing.mu || 0), R = T.par.radius; let r = [T.p[0] - T.c[0], T.p[1] - T.c[1], T.p[2] - T.c[2]], w = [v[0] - T.vp[0], v[1] - T.vp[1], v[2] - T.vp[2]];
+  const r0 = Math.hypot(...r), T0 = 2 * Math.PI * Math.sqrt(r0 ** 3 / mu), acc = x => { const d = Math.hypot(...x), k = -mu / (d * d * d); return [x[0] * k, x[1] * k, x[2] * k]; }; const pts = [], add = (x, y, h) => x.map((q, k) => q + y[k] * h);
+  let t = 0;
+  for (let n = 0; n < 1400 && t < 2.5 * T0; n++) {
+    pts.push([T.c[0] + r[0], T.c[1] + r[1], T.c[2] + r[2]]); const d = Math.hypot(...r); if (d < R || d > 40 * r0) break; const h = 0.02 * Math.sqrt(d ** 3 / mu);
+    const k1r = w, k1v = acc(r), k2r = add(w, k1v, h / 2), k2v = acc(add(r, k1r, h / 2)), k3r = add(w, k2v, h / 2), k3v = acc(add(r, k2r, h / 2)), k4r = add(w, k3v, h), k4v = acc(add(r, k3r, h));
+    r = r.map((q, k) => q + h / 6 * (k1r[k] + 2 * k2r[k] + 2 * k3r[k] + k4r[k])); w = w.map((q, k) => q + h / 6 * (k1v[k] + 2 * k2v[k] + 2 * k3v[k] + k4v[k])); t += h;
+  }
+  return pts;
+}
+function exPlaceInfo(t) { const i = $('#xpinfo'); if (i) i.textContent = t || ''; }
+function exPlaceVel(T, mode) { const vc = Math.sqrt((T.par.mu + (EX.placing.mu || 0)) / T.a); return { vc, v: mode === 'orbit' ? T.vp.map((x, k) => x + vc * T.dir[k]) : T.vp.slice() }; }
+function exPlaceHover(cx, cy) {
+  if (!EX.placing || !EX.space) return; const S3 = EX.space, it = EX.placing, col = it.color || '#ff6b4a', mode = EX.placeMode;
+  if (EX.anchor) {                                                                  // trajectory, second step: aim
+    const A = EX.anchor, q = S3.planePoint(cx, cy, A.par.id, A.inc); if (!q) return;
+    const d = [q[0] - A.p[0], q[1] - A.p[1], q[2] - A.p[2]], L = Math.hypot(...d), vc = Math.sqrt((A.par.mu + (it.mu || 0)) / A.a), sp = L > 0 ? Math.min(3 * vc, vc * L / (0.25 * A.a)) : 0;
+    A.v = A.vp.map((x, k) => x + (L > 0 ? d[k] / L * sp : 0)); S3.setGhost({ p: A.p, color: col, arrow: [A.p, q] }); S3.setPreview(exPlacePath(A, A.v), null);
+    exPlaceInfo(`speed ${fmtNum(sp, 4)} km/s relative to ${A.par.name} (circular speed here: ${fmtNum(vc, 4)} km/s)`); return;
+  }
+  const T = exPlaceTarget(cx, cy); if (!T) { S3.setGhost(null); S3.setPreview(null, null); exPlaceInfo(''); return; }
+  const { vc, v } = exPlaceVel(T, mode); T.v = v;
+  S3.setGhost({ p: T.p, color: col, ring: mode === 'orbit' ? { c: T.c, r: T.a, inc: T.inc } : null }); S3.setPreview(mode === 'drop' ? exPlacePath(T, T.v) : null, null);
+  exPlaceInfo(`${mode === 'orbit' ? 'orbit about' : mode === 'drop' ? 'falls toward' : 'start near'} ${T.par.name} · distance ${fmtNum(T.a, 5)} km` + (mode === 'orbit' ? ` · speed ${fmtNum(vc, 4)} km/s` : ''));
+}
+async function exPlaceClick(cx, cy) {
+  const it = EX.placing; if (!it || EX.busy) return; let T;
+  if (EX.placeMode === 'traj') {
+    if (!EX.anchor) { T = exPlaceTarget(cx, cy); if (!T) return; EX.anchor = T; exPlaceUI(); exPlaceHover(cx, cy); return; }
+    T = EX.anchor; if (!T.v) return;
+  } else { T = exPlaceTarget(cx, cy); if (!T) return; T.v = exPlaceVel(T, EX.placeMode).v; }
+  const place = { r: T.p, v: T.v }, par = T.par.id; exPlaceCancel();
+  const ok = await exEdit([{ op: 'add', item: it, parent: par, orbit: {}, place }], 'last'); if (ok) { EX.panelOpen = true; EX.space.select(EX.sel); exPanel(); toast(`${it.name} placed; edit it in the panel on the right`, 'ok'); }
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !EX.placing || S.page !== 'explore') return;
+  if (EX.anchor) { EX.anchor = null; if (EX.space) { EX.space.setGhost(null); EX.space.setPreview(null, null); } exPlaceUI(); } else exPlaceCancel(); e.stopPropagation(); e.preventDefault();
+}, true);
 
 /* ---- right drawer: the object panel ---- */
 async function exPanel() {

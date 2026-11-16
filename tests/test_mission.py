@@ -206,7 +206,7 @@ def test_builtin_ephemeris_is_sane():
 
 
 @pytest.mark.ephem
-@pytest.mark.skipif(not os.environ.get('ORBIT_DE440S') and not (pathlib.Path(os.environ.get('ORBIT_SIMULATOR_HOME', '')) / 'kernels' / 'de440s.bsp').exists(), reason='DE440s kernel not available')
+@pytest.mark.skipif(not os.environ.get('ORBIT_DE440S') and not (pathlib.Path(os.environ.get('ORBSIM_HOME', '')) / 'kernels' / 'de440s.bsp').exists(), reason='DE440s kernel not available')
 def test_builtin_ephemeris_against_de440s():
     de = get_provider(prefer='auto'); assert 'DE440s' in de.name; an = AnalyticEphemeris()
     jd = TU.utc_to_tdb(TU.calendar_to_jd(2026, 6, 1))

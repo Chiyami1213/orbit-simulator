@@ -1,9 +1,9 @@
 # Build the Windows exe and the installer wizard (nothing is released or uploaded).
 # Usage (from anywhere):  powershell -ExecutionPolicy Bypass -File packaging\build.ps1
-# Build output goes to %APPDATA%\Orbit Simulator\build (dist, work, installer) — not into the repository folder.
+# Build output goes to %APPDATA%\OrbSim\build (dist, work, installer) — not into the repository folder.
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
-$build = Join-Path $env:APPDATA 'Orbit Simulator\build'
+$build = Join-Path $env:APPDATA 'OrbSim\build'
 New-Item -ItemType Directory -Force "$build\dist", "$build\work", "$build\installer" | Out-Null
 python -m pip install -r requirements-dev.txt
 python packaging\make_icon.py

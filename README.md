@@ -1,4 +1,4 @@
-# Orbit Simulator
+# OrbSim
 
 A desktop app for **orbit-mechanics problems**: it solves the standard two-body / patched-conic problem types step by step, draws annotated 2-D figures
 and an interactive 3-D animation, and checks itself against hundreds of published homework and exam answers.
@@ -7,12 +7,12 @@ and an interactive 3-D animation, and checks itself against hundreds of publishe
 
 ## What it does
 
-Orbit Simulator has three modes, chosen with the switch at the top left:
+OrbSim has three modes, chosen with the switch at the top left:
 
 | Mode | What you do |
 |---|---|
 | **Solve** | compute homework and exam answers with the twelve course modules, plus the reference tools (Julian date, body constants, test cases) |
-| **Explore** | a live 3D sandbox in the style of Universe Sandbox: the real Solar System, a library to add planets, moons, asteroids and spacecraft, a side panel to edit mass, radius, motion and orbit, N-body physics, time warp forwards and backwards |
+| **Sandbox** | a live 3D sandbox in the style of Universe Sandbox: the real Solar System, a library to add planets, moons, asteroids and spacecraft, a side panel to edit mass, radius, motion and orbit, N-body physics, time warp forwards and backwards |
 | **Design** | GMAT-style mission planning: resources, a command sequence, numerical propagation, comparison with the course answer, GMAT script import and export |
 
 ### Solve
@@ -37,7 +37,7 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 * **Export** figures as PNG / PDF, a standalone 3-D page, or a **Python (matplotlib)** or **MATLAB** script that redraws the plots.
 * **Homework presets:** every problem with printed answers (HW 3–10, Fall 2024 Exams 1–2, lecture-note examples) loads as a preset, and the *Test Cases* page compares
   computed and printed values. Known errors in the printed solutions are corrected and documented.
-* **Explore (sandbox):** the real Solar System at any epoch from the ephemeris, textured bodies on a Milky Way sky, a library (planets, moons, small bodies, spacecraft, custom bodies, scene edits such as removing Jupiter or a rogue planet flyby), live N-body physics with time warp up to 100 years per second in either direction, undo and redo, saved scenes, and **Send to Design** to turn a spacecraft into a mission.
+* **Sandbox:** the real Solar System at any epoch from the ephemeris, textured bodies on a Milky Way sky, a library (planets, moons, small bodies, spacecraft, custom bodies, scene edits such as removing Jupiter or a rogue planet flyby), live N-body physics with time warp up to 100 years per second in either direction, undo and redo, saved scenes, and **Send to Design** to turn a spacecraft into a mission.
 * **Design (GMAT-style missions):** define spacecraft, coordinate systems, propagators, impulsive burns, report files and a command sequence
   (`Propagate`, `Maneuver`, `Report`, `Toggle`, with several stop conditions and `Synchronized`), then run it. Propagation is numerical (Verner RK 8(9),
   Prince–Dormand 7(8) and 4(5), or the exact Kepler solution) with the central body alone, selected point masses (Moon, Sun, planets), the whole Solar System,
@@ -52,14 +52,14 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 * **Patched conics and imports:** a patched-conic model with sphere-of-influence hand-offs; reference trajectories (CSV, CCSDS OEM, SPK kernels) can be imported, drawn next to a mission and compared with it; porkchop plots for transfer windows.
 * **Conventions:** show results the course way or the GMAT way (`VFPA = 90° − γ`, anomalies in 0–360°, `Luna`, VNB burn elements); the numbers and presets never change.
 * **Ephemerides:** a built-in offline model, or the JPL **DE440s** kernel (about 32 MB, downloaded only when you press the button).
-* Light / dark / device appearance and four colour themes, rebindable keys (`F12` maximises a plot, `F8` resets the panel arrangement), movable and closable panels,
+* Light / dark / device appearance and four colour themes, rebindable keys (`F12` maximizes a plot, `F8` resets the panel arrangement), movable and closable panels,
   a File / Edit / View / Go / Help menu bar, backup & restore of your data, built-in issue reporting.
 
 ## Installation
 
 ### Windows 10 / 11 (installer)
 
-1. Download `OrbitSimulator-Setup-<version>.exe` from the [Releases](https://github.com/Chiyami1213/orbit-simulator/releases) page.
+1. Download `OrbSim-Setup-<version>.exe` from the [Releases](https://github.com/Chiyami1213/orbit-simulator/releases) page.
 2. Run it. The wizard lets you **choose the install folder**, and choose a **Start Menu shortcut** and/or a **desktop shortcut**. It can also open the help page and this project page when it finishes.
 3. Windows 10 only: if the app opens in your browser instead of its own window, install the free [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/). Windows 11 already includes it.
 
@@ -67,9 +67,9 @@ The installer is per-user by default (no administrator rights needed) and can be
 
 ### macOS 12+ (disk image)
 
-1. Download `OrbitSimulator-<version>-macOS.dmg` from the Releases page, open it and drag **Orbit Simulator** onto **Applications**.
+1. Download `OrbSim-<version>-macOS.dmg` from the Releases page, open it and drag **OrbSim** onto **Applications**.
 2. The app is **not notarised** (that needs a paid Apple developer account). On first launch use **right-click → Open**, or run
-   `xattr -dr com.apple.quarantine "/Applications/Orbit Simulator.app"` once.
+   `xattr -dr com.apple.quarantine "/Applications/OrbSim.app"` once.
 3. F-keys: on a Mac the function keys may need the `fn` key; every key can be changed in *Settings → Key Bindings*.
 4. Screenshots (`F2`) need *Screen Recording* permission for the app the first time (System Settings → Privacy & Security).
 
@@ -100,7 +100,7 @@ name (*Settings → Help*). If the 3-D view is slow, lower *Animation Resolution
 |---|---|---|---|
 | `F5` | refresh the screen | `S` | open / close settings |
 | `F2` | screenshot of the window | `M` | hide / show the menu bar |
-| `F11` | full screen | `F12` | maximise the plot (hide other panels; `Esc` leaves) |
+| `F11` | full screen | `F12` | maximize the plot (hide other panels; `Esc` leaves) |
 
 Panels are movable: drag a panel by its ⠿ grip onto another panel or a window edge to dock it there, and drag the gaps between panels to resize them. The layout adapts to the window and is remembered. Use **Focus** in a plot's header (or `P`) to see only that 3D or 2D view; the Menu, Inputs and Results buttons in the header bring panels back. Fold the menu to icons with the arrow at its top. All keys are rebindable.
 
@@ -110,9 +110,9 @@ Everything the program writes on your computer goes to your per-user application
 
 | OS | Folder |
 |---|---|
-| Windows | `%APPDATA%\Orbit Simulator\` |
-| macOS | `~/Library/Application Support/Orbit Simulator/` |
-| Linux | `~/.local/share/Orbit Simulator/` |
+| Windows | `%APPDATA%\OrbSim\` |
+| macOS | `~/Library/Application Support/OrbSim/` |
+| Linux | `~/.local/share/OrbSim/` |
 
 It contains `settings.json`, `screenshots/`, `exports/`, `backups/` and `logs/`. *Settings → Backup* creates, restores and **imports** backup archives (a safety backup is made before every restore),
 and *Settings → Local Files* opens the folders. Uninstalling keeps this folder.

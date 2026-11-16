@@ -1,6 +1,6 @@
-# Orbit Simulator — briefing for an AI assistant (math focus)
+# OrbSim — briefing for an AI assistant (math focus)
 
-You are being briefed on a desktop program, **Orbit Simulator** (v1.0.0), that a student uses to solve and visualise orbit-mechanics problems
+You are being briefed on a desktop program, **OrbSim** (v1.0.0), that a student uses to solve and visualise orbit-mechanics problems
 (Bate–Mueller–White conventions, as taught in a university orbit-mechanics course). The student will paste or describe the program's output and ask you
 to check, interpret or extend it. This file tells you **what the program computes, which equations and sign conventions it uses, what it verified itself
 against, and where it stops being valid.** Treat every convention below as binding: several differ from common textbooks.
@@ -199,9 +199,9 @@ Constants stay a separate switch (Course table / Exam rounded): GMAT uses its ow
 * **Ephemerides:** built-in = Standish approximate Keplerian elements (inner planets within about $10^4$–$7\times10^4$ km, Jupiter to Pluto within a few $10^6$ km of DE440s in 2026) plus a truncated Meeus lunar theory (about 50 km); optional JPL **DE440s** (1849–2150) through `jplephem`. Time scale: UTC → TAI (leap seconds, 37 s since 2017) → TT (+32.184 s) → TDB; GMAT's A1 = TAI + 0.0343817 s.
 * **Checks that must agree:** the exact Kepler solution and the numerical two-body run agree to $10^{-8}$ relative; "Open in Mission" on modules 3–8 and 12 reproduces the module numbers (HW4 problem 3: start $\theta^*=-110^\circ$, $r=225826.422$ km; aim point $\theta^*=-56.4427^\circ$, $r=80045.573$ km, $v=3.03157$ km/s).
 
-### 7.2b The Explore sandbox
+### 7.2b The Sandbox
 
-Explore integrates every body with $\mu>0$ against every other (pairwise point-mass gravity, barycentric ICRF frame, Verner RK8(9), relative tolerance $10^{-11}$); bodies with $\mu=0$ are test particles. The real Solar System is initialised from the active ephemeris at the chosen epoch; the total-energy drift over a year is about $10^{-14}$ and Earth stays between 0.9833 and 1.0168 AU. A body's "parent" for the orbit panel is the heavier body whose Laplace sphere of influence $|\bar r_j-\bar r_{root}|(\mu_j/\mu_{root})^{2/5}$ contains it, else the heaviest body. An edit is applied at the current simulation time (the scene is first advanced there) and the simulation is re-run both ways. A spacecraft can be sent to the Design mode as a Cartesian state about its parent with the other massive bodies as point masses.
+The Sandbox integrates every body with $\mu>0$ against every other (pairwise point-mass gravity, barycentric ICRF frame, Verner RK8(9), relative tolerance $10^{-11}$); bodies with $\mu=0$ are test particles. The real Solar System is initialised from the active ephemeris at the chosen epoch; the total-energy drift over a year is about $10^{-14}$ and Earth stays between 0.9833 and 1.0168 AU. A body's "parent" for the orbit panel is the heavier body whose Laplace sphere of influence $|\bar r_j-\bar r_{root}|(\mu_j/\mu_{root})^{2/5}$ contains it, else the heaviest body. An edit is applied at the current simulation time (the scene is first advanced there) and the simulation is re-run both ways. A spacecraft can be sent to the Design mode as a Cartesian state about its parent with the other massive bodies as point masses.
 
 ### 7.3 GMAT compatibility
 

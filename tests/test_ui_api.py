@@ -61,7 +61,7 @@ def _post(url, name, payload):
 
 
 def test_server_serves_ui_and_api(live):
-    html = urllib.request.urlopen(live).read().decode(); assert 'Orbit Simulator' in html
+    html = urllib.request.urlopen(live).read().decode(); assert 'OrbSim' in html
     assert urllib.request.urlopen(live + 'app.js').status == 200 and urllib.request.urlopen(live + 'style.css').status == 200
     assert len(urllib.request.urlopen(live + 'static/plotly.min.js').read()) > 1_000_000
     assert _post(live, 'meta', {})['version'] == api.VERSION

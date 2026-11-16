@@ -117,11 +117,54 @@ def catalog(consts: ConstantSet | None = None) -> list[dict]:
     return items
 
 
+# ---------------------------------------------------------------------------------------------------- starting scenes
+PRESETS = [
+    dict(name='Solar System', desc='the Sun, the eight planets, the Moon and Pluto from the ephemeris (real positions at the chosen date)', rate=6.0),
+    dict(name='Inner Solar System', desc='the Sun with Mercury, Venus, Earth, the Moon and Mars', rate=5.6),
+    dict(name='Gas Giants', desc='the Sun with Jupiter, Saturn, Uranus and Neptune', rate=7.0, horizon='25 years'),
+    dict(name='Earth and Moon', desc='just the Earth-Moon pair with their real relative motion', rate=4.6, horizon='1 year'),
+    dict(name='Earth with Satellites', desc='Earth and the Moon with a satellite in low Earth orbit and a probe in geostationary orbit', rate=3.2, horizon='30 days'),
+    dict(name='Jupiter and Its Moons', desc='Jupiter with Io, Europa, Ganymede and Callisto on their real orbits (idealised: circular, in one plane)', rate=4.8, horizon='30 days'),
+    dict(name='Sun and Earth', desc='a two-body system: the Sun and the Earth', rate=6.0),
+    dict(name='Binary Star', desc='two stars (1.0 and 0.7 solar masses, 3 AU apart) with an Earth-like planet around the heavier one', rate=6.2),
+    dict(name='Single Star', desc='one Sun-like star by itself: add whatever you like from the library', rate=6.0),
+]
+
+
+def preset(name: str, eph, jd_utc: float, consts: ConstantSet | None = None) -> dict:
+    """One of the starting scenes (see PRESETS). Real bodies come from the ephemeris at the epoch; made-up systems are built on exact two-body orbits."""
+    consts = consts or ConstantSet(); AU = 149597870.7
+    pick = {'Solar System': None, 'Inner Solar System': ['Sun', 'Mercury', 'Venus', 'Earth', 'Moon', 'Mars'], 'Gas Giants': ['Sun', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'],
+            'Earth and Moon': ['Earth', 'Moon'], 'Sun and Earth': ['Sun', 'Earth']}
+    if name in pick:
+        sc = solar_system(eph, jd_utc, consts, pick[name]); sc['name'] = name; return sc
+    cat = {i['name']: i for i in catalog(consts)}
+    if name == 'Earth with Satellites':
+        sc = solar_system(eph, jd_utc, consts, ['Earth', 'Moon'])
+        add_item(sc, cat['Spacecraft'], eph, consts, 'Earth', dict(a=consts.R('Earth') + 500.0, e=0.0, inc=51.6))
+        add_item(sc, cat['Probe'], eph, consts, 'Earth', dict(a=42164.0, e=0.0, inc=0.0))
+        sc['name'] = name; return sc
+    if name == 'Jupiter and Its Moons':
+        j = consts.body('Jupiter'); jup = new_body('Jupiter', 'planet', j['mu'], j['R'], [0, 0, 0], [0, 0, 0]); sc = dict(name=name, epoch_jd=float(jd_utc), bodies=[jup], source='idealised')
+        for n, mu, R, a, col in [('Io', 5959.916, 1821.5, 421800.0, '#e8d27a'), ('Europa', 3202.739, 1560.8, 671100.0, '#d9cbb0'), ('Ganymede', 9887.834, 2631.2, 1070400.0, '#a89f91'), ('Callisto', 7179.289, 2410.3, 1882700.0, '#7d6f62')]:
+            r, v = orbit_state(jup, mu, a, 0.0, 0.0, 0.0, 0.0, {'Io': 0.0, 'Europa': 110.0, 'Ganymede': 220.0, 'Callisto': 320.0}[n])
+            sc['bodies'].append(new_body(n, 'moon', mu, R, r, v, color=col))
+        recenter(sc); return sc
+    if name == 'Single Star':
+        s = consts.body('Sun'); sc = dict(name=name, epoch_jd=float(jd_utc), bodies=[new_body('Sun', 'star', s['mu'], s['R'], [0, 0, 0], [0, 0, 0])], source='idealised'); return sc
+    if name == 'Binary Star':
+        s = consts.body('Sun'); A = new_body('Star A', 'star', s['mu'], s['R'], [0, 0, 0], [0, 0, 0], color='#ffd27a'); sc = dict(name=name, epoch_jd=float(jd_utc), bodies=[A], source='idealised')
+        r, v = orbit_state(A, 0.7 * s['mu'], 3 * AU, 0.2, 0.0, 0.0, 0.0, 0.0); sc['bodies'].append(new_body('Star B', 'star', 0.7 * s['mu'], 0.9 * s['R'], r, v, color='#ff9d6b'))
+        e = consts.body('Earth'); r, v = orbit_state(A, e['mu'], 0.5 * AU, 0.0, 0.0, 0.0, 0.0, 60.0); sc['bodies'].append(new_body('Planet', 'planet', e['mu'], e['R'], r, v, color='#6bd0a8'))
+        recenter(sc); return sc
+    raise ValueError(f'unknown scene "{name}"')
+
+
 CATEGORIES = ['All', 'Solar System', 'Planets', 'Moons', 'Small Bodies', 'Spacecraft', 'Custom', 'Scene']        # 'Scene' holds edits of the whole scene, not objects to add
 
 
-def add_item(scene: dict, item: dict, eph=None, consts: ConstantSet | None = None, parent: str | None = None, orbit: dict | None = None) -> dict:
-    """Add a catalogue item. Real bodies come from the ephemeris at the scene epoch; others are put on an orbit about ``parent`` (default: the Sun / heaviest body)."""
+def add_item(scene: dict, item: dict, eph=None, consts: ConstantSet | None = None, parent: str | None = None, orbit: dict | None = None, place: dict | None = None) -> dict:
+    """Add a catalogue item (``place`` = {r, v} gives its exact starting state, which the placement tool in Explore uses). Real bodies come from the ephemeris at the scene epoch; others are put on an orbit about ``parent`` (default: the Sun / heaviest body)."""
     consts = consts or ConstantSet(); name = item['name']
     if item.get('real') and eph is not None and name in getattr(eph, 'bodies', ()):
         if any(b['name'] == name for b in scene['bodies']): raise ValueError(f'{name} is already in the scene')
@@ -147,6 +190,7 @@ def add_item(scene: dict, item: dict, eph=None, consts: ConstantSet | None = Non
         a = o.get('a') or (1.5e8 if par['kind'] == 'star' else max(3.0 * par['radius'], par['radius'] + 400.0))
         r, v = orbit_state(par, item['mu'], a, o.get('e', 0.0), o.get('inc', 0.0), o.get('raan', 0.0), o.get('aop', 0.0), o.get('ta', 0.0))
         bd = new_body(name, item['kind'], item['mu'], item['radius'], r, v, id=unique_id(scene, name), color=item.get('color'), texture=item.get('texture'), shape=item.get('shape') if item['kind'] == 'spacecraft' else None)
+    if place and place.get('r') is not None and place.get('v') is not None: bd['r'] = [float(x) for x in place['r']]; bd['v'] = [float(x) for x in place['v']]
     scene['bodies'].append(bd); return bd
 
 
@@ -168,7 +212,7 @@ def apply_edits(scene: dict, edits: list[dict], eph=None, consts: ConstantSet | 
         elif op == 'orbit':
             b, p = get(sc, e['id']), get(sc, e['parent']); el = e['elements']
             r, v = orbit_state(p, b['mu'], float(el['SMA']), float(el['ECC']), float(el['INC']), float(el['RAAN']), float(el['AOP']), float(el['TA'])); b['r'], b['v'] = r.tolist(), v.tolist()
-        elif op == 'add': add_item(sc, e['item'], eph, consts, e.get('parent'), e.get('orbit'));
+        elif op == 'add': add_item(sc, e['item'], eph, consts, e.get('parent'), e.get('orbit'), e.get('place'))
         elif op == 'whatif':
             w = e['name']
             if w == 'double_moon': get(sc, 'Moon')['mu'] *= 2

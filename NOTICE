@@ -1,4 +1,4 @@
-Orbit Simulator
+OrbSim
 Third-party notices
 
 Portions of this software are derived from NASA GMAT (General Mission Analysis Tool), licensed under the Apache License, Version 2.0.
@@ -29,6 +29,6 @@ Planet textures: Solar System Scope (2k maps), CC BY 4.0, https://www.solarsyste
 
 Icons: Lucide (ISC licence, https://lucide.dev, partly derived from Feather, MIT); full text in LICENSES/lucide-ISC.txt. They are embedded in mathkit/ui/web/icons.js.
 
-three.js r160 (MIT, mathkit/ui/web/vendor/, full text LICENSES/three-MIT.txt) draws the Explore and Design space views.
+three.js r160 (MIT, mathkit/ui/web/vendor/, full text LICENSES/three-MIT.txt) draws the Sandbox and Design space views.
 
 Plotly (MIT), pywebview (BSD-3-Clause), NumPy (BSD-3-Clause) and Matplotlib (PSF-based licence) are used under their own licences.

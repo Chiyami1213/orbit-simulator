@@ -60,7 +60,7 @@ input.num:hover,input.num:focus{border-color:var(--line);background:var(--inset)
 input.num.bad,input.wide.bad{border-color:var(--red)!important}input.wide{width:100%}
 .dim{color:var(--muted);font-size:13.5px;margin-bottom:6px}.hint{color:var(--muted);font-weight:400}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:99px;outline:none;margin:6px 0 4px;
-  background:linear-gradient(90deg,var(--orange) 0,var(--orange) var(--pct,50%),var(--track) var(--pct,50%),var(--track) 100%)}
+  background:linear-gradient(90deg,var(--orange) 0,var(--orange) calc(9.5px + (100% - 19px) * var(--f,.5)),var(--track) calc(9.5px + (100% - 19px) * var(--f,.5)),var(--track) 100%)}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:19px;height:19px;border-radius:50%;background:#fff;border:2px solid var(--orange);cursor:grab;box-shadow:0 1px 4px rgba(0,0,0,.4)}
 .seg{display:flex;background:var(--inset);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
 .seg button{flex:1;border:0;background:transparent;color:var(--text2);padding:8px 6px;border-radius:7px;cursor:pointer;font-size:14.5px;white-space:nowrap}
@@ -363,12 +363,12 @@ details.lic pre{max-height:360px;overflow:auto;font-size:12px;white-space:pre-wr
 .snode svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .snode i{position:absolute;right:-6px;top:-6px;min-width:22px;height:22px;border-radius:11px;background:var(--kc);color:#fff;font-style:normal;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px}
 .snode.small{width:34px;height:34px;margin:10px 10px;border-width:3px}.snode.small svg{width:16px;height:16px}.sitem.start .snode.small,.sitem.end .snode.small{margin-left:10px}
-.scard{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--kc);border-radius:12px;padding:0}.scard.slabel{background:transparent;border:0;color:var(--muted);font-size:13px;align-self:center;padding:0}
+.scard{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--kc);border-radius:12px;padding:0}.scard.seqlabel{background:transparent;border:0;color:var(--muted);font-size:13px;align-self:center;padding:0}
 .shead{display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;flex-wrap:wrap}.shead:hover{background:rgba(255,255,255,.03)}.shead b{font-size:15px}.shead code{color:var(--muted);font-size:12.5px;flex:1;min-width:160px;overflow-wrap:anywhere}
 .schev{display:inline-flex;width:18px;height:18px;color:var(--muted)}.schev svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2.2}
 .sbody{padding:2px 16px 16px;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line)}.sitem.off .scard{opacity:.5}
 
-.sitem.start,.sitem.end{align-items:center;padding-bottom:4px}.sitem.start .scard.slabel,.sitem.end .scard.slabel{margin:0;align-self:center}
+.sitem.start,.sitem.end{align-items:center;padding-bottom:4px}.sitem.start .scard.seqlabel,.sitem.end .scard.seqlabel{margin:0;align-self:center}
 
 /* ----- panel headers: grip, title and trash share one centred row (grip top 10px + 22px => centre at 21px) ----- */
 .tile .cardx>h3{display:flex;align-items:center;min-height:42px;margin:0;padding:0 40px 0 38px;font-size:14.5px}
@@ -385,3 +385,36 @@ details.lic pre{max-height:360px;overflow:auto;font-size:12px;white-space:pre-wr
 
 .tilehead{display:flex;align-items:center;min-height:42px;padding:0 40px 0 38px;font-weight:700;font-size:14.5px;color:var(--text);flex:none}
 .xbottom{transition:padding .22s ease}.xp.lib-open .xbottom{padding-left:374px}.xp.panel-open .xbottom{padding-right:374px}
+
+/* ----- folded left menu in Solve mode: it opens as an overlay while the mouse is over it ----- */
+#app.fold.peek #nav{position:relative;width:285px;justify-self:start;z-index:40;box-shadow:10px 0 36px rgba(0,0,0,.5)}      /* stays in its 60px grid cell, so the page does not jump; it just draws wider on top */
+#app.fold.peek .lbl{display:block}#app.fold.peek nav h4{display:block}#app.fold.peek .chev{display:inline-flex}
+#app.fold.peek .nv{justify-content:flex-start;padding:0 12px;width:100%;margin:0 0 12px}#app.fold.peek .nv .n{width:34px}
+#app.fold.peek .navtop{justify-content:flex-end}#app.fold.peek .navlist{padding:18px 12px 12px}
+#app.fold.peek .nsub .nv{padding:0 12px 0 20px}#app.fold.peek .nsub{margin-left:22px}#app.fold.peek .nsub::before{display:block}
+#app.fold.peek .ngrp:hover>.nsub{position:relative;left:auto;background:transparent;border:0;padding:0;margin:2px 0 8px 22px;min-width:0}
+
+/* ----- dropdown lists use the theme colours (they showed pale text on a white list) ----- */
+select{color-scheme:dark}body[data-theme=light] select{color-scheme:light}
+select option,select optgroup{background:var(--panel);color:var(--text)}
+/* ----- the constants / units chips belong to Solve; the Sandbox does not need them ----- */
+#app.explore .top-right .lbl,#app.explore .top-right .chip:not(.setbtn){display:none}
+/* ----- sandbox placement bar ----- */
+.xplace{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 12px;box-shadow:0 6px 24px rgba(0,0,0,.35);max-width:calc(100% - 800px);min-width:420px}
+.xplace .seg{flex:none}.xplace .seg button{padding:5px 12px;font-size:13.5px}.xplace .xh{color:var(--muted);font-size:13px;flex:1;min-width:0}
+.xview.placing canvas{cursor:crosshair}.xitem.placing{outline:2px solid var(--orange);outline-offset:-2px}
+
+/* ----- the tab row: tabs on the left, view controls on the right; every group is the same height and centred on the same line ----- */
+.tabrow{align-items:center}
+.tabrow .tabs{align-items:center}.tabrow .tab,.tabrow>.chip,.tabrow .tabs .chip{height:44px;padding-top:0;padding-bottom:0;display:inline-flex;align-items:center}
+.tabrow .tabtools{align-items:center;gap:10px}
+.tabrow .tabtools .seg,.tabrow .viewseg,.tabrow .tabtools .btn{height:44px;box-sizing:border-box;margin:0;align-self:center}
+.tabrow .seg button{height:100%;padding-top:0;padding-bottom:0;display:inline-flex;align-items:center;justify-content:center}
+.tabrow .tabtools .btn{display:inline-flex;align-items:center;padding-top:0;padding-bottom:0}
+
+/* ----- the scenes menu in the sandbox ----- */
+.scenepop{width:390px;max-height:calc(100vh - 140px);overflow:auto;padding:8px;display:flex;flex-direction:column;gap:4px}
+.scenepop .xph{font-weight:700;padding:6px 10px 8px}
+.xscene{display:flex;flex-direction:column;gap:3px;text-align:left;border:1px solid transparent;background:transparent;color:var(--text);border-radius:10px;padding:9px 12px;cursor:pointer}
+.xscene:hover{background:var(--inset)}.xscene.on{border-color:var(--chip-on-line);background:var(--chip-on)}
+.xscene span{color:var(--muted);font-size:13px;line-height:1.35}

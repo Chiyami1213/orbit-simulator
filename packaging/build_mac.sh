@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Build "Orbit Simulator.app" and a drag-to-Applications .dmg.  Must be run ON A MAC:   bash packaging/build_mac.sh
-# Output goes to ~/Library/Application Support/Orbit Simulator/build (not into the repository). Nothing is uploaded or released.
+# Build "OrbSim.app" and a drag-to-Applications .dmg.  Must be run ON A MAC:   bash packaging/build_mac.sh
+# Output goes to ~/Library/Application Support/OrbSim/build (not into the repository). Nothing is uploaded or released.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 VERSION="1.0.0"
-OUT="$HOME/Library/Application Support/Orbit Simulator/build"
+OUT="$HOME/Library/Application Support/OrbSim/build"
 mkdir -p "$OUT/dist" "$OUT/work" "$OUT/installer"
 
 python3 -m pip install -r requirements-dev.txt
@@ -21,14 +21,14 @@ iconutil -c icns "$ICONSET" -o assets/icons/icon.icns
 
 python3 -m PyInstaller packaging/mathkit.spec --noconfirm --distpath "$OUT/dist" --workpath "$OUT/work"
 
-APP="$OUT/dist/Orbit Simulator.app"
+APP="$OUT/dist/OrbSim.app"
 # Ad-hoc signature: required for the app to run on Apple Silicon. It is NOT notarised (that needs a paid Apple Developer ID), so the first launch
 # needs right-click > Open (see README).
 codesign --force --deep --sign - "$APP"
 
 STAGE="$OUT/work/dmg"; rm -rf "$STAGE"; mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"; ln -s /Applications "$STAGE/Applications"; cp docs/help.html "$STAGE/Help.html"
-DMG="$OUT/installer/OrbitSimulator-$VERSION-macOS.dmg"
+DMG="$OUT/installer/OrbSim-$VERSION-macOS.dmg"
 rm -f "$DMG"
-hdiutil create -volname "Orbit Simulator" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+hdiutil create -volname "OrbSim" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 echo "Disk image written to: $DMG"

@@ -83,7 +83,8 @@ function render(withTrail){
   if (withTrail) TR.forEach((tr, j) => { const xs = [], ys = [], zs = []; for (let i = 0; i <= k; i += STRIDE[j]) { xs.push(tr.xyz[0][i]); ys.push(tr.xyz[1][i]); zs.push(tr.xyz[2][i]); }
     xs.push(X[j][0]); ys.push(Y[j][0]); zs.push(Z[j][0]); X.push(xs); Y.push(ys); Z.push(zs); ids.push(IDX[j][0]); });
   if (D.model && TR.length) { const m = modelVerts(f); X.push(m[0]); Y.push(m[1]); Z.push(m[2]); ids.push(D.model.idx); }
-  if (ids.length) Plotly.restyle(gd, {x: X, y: Y, z: Z}, ids);                                       // ONE batched update per frame
+  const cam = userCam && playing ? userCam : null;                                                   // you are moving the view while it plays: the new camera is sent with the frame
+  if (ids.length) { if (cam) Plotly.update(gd, {x: X, y: Y, z: Z}, {'scene.camera': cam}, ids); else Plotly.restyle(gd, {x: X, y: Y, z: Z}, ids); if (cam && !interacting()) userCam = null; }       // ONE batched update per frame (the camera stays in the layout once you let go)
   $('scrub').value = D.duration > 0 ? 1000 * t / D.duration : 0;
   const s = TR.length && TR[0].state && TR[0].state.r ? TR[0].state : null; $('r_t').textContent = fmt(t) + ' s  (' + fmt(t/3600) + ' h)';
   if (s){ $('r_r').textContent = fmt(interp(s.r,f)) + ' km'; $('r_v').textContent = fmt(interp(s.v,f)) + ' km/s'; $('r_g').textContent = fmt(interp(s.gamma,f)) + ' °';
@@ -92,21 +93,32 @@ function render(withTrail){
 }
 function rotateCam(){ phi += 0.006; const c = Math.cos(phi), s = Math.sin(phi); Plotly.relayout(gd, {'scene.camera.eye': {x: eye0.x*c - eye0.y*s, y: eye0.x*s + eye0.y*c, z: eye0.z}}); }
 let frames = 0, fpsT = performance.now();
-// Rotating or zooming while the animation plays: every frame restyles the scene, which resets the camera under the mouse. So frames are held back while you drag, scroll or pinch, and resume the moment you let go.
-let busy = false, busyUntil = 0;
-gd.addEventListener('pointerdown', () => { busy = true; }, true);
-for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) { window.addEventListener(ev, () => { busy = false; busyUntil = performance.now() + 120; }, true); }
-gd.addEventListener('wheel', () => { busyUntil = performance.now() + 450; }, {capture: true, passive: true});
+// Rotating or zooming while the animation plays: a redraw resets Plotly's own mouse handling, so while it plays the page turns the mouse into a camera itself
+// (drag = rotate about the up axis / tilt, wheel = zoom) and sends that camera together with every frame. The animation never stops. When paused, Plotly handles the mouse.
+let busy = false, busyUntil = 0, userCam = null, dragAt = null; const interacting = () => busy || performance.now() < busyUntil;
+const VEC = {cross: (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]], dot: (a, b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2], len: a => Math.hypot(a[0], a[1], a[2]), mul: (a, k) => [a[0]*k, a[1]*k, a[2]*k], add: (a, b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]]};
+function rot(v, u, ang){ const c = Math.cos(ang), s = Math.sin(ang), k = VEC.cross(u, v), d = VEC.dot(u, v); return VEC.add(VEC.add(VEC.mul(v, c), VEC.mul(k, s)), VEC.mul(u, d*(1-c))); }       // Rodrigues
+function liveCam(){ try { const c = gd._fullLayout.scene._scene.getCamera(); return {eye: {...c.eye}, up: {...c.up}, center: {...c.center}}; } catch (e) { const c = gd.layout.scene.camera; return {eye: {...c.eye}, up: {...c.up}, center: {...c.center || {x: 0, y: 0, z: 0}}}; } }
+function moveCam(dx, dy, zoom){
+  const c = userCam || liveCam(), up = VEC.mul([c.up.x, c.up.y, c.up.z], 1/(VEC.len([c.up.x, c.up.y, c.up.z]) || 1)); let e = [c.eye.x - c.center.x, c.eye.y - c.center.y, c.eye.z - c.center.z];
+  if (dx) e = rot(e, up, -dx * 0.008);
+  if (dy){ const ax = VEC.cross(up, e), n = VEC.len(ax); if (n > 1e-9){ const a = VEC.mul(ax, 1/n), e2 = rot(e, a, dy * 0.008), cosA = VEC.dot(e2, up) / VEC.len(e2); if (Math.abs(cosA) < 0.995) e = e2; } }
+  if (zoom) e = VEC.mul(e, Math.exp(zoom));
+  userCam = {eye: {x: c.center.x + e[0], y: c.center.y + e[1], z: c.center.z + e[2]}, up: c.up, center: c.center}; dirty = true; eye0 = {...userCam.eye}; phi = 0;
+}
+gd.addEventListener('mousedown', e => { if (!playing || e.button !== 0) return; e.stopPropagation(); e.preventDefault(); busy = true; dragAt = [e.clientX, e.clientY]; userCam = liveCam(); }, true);
+window.addEventListener('mousemove', e => { if (!dragAt) return; moveCam(e.clientX - dragAt[0], e.clientY - dragAt[1], 0); dragAt = [e.clientX, e.clientY]; }, true);
+window.addEventListener('mouseup', () => { if (dragAt){ dragAt = null; busy = false; busyUntil = performance.now() + 120; } }, true);
+gd.addEventListener('wheel', e => { busyUntil = performance.now() + 450; if (!playing) return; e.stopPropagation(); e.preventDefault(); moveCam(0, 0, Math.max(-0.5, Math.min(0.5, e.deltaY * 0.0012))); }, {capture: true, passive: false});
 gd.addEventListener('touchstart', () => { busy = true; }, {capture: true, passive: true}); gd.addEventListener('touchend', () => { busy = false; busyUntil = performance.now() + 150; }, true);
 function loop(now){
   if (playing){ if (last !== null && D.duration > 0){ t += (now-last)/1000 * (D.duration/20) * speed; if (t > D.duration){ if (D.repeat) t -= D.duration; else { t = D.duration; playing = false; $('play').textContent = '↻ Replay'; $('play').classList.remove('on'); } } dirty = true; } last = now; } else last = null;
-  const held = busy || now < busyUntil;
-  if (auto && !held) rotateCam();
-  if (dirty && !held){ const wantTrail = now - lastTrail > 80; if (wantTrail) lastTrail = now; render(wantTrail); }
+  if (auto && !interacting()) rotateCam();                                                          // auto-rotate yields to your hand
+  if (dirty){ const wantTrail = now - lastTrail > 80; if (wantTrail) lastTrail = now; render(wantTrail); }
   frames++; if (now - fpsT >= 500){ const fps = Math.round(frames * 1000 / (now - fpsT)); frames = 0; fpsT = now; $('fps').textContent = fps + ' fps'; parent.postMessage({orbitFps: fps}, '*'); }
   requestAnimationFrame(loop);
 }
-$('play').onclick = () => { if (!playing && !D.repeat && t >= D.duration) { t = 0; lastTrail = 0; } playing = !playing; $('play').textContent = playing ? '⏸ Pause' : '▶ Play'; $('play').classList.toggle('on', playing); };
+$('play').onclick = () => { if (!playing && !D.repeat && t >= D.duration) { t = 0; lastTrail = 0; } playing = !playing; if (!playing) userCam = null; $('play').textContent = playing ? '⏸ Pause' : '▶ Play'; $('play').classList.toggle('on', playing); };
 $('speed').oninput = e => { speed = Math.pow(10, parseFloat(e.target.value)); $('spd').textContent = speed.toFixed(speed < 1 ? 2 : 1) + '×'; };
 $('speed').ondblclick = () => { $('speed').value = 0; $('speed').oninput({target: $('speed')}); };
 $('scrub').ondblclick = () => { $('scrub').value = 0; $('scrub').oninput({target: $('scrub')}); };

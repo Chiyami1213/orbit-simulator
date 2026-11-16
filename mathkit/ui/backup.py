@@ -16,7 +16,8 @@ from . import shell
 ALLOWED_FILES = ('settings.json',)
 ALLOWED_DIRS = ('exports/', 'screenshots/')
 MAX_UNCOMPRESSED = 1_500_000_000                  # refuse archives that expand beyond ~1.5 GB (zip bombs)
-APP = 'Orbit Simulator'
+APP = 'OrbSim'
+APP_NAMES = ('OrbSim', 'Orbit Simulator')            # backups made before the rename carry the old name and still restore
 
 
 def backups_dir() -> pathlib.Path:
@@ -33,7 +34,7 @@ def _safe_member(name: str) -> bool:
 
 
 def create_backup(label: str = 'backup') -> pathlib.Path:
-    """Zip settings.json, exports/ and screenshots/ into backups/Orbit Simulator <label> <timestamp>.zip."""
+    """Zip settings.json, exports/ and screenshots/ into backups/OrbSim <label> <timestamp>.zip."""
     home = shell.appdata_dir(); stamp = datetime.datetime.now().strftime('%Y-%m-%d %H-%M-%S')
     out = shell.unique_path(backups_dir(), f'{APP} {label} {stamp}', 'zip'); count = 0
     with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
@@ -62,8 +63,8 @@ def _validate(z: zipfile.ZipFile) -> None:
     try:
         meta = json.loads(z.read('backup.json'))
     except Exception:
-        raise ValueError('this file is not an Orbit Simulator backup (no manifest)')
-    if meta.get('app') != APP: raise ValueError('this file is not an Orbit Simulator backup')
+        raise ValueError('this file is not an OrbSim backup (no manifest)')
+    if meta.get('app') not in APP_NAMES: raise ValueError('this file is not an OrbSim backup')
     total = 0
     for i in z.infolist():
         if i.is_dir(): continue

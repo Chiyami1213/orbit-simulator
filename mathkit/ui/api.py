@@ -324,7 +324,7 @@ def ephem_download(p: dict) -> dict:
         KPROG.update(done=0, total=ephem.DE440S_SIZE, state='running', error='', sha256='')
         dest = ephem.kernel_dir() / 'de440s.bsp'; tmp = dest.with_suffix('.part'); h = hashlib.sha256()
         try:
-            req = urllib.request.Request(ephem.DE440S_URL, headers={'User-Agent': 'OrbitSimulator'})
+            req = urllib.request.Request(ephem.DE440S_URL, headers={'User-Agent': 'OrbSim'})
             with urllib.request.urlopen(req, timeout=60) as r, open(tmp, 'wb') as f:
                 KPROG['total'] = int(r.headers.get('Content-Length') or ephem.DE440S_SIZE)
                 while True:
@@ -383,7 +383,7 @@ def sandbox_new(p: dict) -> dict:
     from ..sandbox import service as SS
     try:
         with LOCK:
-            scene = SS.default_scene(_eph(), p.get('jd')); return dict(ok=True, scene=scene, sim=SS.run(scene, p.get('horizon', '1 year')))
+            scene = SS.default_scene(_eph(), p.get('jd'), p.get('preset'), ConstantSet(p.get('constants', 'Course table'))); return dict(ok=True, scene=scene, sim=SS.run(scene, p.get('horizon', '1 year')))
     except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
 
 
@@ -542,7 +542,7 @@ def open_folder(p: dict) -> dict:
 
 
 def export_save(p: dict) -> dict:
-    """Write an export into the exports folder under %APPDATA%/Orbit Simulator and return its path."""
+    """Write an export into the exports folder under %APPDATA%/OrbSim and return its path."""
     try:
         data, _mime, name = export(int(p['idx']), p['fmt'], p.get('theme', 'light'))
         stem, _, ext = name.rpartition('.'); out = shell.unique_path(shell.folder('exports'), stem, ext); out.write_bytes(data)
@@ -600,11 +600,11 @@ def report_issue(p: dict) -> dict:
     import platform, sys, webbrowser, pathlib
     from urllib.parse import urlencode
     title = (p.get('title') or 'Issue report').strip()[:120]
-    env = [f'- Orbit Simulator: {VERSION}', f'- OS: {platform.platform()}', f"- Packaged build: {bool(getattr(sys, 'frozen', False))}", f"- Graphics (WebGL): {p.get('gpu') or 'unknown'}",
+    env = [f'- OrbSim: {VERSION}', f'- OS: {platform.platform()}', f"- Packaged build: {bool(getattr(sys, 'frozen', False))}", f"- Graphics (WebGL): {p.get('gpu') or 'unknown'}",
            f"- Page: {p.get('page') or ''}", f"- Constants: {p.get('consts') or ''}"]
     body = '## What happened\n' + (p.get('description') or '').strip() + '\n\n## Steps to reproduce\n1. \n\n## Environment\n' + '\n'.join(env) + '\n'
     if p.get('include_log'):
-        log = pathlib.Path(shell.paths()['logs']) / 'orbit-simulator.log'
+        log = pathlib.Path(shell.paths()['logs']) / 'orbsim.log'
         try: tail = '\n'.join(log.read_text(encoding='utf-8', errors='replace').splitlines()[-25:])
         except OSError: tail = '(no log file)'
         body += '\n<details><summary>Log (last lines)</summary>\n\n```\n' + _scrub(tail) + '\n```\n</details>\n'

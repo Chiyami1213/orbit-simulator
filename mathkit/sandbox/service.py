@@ -1,4 +1,4 @@
-"""Explore workspace back end: scenes, edits, simulation and conversion of a scene into a Mission."""
+"""Sandbox workspace back end: scenes, edits, simulation and conversion of a scene into a Mission."""
 from __future__ import annotations
 import numpy as np
 from ..core.constants import ConstantSet, BODIES
@@ -32,12 +32,12 @@ def meta(consts: ConstantSet | None = None) -> dict:
     cat = SM.catalog(consts)
     for c in cat: c['shape'] = shape_of(c['name'], c['kind'])
     markers = [dict(name='Galactic Center', ra=SK.GALACTIC_CENTER[0], dec=SK.GALACTIC_CENTER[1]), dict(name='North Galactic Pole', ra=SK.NORTH_GALACTIC_POLE[0], dec=SK.NORTH_GALACTIC_POLE[1])] + [dict(name=k, ra=r_, dec=d_) for k, (r_, d_) in SK.STARS.items()]
-    return dict(catalog=cat, categories=SM.CATEGORIES, horizons=list(HORIZONS), kinds=['star', 'planet', 'moon', 'small', 'spacecraft', 'custom'], models=models(), markers=markers)
+    return dict(presets=SM.PRESETS, catalog=cat, categories=SM.CATEGORIES, horizons=list(HORIZONS), kinds=['star', 'planet', 'moon', 'small', 'spacecraft', 'custom'], models=models(), markers=markers)
 
 
-def default_scene(eph, jd_utc: float | None = None) -> dict:
+def default_scene(eph, jd_utc: float | None = None, name: str | None = None, consts: ConstantSet | None = None) -> dict:
     jd = jd_utc if jd_utc is not None else TU.calendar_to_jd(2026, 1, 1, 12.0)
-    return SM.solar_system(eph, jd)
+    return SM.preset(name or 'Solar System', eph, jd, consts)
 
 
 def run(scene: dict, horizon: str | tuple = '1 year', accuracy: float = 1e-11) -> dict:
@@ -80,7 +80,7 @@ def to_mission(scene: dict, bid: str, name: str | None = None, consts: ConstantS
     grav = [central] + [o['name'] for o in scene['bodies'] if o['name'] in BODIES and o['name'] != central and o['mu'] > 0 and o['gravity']]
     r = np.array(b['r']) - np.array(par['r']); v = np.array(b['v']) - np.array(par['v'])
     cs = 'EarthMJ2000Eq' if central == 'Earth' else f'{"Luna" if central == "Moon" else central}MJ2000Eq'
-    m = Mission(name=name or f'{b["name"]} from the Explore scene', constants=consts.mode)
+    m = Mission(name=name or f'{b["name"]} from the Sandbox scene', constants=consts.mode)
     if cs != 'EarthMJ2000Eq': m.coords.append(CoordSys(cs, central, 'MJ2000Eq'))
     m.spacecraft = [Spacecraft('Sat', 'UTCGregorian', format_epoch(scene['epoch_jd'], 'UTCGregorian'), cs, 'Cartesian', dict(X=r[0], Y=r[1], Z=r[2], VX=v[0], VY=v[1], VZ=v[2]), color=b.get('color', '#ff6b4a'))]
     m.propagators = [Propagator('Prop', central, 'selected_nbody', grav, 'RungeKutta89')]
@@ -88,5 +88,5 @@ def to_mission(scene: dict, bid: str, name: str | None = None, consts: ConstantS
     el = elements_from_rv(consts.mu(central), r, v)
     stop = f'Sat.ElapsedSecs = {float(el["P"]) if el["e"] < 1 else 86400.0 * 30!r}'
     m.commands = [Command('Propagate', items=[['Prop', ['Sat']]], stops=[stop])]
-    m.notes = [f'built from the Explore scene at {format_epoch(scene["epoch_jd"], "UTCGregorian")}: state of {b["name"]} about {central}']
+    m.notes = [f'built from the Sandbox scene at {format_epoch(scene["epoch_jd"], "UTCGregorian")}: state of {b["name"]} about {central}']
     return m

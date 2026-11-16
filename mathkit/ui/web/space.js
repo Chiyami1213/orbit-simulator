@@ -85,6 +85,7 @@ export function createSpace(host, data, opts = {}) {
   const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 1.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1 };
   const loader = new THREE.TextureLoader(), t0 = data.jd0, t1 = data.jd1, span = Math.max(1e-9, t1 - t0);
   let jd = t0, raf = 0, last = 0, flyTo = null;
+  let ghostGrp = null, ghostMk = null;                                                  // the placement preview of the sandbox (marker, orbit ring, aim arrow)
 
   // ---- sky: a sphere that follows the camera, sampling the galactic map along the ICRF direction
   const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, depthTest: false,
@@ -163,6 +164,7 @@ export function createSpace(host, data, opts = {}) {
   function layout() {
     const cp = camera.position.clone().add(world.position.clone().negate()), tgt = controls.target.clone();
     const tgtD = camera.position.distanceTo(controls.target), unit = tgtD * 0.012, placed = [];
+    if (ghostMk) ghostMk.scale.setScalar(unit * 0.9);
     for (const o of Object.values(bodies)) {
       const p = posOf(o.def.name); o.mesh.position.set(...p); const minS = o.mesh.userData.orient ? 3.5 : (o.def.shape === 'asteroid' || o.def.shape === 'comet' ? 1.1 : 0.6); const r = Math.max(o.def.R * state.exag, unit * minS); o.mesh.scale.setScalar(r);
       if (o.mesh.userData.orient) { const v = this_velOf(o.def.name); const n = Math.hypot(...v); if (n > 0) o.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(v[0] / n, v[1] / n, v[2] / n)); }
@@ -221,6 +223,21 @@ export function createSpace(host, data, opts = {}) {
       if (preview) { world.remove(preview); preview.geometry.dispose(); preview = null; } if (nodeMk) { world.remove(nodeMk); nodeMk = null; }
       if (pts && pts.length > 1) { const g = new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(...p))); preview = new THREE.Line(g, new THREE.LineDashedMaterial({ color: '#ffffff', dashSize: ext * 0.01, gapSize: ext * 0.006 })); preview.computeLineDistances(); world.add(preview); }
       if (node) { nodeMk = new THREE.Mesh(new THREE.OctahedronGeometry(1), new THREE.MeshBasicMaterial({ color: '#ff6161' })); nodeMk.position.set(...node); world.add(nodeMk); }
+    },
+    planePoint(cx, cy, centre, incDeg) {                                              // where the mouse ray meets the plane through a body (tilted by inc about the x axis): the spot a placed object would go
+      const rect = renderer.domElement.getBoundingClientRect(), ndc = new THREE.Vector2(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1);
+      const rc = new THREE.Raycaster(); rc.setFromCamera(ndc, camera); const o = rc.ray.origin.clone().sub(world.position), d = rc.ray.direction, c = posOf(centre), i = (incDeg || 0) * Math.PI / 180;
+      const n = new THREE.Vector3(0, -Math.sin(i), Math.cos(i)), dn = n.dot(d); if (Math.abs(dn) < 1e-6) return null; const t = n.dot(new THREE.Vector3(c[0] - o.x, c[1] - o.y, c[2] - o.z)) / dn; if (t < 0) return null;
+      return [o.x + d.x * t, o.y + d.y * t, o.z + d.z * t];
+    },
+    setGhost(g) {                                                                      // g = { p, color, ring: { c, r, inc }, arrow: [from, to] } or null
+      if (ghostGrp) { world.remove(ghostGrp); ghostGrp.traverse(o => { if (o.geometry) o.geometry.dispose(); }); ghostGrp = null; ghostMk = null; } if (!g) return;
+      ghostGrp = new THREE.Group(); const col = g.color || '#ffffff';
+      ghostMk = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85 })); ghostMk.position.set(...g.p); ghostGrp.add(ghostMk);
+      if (g.ring) { const { c, r, inc } = g.ring, i = (inc || 0) * Math.PI / 180, pts = []; for (let k = 0; k <= 160; k++) { const t = k / 160 * 2 * Math.PI, u = r * Math.cos(t), w = r * Math.sin(t); pts.push(new THREE.Vector3(c[0] + u, c[1] + w * Math.cos(i), c[2] + w * Math.sin(i))); }
+        ghostGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.7 }))); }
+      if (g.arrow) ghostGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(g.arrow.map(q => new THREE.Vector3(...q))), new THREE.LineBasicMaterial({ color: '#ffffff' })));
+      world.add(ghostGrp);
     },
     select(name) { state.selected = name; }, setRate(r) { state.rate = r; }, getCamera() { return { p: camera.position.toArray(), t: controls.target.toArray() }; },
     setCamera(c) { camera.position.fromArray(c.p); controls.target.fromArray(c.t); controls.update(); },

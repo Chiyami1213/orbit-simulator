@@ -22,8 +22,8 @@ pyz = PYZ(a.pure)
 import os
 import sys
 ICON = str(root / 'assets' / 'icons' / ('icon.icns' if sys.platform == 'darwin' else 'icon.ico'))
-exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='OrbitSimulator', console=False, icon=ICON if os.path.exists(ICON) else None)
-coll = COLLECT(exe, a.binaries, a.datas, name='OrbitSimulator')
+exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='OrbSim', console=False, icon=ICON if os.path.exists(ICON) else None)
+coll = COLLECT(exe, a.binaries, a.datas, name='OrbSim')
 if sys.platform == 'darwin':
-    app = BUNDLE(coll, name='Orbit Simulator.app', icon=ICON if os.path.exists(ICON) else None, bundle_identifier='io.github.chiyami1213.orbit-simulator', version='1.0.0',
-                 info_plist={'CFBundleDisplayName': 'Orbit Simulator', 'NSHighResolutionCapable': True, 'LSApplicationCategoryType': 'public.app-category.education'})
+    app = BUNDLE(coll, name='OrbSim.app', icon=ICON if os.path.exists(ICON) else None, bundle_identifier='io.github.chiyami1213.orbit-simulator', version='1.0.0',
+                 info_plist={'CFBundleDisplayName': 'OrbSim', 'NSHighResolutionCapable': True, 'LSApplicationCategoryType': 'public.app-category.education'})

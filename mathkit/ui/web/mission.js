@@ -144,7 +144,7 @@ function sequenceTab() {
   const m = MIS.m;
   return el('div', { class: 'mwrap' }, el('div', { class: 'dim' }, 'commands run top to bottom after BeginMissionSequence. a propagate command stops at the first of its stop conditions. click a step to open it.'),
     el('div', { class: 'btnrow', style: 'margin:0' }, mbtn('Expand All', () => { m.commands.forEach((_, i) => MIS.open.add(i)); renderMission(); }), mbtn('Collapse All', () => { MIS.open.clear(); renderMission(); })),
-    el('div', { class: 'seq' }, el('div', { class: 'sitem start' }, el('div', { class: 'snode small' }, ico('play')), el('div', { class: 'scard slabel' }, 'BeginMissionSequence')), ...m.commands.map(cmdCard), el('div', { class: 'sitem end' }, el('div', { class: 'snode small' }, ico('check2')), el('div', { class: 'scard slabel' }, 'End of the sequence'))),
+    el('div', { class: 'seq' }, el('div', { class: 'sitem start' }, el('div', { class: 'snode small' }, ico('play')), el('div', { class: 'scard seqlabel' }, 'BeginMissionSequence')), ...m.commands.map(cmdCard), el('div', { class: 'sitem end' }, el('div', { class: 'snode small' }, ico('check2')), el('div', { class: 'scard seqlabel' }, 'End of the sequence'))),
     el('div', { class: 'btnrow' }, ...['Propagate', 'Maneuver', 'Report', 'Toggle'].map(k => mbtn('+ ' + k, () => { const c = cmd0(k); if (k === 'Propagate') { c.items = [[m.propagators[0]?.name, [m.spacecraft[0]?.name]]]; c.stops = [`${m.spacecraft[0]?.name}.ElapsedSecs = 3600`]; } m.commands.push(c); misTouch(true); }))));
 }
 

@@ -1,5 +1,5 @@
 'use strict';
-/* Orbit Simulator — front end. All maths runs in Python (mathkit.ui.api); this file only builds forms and shows results.
+/* OrbSim — front end. All maths runs in Python (mathkit.ui.api); this file only builds forms and shows results.
    Text style: headers and labels use APA title case (apa), explanatory text is lower case (lc); both come from textcase.js and are
    applied centrally by restyle(), so any string added later follows the same rules.
    Local data (settings, screenshots, exports, backups) is written by the backend to the per-user app data folder, never by this file. */
@@ -71,7 +71,7 @@ const KEY_INFO = {
   menu: ['Menu Bar', 'hides or shows the whole left menu bar'],
   tour: ['Tutorial', 'starts the guided tour of the window; you can run it again whenever you need it'],
   reset: ['Reset Panels', 'puts every panel back in the default arrangement and brings back closed panels'],
-  focus: ['Maximise Plot', 'hides every panel except the 3d or 2d view; esc leaves. bring panels back with the buttons in the plot header']
+  focus: ['Maximize Plot', 'hides every panel except the 3d or 2d view; esc leaves. bring panels back with the buttons in the plot header']
 };
 const LAY_DEFAULT = { dock: null, navw: 285, subw: 275, panelw: 384, f3d: 0.56, plotsh: 0, fold: false, hidden: false, sub: false, groups: {}, pins: {}, closed: [] };
 const FRAME_PRESETS = [[240, 'Low'], [480, 'Medium'], [1200, 'High'], [3000, 'Ultra']];
@@ -174,7 +174,7 @@ function menuDefs() {
       { label: 'Copy Inputs', dis: !M, run: () => copyText(JSON.stringify(S.canon[S.page], null, 1)) }],
     'View': [
       { label: 'Menu Bar', key: K.menu, check: () => !LAY.hidden, run: ACTIONS.menu },
-      { label: 'Maximise Plot', key: K.focus, dis: !res, run: ACTIONS.focus },
+      { label: 'Maximize Plot', key: K.focus, dis: !res, run: ACTIONS.focus },
       { label: 'Full Screen', key: K.fullscreen, run: ACTIONS.fullscreen },
       { sep: 1 }, { head: 'Panels' }, tile('inputs'), tile('v3d'), tile('v2d'), tile('results'),
       { label: 'Reset Panel Layout', key: K.reset, run: resetPanels },
@@ -183,7 +183,7 @@ function menuDefs() {
       { sep: 1 }, { head: 'Color Theme' },
       ...PALETTES.map(([id, name]) => ({ label: name, check: () => (SET.palette || 'prussian') === id, run: () => setPalette(id) })),
       { sep: 1 }, { label: 'Refresh', key: K.refresh, run: ACTIONS.refresh }],
-    'Go': [{ label: 'Explore (Sandbox)', check: () => S.page === 'explore', run: () => go('explore') }, { label: 'Design (Missions)', check: () => S.page === 'mission', run: () => go('mission') }, { sep: 1 }, { head: 'Solve: Modules' }, ...META.modules.map(m => ({ label: m.short, check: () => S.page === m.id, run: () => go(m.id) })),
+    'Go': [{ label: 'Design (Missions)', check: () => S.page === 'mission', run: () => go('mission') }, { label: 'Sandbox', check: () => S.page === 'explore', run: () => go('explore') }, { sep: 1 }, { head: 'Solve: Modules' }, ...META.modules.map(m => ({ label: m.short, check: () => S.page === m.id, run: () => go(m.id) })),
       { sep: 1 }, { head: 'Solve: Reference' }, ...UTIL.map(([id, name]) => ({ label: name, check: () => S.page === id, run: () => go(id) }))],
     'Help': [
       { label: 'Start Tutorial', key: K.tour, run: () => startTour() },
@@ -215,9 +215,9 @@ function buildMenubar() {
   window.addEventListener('blur', closeMenu);
 }
 
-/* ---------- modes: Solve (the course modules), Explore (sandbox), Design (GMAT-style missions) ---------- */
-const MODES = [['solve', 'Solve', 'compute homework and exam problems with the twelve course modules'], ['explore', 'Explore', 'a live 3d sandbox: add and edit bodies, real Solar System, time warp'],
-  ['design', 'Design', 'plan missions: resources, command sequence, numerical propagation, GMAT script import and export']];
+/* ---------- modes: Solve (the course modules), Design (GMAT-style missions), Sandbox ---------- */
+const MODES = [['solve', 'Solve', 'compute homework and exam problems with the twelve course modules'],
+  ['design', 'Design', 'plan missions: resources, command sequence, numerical propagation, GMAT script import and export'], ['explore', 'Sandbox', 'a live 3d sandbox: add and edit bodies, real Solar System, time warp']];
 const modeOfPage = pg => (META.modules.some(m => m.id === pg) || ['jd', 'const', 'tests'].includes(pg)) ? 'solve' : pg === 'explore' ? 'explore' : pg === 'mission' ? 'design' : S.mode;
 function syncMode() {
   S.mode = modeOfPage(S.page); document.querySelectorAll('#modesw button').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode)); applyLayout();
@@ -230,6 +230,33 @@ function setMode(m) {
 function buildModeSwitch() {
   $('#modesw').replaceChildren(...MODES.map(([id, label, tip]) => el('button', { 'data-mode': id, title: tip, class: id === S.mode ? 'on' : '', onclick: () => setMode(id) }, label)));
 }
+
+/* ---------- the 2D plot: scroll to zoom about the cursor, drag to pan, double-click to reset (Solve and Design) ---------- */
+(() => {
+  const st = new WeakMap(), SEL = '.c2d .svgw', hostOf = e => (e.target && e.target.closest ? e.target.closest(SEL) : null);
+  const get = svg => { let v = st.get(svg); if (!v) { v = { k: 1, x: 0, y: 0 }; st.set(svg, v); } return v; };
+  const apply = (svg, v) => { svg.style.transformOrigin = '0 0'; svg.style.transform = v.k === 1 && !v.x && !v.y ? '' : `translate(${v.x}px,${v.y}px) scale(${v.k})`; svg.style.cursor = v.k > 1 ? 'grab' : ''; };
+  let drag = null;
+  document.addEventListener('wheel', e => {
+    const host = hostOf(e), svg = host && host.querySelector('svg'); if (!svg) return; e.preventDefault();
+    const v = get(svg), r = svg.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, k2 = clamp(v.k * Math.exp(-e.deltaY * 0.0015), 1, 14), f = k2 / v.k;
+    v.x = f * v.x + px * (1 - f); v.y = f * v.y + py * (1 - f); v.k = k2; if (k2 === 1) { v.x = 0; v.y = 0; } apply(svg, v);
+  }, { passive: false });
+  document.addEventListener('pointerdown', e => {
+    const host = hostOf(e), svg = host && host.querySelector('svg'); if (!svg || e.button !== 0) return; const v = get(svg); if (v.k <= 1) return;
+    drag = { svg, v, x0: e.clientX - v.x, y0: e.clientY - v.y }; svg.style.cursor = 'grabbing'; e.preventDefault();
+  });
+  document.addEventListener('pointermove', e => { if (drag) { drag.v.x = e.clientX - drag.x0; drag.v.y = e.clientY - drag.y0; apply(drag.svg, drag.v); } });
+  window.addEventListener('pointerup', () => { if (drag) { apply(drag.svg, drag.v); drag = null; } });
+  document.addEventListener('dblclick', e => { const host = hostOf(e), svg = host && host.querySelector('svg'); if (svg) { const v = get(svg); v.k = 1; v.x = 0; v.y = 0; apply(svg, v); } });
+  document.addEventListener('mouseover', e => { const host = hostOf(e); if (host && !host.title) host.title = 'scroll to zoom, drag to pan, double-click to reset'; });
+})();
+
+/* ---------- every slider: the filled part follows the thumb (the solve sliders set --pct themselves; this covers all the others) ---------- */
+function syncRange(r) { const lo = +r.min || 0, hi = r.max === '' ? 100 : +r.max; r.style.setProperty('--f', clamp((+r.value - lo) / ((hi - lo) || 1), 0, 1)); }
+(() => { const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value'); Object.defineProperty(HTMLInputElement.prototype, 'value', { ...d, set(v) { d.set.call(this, v); if (this.type === 'range') syncRange(this); } }); })();
+document.addEventListener('input', e => { if (e.target && e.target.matches && e.target.matches('input[type=range]')) syncRange(e.target); }, true);
+new MutationObserver(() => document.querySelectorAll('input[type=range]').forEach(syncRange)).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['min', 'max', 'value'] });
 
 /* ---------- every slider: double-click puts it back to its default value ---------- */
 document.addEventListener('dblclick', e => {
@@ -274,7 +301,7 @@ const PALETTES = [['prussian', 'Prussian Blue & Orange', ['#0f1628', '#1c2d56', 
 function syncChrome() {
   const th = effTheme(); document.body.dataset.theme = th; document.body.dataset.palette = SET.palette || 'prussian'; document.documentElement.dataset.boot = th;
   document.querySelectorAll('[data-const]').forEach(b => b.classList.toggle('on', b.dataset.const === SET.const));
-  $('#unitChip').textContent = 'Units: ' + SET.unit + ' · s'; showFps();
+  $('#unitChip').innerHTML = 'Units: ' + String(SET.unit).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/_([A-Za-z0-9]+)/, '<sub>$1</sub>') + ' · s'; showFps();
 }
 function navItem(id, label, iconNode, tip, on) {
   return el('button', { class: 'nv' + ((on ?? S.page === id) ? ' on' : ''), title: tip || label, onclick: () => go(id) }, el('span', { class: 'n' }, iconNode), el('span', { class: 'lbl' }, label));
@@ -286,9 +313,15 @@ function navGroup(key, label, icon, items, ids) {                               
       el('span', { class: 'n' }, ico(icon)), el('span', { class: 'lbl' }, label), el('span', { class: 'chev' }, ico('rc'))),
     el('div', { class: 'nsub' }, ...items));
 }
+let peekTimer = null;
+function initNavPeek() {                                                           // a folded menu opens while the mouse is over it and folds again when the mouse leaves
+  const nav = $('#nav'), app = $('#app');
+  nav.addEventListener('mouseenter', () => { clearTimeout(peekTimer); if (app.classList.contains('fold')) app.classList.add('peek'); });
+  nav.addEventListener('mouseleave', () => { clearTimeout(peekTimer); peekTimer = setTimeout(() => app.classList.remove('peek'), 180); });
+}
 function buildNav() {
   $('#nav').replaceChildren(
-    el('div', { class: 'navtop' }, el('button', { class: 'navtoggle', title: LAY.fold ? 'expand menu' : 'collapse menu', onclick: () => { LAY.fold = !LAY.fold; applyLayout(); buildNav(); saveSet(); } }, ico(LAY.fold ? 'right' : 'left'))),
+    el('div', { class: 'navtop' }, el('button', { class: 'navtoggle', title: LAY.fold ? 'expand menu' : 'collapse menu', onclick: () => { LAY.fold = !LAY.fold; $('#app').classList.remove('peek'); applyLayout(); buildNav(); saveSet(); } }, ico(LAY.fold ? 'right' : 'left'))),
     el('div', { class: 'navlist' },
       navGroup('modules', 'Modules', 'grid', META.modules.map(m => navItem(m.id, m.short, ico(MOD_ICO[m.id]), m.short)), META.modules.map(m => m.id)),
       navGroup('utilities', 'Reference', 'tools', UTIL.map(([id, name, ic]) => navItem(id, name, ico(ic))), UTIL.map(u => u[0]))),
@@ -355,7 +388,7 @@ function fieldEl(m, f, c, fac) {
     const k = f.dist ? factor(m) : 1; const useSlider = f.rng && SET.sliders && f.kind === 'float';
     const num = el('input', { type: 'text', class: 'num', inputmode: 'decimal', value: clean(c[f.key] / k) });
     const rng = useSlider ? el('input', { type: 'range', min: f.rng[0], max: f.rng[1], step: f.rng[2], 'data-default': f.default }) : null;
-    const pct = () => { if (rng) rng.style.setProperty('--pct', clamp(100 * (c[f.key] - f.rng[0]) / (f.rng[1] - f.rng[0]), 0, 100) + '%'); };
+    const pct = () => { if (rng) rng.style.setProperty('--f', clamp((c[f.key] - f.rng[0]) / (f.rng[1] - f.rng[0]), 0, 1)); };
     if (rng) { rng.value = c[f.key]; pct(); rng.oninput = () => { c[f.key] = +rng.value; num.value = clean(rng.value); num.classList.remove('bad'); pct(); changed(m, f, true); }; rng.onchange = () => changed(m, f); }
     num.oninput = () => { const v = Number(num.value.replace(',', '.')); const ok = num.value.trim() !== '' && Number.isFinite(v); num.classList.toggle('bad', !ok); if (ok) { c[f.key] = f.kind === 'int' ? Math.round(v) : v * k; if (rng) { rng.value = c[f.key]; pct(); } changed(m, f); } };
     wrap.append(el('div', { class: 'fld-top' }, el('label', {}, f.label), el('span', { class: 'val' }, num, el('span', { class: 'u' }, unitLabel(f)))), rng || '');
@@ -868,7 +901,7 @@ async function boot() {
   Object.assign(SET, META.settings || {}); Object.assign(LAY, fresh(LAY_DEFAULT), SET.layout || {}); LAY.groups = { ...LAY_DEFAULT.groups, ...(LAY.groups || {}) }; SET.layout = LAY; splash(38, 'preparing the interface');
   document.querySelectorAll('[data-const]').forEach(b => b.onclick = () => setSet({ const: b.dataset.const }));
   $('#unitChip').onclick = () => setSet({ unit: { km: 'R_body', R_body: 'AU', AU: 'km' }[SET.unit] });
-  initSplitters(); syncChrome(); buildNav(); buildMenubar(); buildModeSwitch(); splash(58, 'drawing the first transfer');
+  initSplitters(); syncChrome(); buildNav(); buildMenubar(); buildModeSwitch(); initNavPeek(); splash(58, 'drawing the first transfer');
   await go(META.modules.some(m => m.id === SET.lastPage) ? SET.lastPage : S.page); splash(100, 'ready'); SPLASH.done = true; restyle(); if (!SET.tourDone) setTimeout(() => startTour(), 1800);
 }
 boot();
@@ -893,7 +926,7 @@ function ephemPage() {
 }
 let LIC = null;
 function aboutPage() {
-  const host = el('div', { class: 'sheet' }, setRow('Orbit Simulator', 'version ' + META.version), setRow('Project Page', 'source code, installation notes and the issue tracker', el('span', { class: 'path' }, 'github.com/Chiyami1213/orbit-simulator')),
+  const host = el('div', { class: 'sheet' }, setRow('OrbSim', 'version ' + META.version), setRow('Project Page', 'source code, installation notes and the issue tracker', el('span', { class: 'path' }, 'github.com/Chiyami1213/orbit-simulator')),
     el('div', { class: 'sh2', style: 'margin-top:22px' }, 'Licenses and Credits'),
     el('div', { class: 'dim', style: 'margin-bottom:8px' }, 'this program contains portions derived from nasa gmat (general mission analysis tool), licensed under the apache license 2.0: the runge-kutta coefficient tables of its integrators, translated and modified. it is not affiliated with or endorsed by nasa, and no gmat binaries are included. the jpl ephemeris kernel, if you download it, comes from nasa/jpl naif.'));
   const draw = items => { host.append(...items.map(it => el('details', { class: 'lic' }, el('summary', {}, it.name), el('pre', {}, it.text)))); };

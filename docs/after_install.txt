@@ -1,4 +1,4 @@
-Orbit Simulator is installed.
+OrbSim is installed.
 
 GETTING STARTED
   1. Open the left menu and choose Modules, then pick a module.
@@ -11,12 +11,12 @@ KEYS
 
 YOUR FILES
   Settings, screenshots, exports and logs are saved to
-  %APPDATA%\Orbit Simulator\   and are never uploaded.
+  %APPDATA%\OrbSim\   and are never uploaded.
   Uninstalling keeps this folder, so your settings survive a reinstall.
 
 HELP AND SOURCE CODE
   A help page was installed with the program (see the Start menu entry
-  "Orbit Simulator Help"). The project page, installation notes and issue
+  "OrbSim Help"). The project page, installation notes and issue
   tracker are on GitHub:
 
       https://github.com/Chiyami1213/orbit-simulator

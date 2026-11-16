@@ -28,7 +28,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force release | Out-Null
-          Copy-Item "$env:APPDATA\Orbit Simulator\build\installer\*.exe" release\
+          Copy-Item "$env:APPDATA\OrbSim\build\installer\*.exe" release\
       - uses: actions/upload-artifact@v4
         with: { name: windows-installer, path: release/*.exe }
 
@@ -45,7 +45,7 @@ jobs:
       - name: Collect disk image
         run: |
           mkdir -p release
-          cp "$HOME/Library/Application Support/Orbit Simulator/build/installer/"*.dmg release/
+          cp "$HOME/Library/Application Support/OrbSim/build/installer/"*.dmg release/
       - uses: actions/upload-artifact@v4
         with: { name: macos-dmg, path: release/*.dmg }
 

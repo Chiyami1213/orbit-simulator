@@ -108,7 +108,7 @@ def test_api_routes_round_trip():
 def test_three_modes_are_wired_in_the_front_end():
     web = ROOT / 'mathkit' / 'ui' / 'web'; app = (web / 'app.js').read_text(encoding='utf-8'); html = (web / 'index.html').read_text(encoding='utf-8'); tour = (web / 'tour.js').read_text(encoding='utf-8')
     assert '/explore.js' in html and 'id="modesw"' in html
-    for m in ("['solve', 'Solve'", "['explore', 'Explore'", "['design', 'Design'"): assert m in app
+    for m in ("['solve', 'Solve'", "['explore', 'Sandbox'", "['design', 'Design'"): assert m in app
     assert "navGroup('utilities', 'Reference'" in app and "navItem('mission'" not in app                          # the left menu belongs to Solve only
     assert 'nonav' in app and "renderExplore()" in app and 'Three Modes' in tour
     ex = (web / 'explore.js').read_text(encoding='utf-8')
@@ -134,3 +134,10 @@ def test_coincident_bodies_give_a_clear_error_not_an_index_error(scene):
         assert 'could not take a single step' in str(ex) or 'invalid' in str(ex)                                                                      # ... or a readable message, never IndexError
     out = api.sandbox_edit({'scene': scene, 'jd': scene['epoch_jd'], 'edits': [{'op': 'add', 'item': {'name': 'X', 'kind': 'small', 'mu': 1e-3, 'radius': 1.0, 'real': False, 'orbit': {'a': 1e-3}}, 'parent': 'Earth', 'orbit': {'a': 1e-3}}], 'horizon': '30 days'})
     assert out['ok'] or 'IndexError' not in out['error']
+
+
+def test_placement_state_is_used_exactly(scene):
+    it = next(i for i in SM.catalog() if i['name'] == 'Probe')
+    sc = SM.apply_edits(scene, [dict(op='add', item=it, parent='Earth', orbit={}, place=dict(r=[1.0, 2.0, 3.0], v=[0.1, 0.2, 0.3]))], EPH)
+    b = next(x for x in sc['bodies'] if x['name'] == 'Probe')
+    assert b['r'] == [1.0, 2.0, 3.0] and b['v'] == [0.1, 0.2, 0.3]

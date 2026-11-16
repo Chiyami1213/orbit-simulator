@@ -1,11 +1,11 @@
-"""Orbit Simulator launcher.
+"""OrbSim launcher.
 
     python run.py                 open the app in its own window
     python run.py --browser       open it in the default browser instead
     python run.py --serve-only    just serve on localhost (used for testing); add --port N to choose the port
 
 Everything the program writes locally (settings, screenshots, exports, caches, logs, the WebView2 profile) goes to
-%APPDATA%\\Orbit Simulator\\ — never into the program folder.
+%APPDATA%\\OrbSim\\ — never into the program folder.
 """
 import logging
 import os
@@ -20,11 +20,11 @@ for sub in ('cache', 'logs', 'webview', 'screenshots', 'exports'):
     (HOME / sub).mkdir(parents=True, exist_ok=True)
 sys.pycache_prefix = str(HOME / 'cache' / 'pycache')                          # no __pycache__ folders next to the sources
 os.environ.setdefault('MPLCONFIGDIR', str(HOME / 'cache' / 'matplotlib'))   # must be set before matplotlib is imported
-logging.basicConfig(filename=str(HOME / 'logs' / 'orbit-simulator.log'), level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', encoding='utf-8')
+logging.basicConfig(filename=str(HOME / 'logs' / 'orbsim.log'), level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', encoding='utf-8')
 
 from mathkit.ui import server                      # noqa: E402  (imports matplotlib, so it must come after the settings above)
 
-TITLE = 'Orbit Simulator'
+TITLE = 'OrbSim'
 WEBVIEW2_GUID = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
 
 

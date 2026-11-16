@@ -1,13 +1,13 @@
 """Desktop-shell helpers and local storage.
 
 Rule: clean program files live in the repository (and are pushed); everything the program writes on a user's machine goes to the per-user
-application-data folder and is never committed (Windows ``%APPDATA%\\Orbit Simulator``, macOS ``~/Library/Application Support/Orbit Simulator``,
-Linux ``~/.local/share/Orbit Simulator``):
+application-data folder and is never committed (Windows ``%APPDATA%\\OrbSim``, macOS ``~/Library/Application Support/OrbSim``,
+Linux ``~/.local/share/OrbSim``):
 
     settings.json   user settings            screenshots\\   F2 window captures      exports\\   saved figures (png/pdf/html)
     cache\\          matplotlib / bytecode    webview\\       WebView2 profile        logs\\      error log
 
-Set ``ORBIT_SIMULATOR_HOME`` to relocate everything (the test-suite points it at a temporary folder).
+Set ``ORBSIM_HOME`` to relocate everything (the test-suite points it at a temporary folder).
 """
 from __future__ import annotations
 import datetime
@@ -16,18 +16,23 @@ import os
 import pathlib
 import sys
 
-APP_NAME = 'Orbit Simulator'
+APP_NAME = 'OrbSim'
+LEGACY_NAME = 'Orbit Simulator'                                   # the folder used before the program was renamed; it is moved to APP_NAME on first start
 WINDOW = None            # the pywebview window, set by run.py when the app runs in its own window
 _FULLSCREEN = False
 
 
 def appdata_dir() -> pathlib.Path:
-    override = os.environ.get('ORBIT_SIMULATOR_HOME')
+    override = os.environ.get('ORBSIM_HOME') or os.environ.get('ORBIT_SIMULATOR_HOME')
     if override: return pathlib.Path(override)
     if sys.platform == 'darwin': base = pathlib.Path.home() / 'Library' / 'Application Support'
     elif sys.platform == 'win32': base = pathlib.Path(os.environ.get('APPDATA') or pathlib.Path.home() / 'AppData' / 'Roaming')
     else: base = pathlib.Path(os.environ.get('XDG_DATA_HOME') or pathlib.Path.home() / '.local' / 'share')
-    return base / APP_NAME
+    new, old = base / APP_NAME, base / LEGACY_NAME
+    if not new.exists() and old.exists():
+        try: old.rename(new)
+        except OSError: return old                                    # in use by another process: keep working in the old folder, try again next start
+    return new
 
 
 def folder(name: str) -> pathlib.Path:
@@ -115,9 +120,9 @@ def _capture_mac() -> pathlib.Path:
     import subprocess
     from webview.platforms.cocoa import BrowserView
     number = BrowserView.instances[WINDOW.uid].window.windowNumber()
-    out = unique_path(folder('screenshots'), 'Orbit Simulator ' + datetime.datetime.now().strftime('%Y-%m-%d %H-%M-%S'), 'png')
+    out = unique_path(folder('screenshots'), 'OrbSim ' + datetime.datetime.now().strftime('%Y-%m-%d %H-%M-%S'), 'png')
     subprocess.run(['screencapture', '-x', '-o', f'-l{number}', str(out)], check=True)
-    if not out.exists() or out.stat().st_size == 0: raise RuntimeError('screencapture produced no image (allow Screen Recording for Orbit Simulator in System Settings)')
+    if not out.exists() or out.stat().st_size == 0: raise RuntimeError('screencapture produced no image (allow Screen Recording for OrbSim in System Settings)')
     return out
 
 
@@ -131,7 +136,7 @@ def capture_window() -> pathlib.Path:
     img, box = _grab(hwnd)
     if img.getextrema() == ((0, 0), (0, 0), (0, 0)):                  # nothing rendered: fall back to a region grab of our own window
         from PIL import ImageGrab; img = ImageGrab.grab(bbox=box, all_screens=True)
-    out = unique_path(folder('screenshots'), 'Orbit Simulator ' + datetime.datetime.now().strftime('%Y-%m-%d %H-%M-%S'), 'png')
+    out = unique_path(folder('screenshots'), 'OrbSim ' + datetime.datetime.now().strftime('%Y-%m-%d %H-%M-%S'), 'png')
     img.save(out); return out
 
 
