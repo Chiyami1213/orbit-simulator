@@ -5,7 +5,7 @@ and an interactive 3-D animation, and checks itself against hundreds of publishe
 
 ![3D and 2D views of a Lambert transfer](docs/screenshot-3d-2d.png)
 
-> **Status:** version 1.0.0, **not yet released**. Running from source is tested on Windows 11. The installers have **not been rebuilt for this version**: the Windows wizard has not been run end-to-end, and the macOS packaging has **not been tested on a Mac**.
+> **Version 1.0.0.** Installers are not published yet; they will appear on the [Releases](https://github.com/Chiyami1213/orbit-simulator/releases) page.
 
 ## What it does
 
@@ -41,7 +41,7 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 
 ### Windows 10 / 11 (installer)
 
-1. Download `OrbitSimulator-Setup-<version>.exe` from the [Releases](https://github.com/Chiyami1213/orbit-simulator/releases) page *(no release is published yet; until then build it yourself, see below)*.
+1. Download `OrbitSimulator-Setup-<version>.exe` from the [Releases](https://github.com/Chiyami1213/orbit-simulator/releases) page.
 2. Run it. The wizard lets you **choose the install folder**, and choose a **Start Menu shortcut** and/or a **desktop shortcut**. It can also open the help page and this project page when it finishes.
 3. Windows 10 only: if the app opens in your browser instead of its own window, install the free [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/). Windows 11 already includes it.
 
@@ -54,18 +54,6 @@ The installer is per-user by default (no administrator rights needed) and can be
    `xattr -dr com.apple.quarantine "/Applications/Orbit Simulator.app"` once.
 3. F-keys: on a Mac the function keys may need the `fn` key; every key can be changed in *Settings → Key Bindings*.
 4. Screenshots (`F2`) need *Screen Recording* permission for the app the first time (System Settings → Privacy & Security).
-
-### From source (any platform)
-
-```bash
-git clone https://github.com/Chiyami1213/orbit-simulator.git
-cd orbit-simulator
-pip install -r requirements.txt
-python run.py              # own window (Edge WebView2 on Windows, WebKit on macOS)
-python run.py --browser    # or in your default browser
-```
-
-Python 3.10 or newer (developed on 3.12).
 
 ## System requirements
 
@@ -115,50 +103,13 @@ and *Settings → Local Files* opens the folders. Uninstalling keeps this folder
 
 *Settings → Help and Feedback → Report an Issue* opens a pre-filled GitHub issue (version, OS, graphics card, last log lines with your user name removed). You review it and press submit yourself; nothing is sent automatically.
 
-## Building the installers
-
-Build output is written to your application-data folder (`…/Orbit Simulator/build`), never into the repository.
-
-```powershell
-# Windows  (needs Python, and Inno Setup 6 for the wizard: winget install JRSoftware.InnoSetup)
-powershell -ExecutionPolicy Bypass -File packaging\build.ps1
-```
-```bash
-# macOS  (must be run on a Mac)
-bash packaging/build_mac.sh
-```
-
-`.github/workflows/build.yml` builds both on real Windows and macOS runners. It runs **only** when started by hand or when you push a version tag such as `v1.0.0`; a tag push also publishes the two files as a GitHub release.
-
-## For developers
-
-```text
-mathkit/core/       verified math (ported from the reference implementation without formula changes)
-mathkit/modules/    the 12 problem modules;  mathkit/registry.py maps form fields to them
-mathkit/presets/    every homework / exam problem with printed answers (also the Test Cases page)
-mathkit/plots2d/    matplotlib figures;      mathkit/view3d/  Plotly 3-D scenes, animation page, textures, satellite models
-mathkit/ui/         local JSON API + server, LaTeX converter, code export, backup, the HTML/CSS/JS front end (ui/web/)
-mathkit/assets/     planet textures
-packaging/          PyInstaller spec, Inno Setup wizard, macOS build script, installer artwork
-docs/               help page, installer text, screenshots, briefing for AI assistants
-tests/              pytest
-```
-
-```bash
-pip install -r requirements-dev.txt
-python -m pytest                      # core + presets + figures + API + export + backup + text-case rules
-python -m pytest tests/test_hw.py tests/test_presets.py   # the fast math checks (~1 s)
-```
-
-The tests never touch your real data folder (they use a temporary one). Architecture note: the front end is plain HTML/CSS/JS served by a tiny local server bound to `127.0.0.1`, shown in a native window by `pywebview`; all math runs in Python.
-
 ## Known limitations
 
 * Two-body / patched-conic analytics only: no numerical propagation, no perturbations (except the N-body acceleration module), no ephemerides (planets on circular orbits of mean radius).
 * Lambert: zero full revolutions in the interface. Gravity assists and patched conics are planar.
 * Formulas and equations shown in the *results tables* of the app window still use Unicode symbols; LaTeX typesetting is applied to figures and exported files.
 * 3-D labels use real sub/superscripts but not full LaTeX (WebGL text cannot typeset it).
-* The macOS packaging is untested; the app is unsigned and not notarised.
+* On macOS the app is unsigned and not notarised (see the installation steps above).
 
 ## Credits and licence
 
