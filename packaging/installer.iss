@@ -1,11 +1,11 @@
-; Inno Setup script  ->  <BuildRoot>\installer\OrbSim-Setup-<version>.exe   (Windows installer; macOS uses packaging/build_mac.sh)
-; build.ps1 passes /DBuildRoot=<folder> (default: %APPDATA%\OrbSim\build, so build output stays out of the repository).
+; Inno Setup script  ->  <BuildRoot>\OrbSim-Setup-<version>.exe   (Windows installer; macOS uses packaging/build_mac.sh)
+; build.ps1 passes /DBuildRoot=<folder> (the project's release folder, which is git-ignored).
 #define MyAppName "OrbSim"
 #define MyAppVersion "1.0.0"
 #define MyAppExe "OrbSim.exe"
 #define MyAppUrl "https://github.com/Chiyami1213/orbit-simulator"
 #ifndef BuildRoot
-  #define BuildRoot "..\build_out"
+  #define BuildRoot "..\release"
 #endif
 
 [Setup]
@@ -21,7 +21,7 @@ UsePreviousAppDir=yes
 DisableReadyPage=no
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-OutputDir={#BuildRoot}\installer
+OutputDir={#BuildRoot}
 OutputBaseFilename=OrbSim-Setup-{#MyAppVersion}
 SetupIconFile=..\assets\icons\icon.ico
 UninstallDisplayIcon={app}\{#MyAppExe}
@@ -46,7 +46,7 @@ Name: "startmenuicon"; Description: "Create a &Start Menu shortcut (with the hel
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
 
 [Files]
-Source: "{#BuildRoot}\dist\OrbSim\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#BuildRoot}\OrbSim\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "..\docs\help.html"; DestDir: "{app}\help"; Flags: ignoreversion
 
 [INI]

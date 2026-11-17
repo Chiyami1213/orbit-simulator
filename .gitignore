@@ -16,3 +16,4 @@ assets/installer/
 !assets/reference/**/*.png
 *.whl
 *.exr
+/release/
