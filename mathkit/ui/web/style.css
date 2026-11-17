@@ -469,3 +469,51 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-we
 .dock2 [data-dt=tables]>.tbody>.sheet{background:transparent;border:0;border-radius:0;box-shadow:none;margin:0;padding:4px 22px 18px}
 .dock2 [data-dt=tables]>.tbody>.sheet+.sheet{border-top:1px solid var(--line);padding-top:14px}
 .dock2 [data-dt=tables]>.tbody>:not(.sheet){margin-left:22px;margin-right:22px}
+
+/* ----- Design tables panel: the title bar carries the panel name next to the grip, like every other panel ----- */
+.dock2 [data-dt=tables]>.tbody::before{content:"Tables and Exports";display:flex;align-items:center;height:42px;min-height:42px;padding:0 40px 0 38px;font-weight:700;font-size:14.5px;color:var(--text)}
+.dock2 [data-dt=tables]>.tbody>.sheet:first-of-type{padding-top:0}
+
+/* ----- Design: the mission controls, the tabs and Run Mission share one row ----- */
+.mrow1{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.mrow1>.mname{width:200px;min-width:0}.mrow1>.preset{width:190px;min-width:0}
+.mrow1>.mname,.mrow1>.preset,.mrow1>.btn,.mrow1>.seg,.mrow1>.msolve{height:44px;box-sizing:border-box;margin:0}
+.mrow1>.seg button{height:100%}
+.mrow1>.tabs{margin:0;flex:1 1 auto;justify-content:center;flex-wrap:wrap;gap:2px;min-width:0}
+.mrow1>.tabs .tab{padding:0 12px;height:44px;font-size:15px;white-space:nowrap;display:inline-flex;align-items:center}
+.mrow1>.meph{color:var(--muted);font-size:13px;white-space:nowrap;border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:help}
+.mrow1>.msolve{padding:0 22px;white-space:nowrap}
+
+/* ----- the space views follow the light theme when the background is "Theme Color" (the Milky Way and the star map stay dark) ----- */
+.spacehost.lightbg .slabel{color:#16203a!important;text-shadow:0 0 3px #fff,0 0 2px #fff}
+/* the Sandbox bottom bar is light on the dark scene in every appearance mode; on the light Theme Color background it gets a dark translucent backing so it stays readable */
+.xbottom,.xbottom button.xdate,.xbottom .xdate,.xbottom .xtool,.xbottom .xplay{color:#e8eeff}.xbottom .xrate{color:#c9d6f5}
+.xbottom .xtool svg,.xbottom .xplay svg{stroke:currentColor}
+.xp:has(.spacehost.lightbg) .xbottom{background:rgba(12,18,36,.72);backdrop-filter:blur(6px);border-radius:14px 14px 0 0}
+
+/* =====================================================================================================================================================
+   UNIVERSAL PANEL HEADER (Solve, Design and Sandbox): one height, one font, one grip / trash position, never wrapping. Everything above that styles a panel
+   header (per panel, per mode) is overridden here; change the variables to change every panel at once.
+   ===================================================================================================================================================== */
+:root{--phh:44px;--phx:12px;--phfs:14.5px}
+.tile>.grip{top:calc((var(--phh) - 22px) / 2)!important;left:var(--phx)!important;width:22px!important;height:22px!important}
+.tile>.trash{top:calc((var(--phh) - 24px) / 2)!important;right:var(--phx)!important;width:24px!important;height:24px!important}
+.tile .cardx>h3,.tilehead,#tile-inputs #panel h2,.dock2 [data-dt=tables]>.tbody::before{
+  box-sizing:border-box!important;display:flex!important;align-items:center!important;gap:8px!important;height:var(--phh)!important;min-height:var(--phh)!important;
+  padding:0 calc(var(--phx) + 24px + 8px) 0 calc(var(--phx) + 22px + 8px)!important;font-size:var(--phfs)!important;font-weight:700!important;line-height:1.2!important;
+  white-space:nowrap!important;overflow:hidden!important;flex:none}
+.tile .cardx>h3{margin:0!important}
+.tile .cardx>h3>b{flex:none;font-weight:700}
+.tile .cardx>h3>.hint{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:400;font-size:var(--phfs)}
+.tile .cardx>h3>.fbtns{flex:none;margin-left:auto;flex-wrap:nowrap}
+.tile .cardx>h3 .fbtns button{height:28px;padding:0 10px;white-space:nowrap}
+#tile-inputs #panel h2{margin:0 -18px 6px!important}
+.tilehead{margin:0 -10px!important}
+/* the Sandbox side panels use the same header height and title size */
+.xhead{box-sizing:border-box;min-height:var(--phh);padding:0 var(--phx) 0 16px!important;font-size:var(--phfs)!important}.xhead b{font-weight:700}
+
+/* ----- number inputs: the native up / down arrows follow the theme (a dark box with light arrows, not a white one) ----- */
+input[type=number]{color-scheme:dark}
+body[data-theme=light] input[type=number]{color-scheme:light}
+input[type=number]::-webkit-inner-spin-button{opacity:0;background:transparent}
+input[type=number]:hover::-webkit-inner-spin-button,input[type=number]:focus::-webkit-inner-spin-button{opacity:.9}

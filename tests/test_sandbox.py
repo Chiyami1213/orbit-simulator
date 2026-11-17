@@ -214,3 +214,9 @@ def test_body_rotation_can_be_edited_and_reaches_the_views(scene):
     assert 'spinBody' in (ROOT / 'mathkit' / 'ui' / 'web' / 'space.js').read_text(encoding='utf-8')
     from mathkit.mission import service as MS
     assert 'spin_for(n)' in (ROOT / 'mathkit' / 'mission' / 'service.py').read_text(encoding='utf-8')
+
+
+def test_no_leftover_exam_rounded_code_in_the_front_end():
+    web = ROOT / 'mathkit' / 'ui' / 'web'
+    for f in ('app.js', 'mission.js', 'explore.js', 'index.html'):
+        t = (web / f).read_text(encoding='utf-8'); assert 'Exam rounded' not in t and 'moonR' not in t and "ex ? 'exam value'" not in t, f

@@ -8,7 +8,8 @@ from ..mission.model import Mission, Spacecraft, Propagator, OrbitView, Command,
 from ..mission.params import format_epoch
 from . import model as SM, sim
 
-HORIZONS = {'30 days': (15, 15), '1 year': (183, 183), '5 years': (913, 913), '25 years': (4566, 4566), '100 years': (18262, 18262)}
+# (days into the past, days into the future): the length chosen is how far the simulation runs forward (a fifth of it is also run backwards, so time can be reversed)
+HORIZONS = {'30 days': (6, 30), '1 year': (73, 365), '5 years': (365, 1826), '25 years': (1826, 9131), '100 years': (7305, 36525)}
 
 
 def models() -> dict:
@@ -47,9 +48,10 @@ def default_scene(eph, jd_utc: float | None = None, name: str | None = None, con
 
 def run(scene: dict, horizon: str | tuple = '1 year', accuracy: float = 1e-11) -> dict:
     back, fwd = HORIZONS[horizon] if isinstance(horizon, str) else horizon
-    cap = max(5.0, sim.fastest_period_days(scene) * 80.0); limited = None                      # a spacecraft in low orbit would need millions of steps over years
+    T = sim.fastest_period_days(scene)                                                          # a spacecraft in low orbit (period of hours) would need millions of steps, so it limits the length
+    cap = max(5.0, T * (80.0 if T < 2.0 else 1600.0)); limited = None
     if fwd > cap or back > cap: back, fwd = min(back, cap), min(fwd, cap); limited = round(cap, 1)
-    r = sim.simulate(scene, back, fwd, accuracy)
+    span = back + fwd; r = sim.simulate(scene, back, fwd, accuracy if span <= 8000 else max(accuracy, 1e-10), max_samples=int(min(20000, max(6000, span / 1.2))))
     bodies = []
     for b in scene['bodies']:
         d = dict(id=b['id'], name=b['name'], kind=b['kind'], shape=b.get('shape') or shape_of(b['name'], b['kind']), mu=b['mu'], radius=b['radius'], color=b['color'], texture=b.get('texture'), clouds=b.get('clouds'), night=b.get('night'), texmode=b.get('texmode'), texkey=b.get('texkey'), spin=b.get('spin'), gravity=b.get('gravity', True), visible=b.get('visible', True),

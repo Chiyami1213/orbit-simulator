@@ -34,6 +34,7 @@ PALETTES = {
     'prussian': {},
     'forest': dict(surface='#152a21', page='#0e1a15', grid='#234235', axis='#2f5a47', body='#2f7a58'),
     'graphite': dict(surface='#202126', page='#151618', grid='#34363d', axis='#4a4e5a', body='#4a6fa5'),
+    'obsidian': dict(surface='#1a1a1b', page='#0a0a0a', grid='#2b2b2d', axis='#4a4a4d', body='#5a5a60'),
     'plum': dict(surface='#251a3b', page='#1a1226', grid='#3a2c58', axis='#4d3a78', body='#6a4fb8'),
 }
 

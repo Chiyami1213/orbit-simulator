@@ -89,7 +89,7 @@ const saveSet = debounce(() => { SET.layout = LAY; api('settings_set', { setting
 const keys = () => ({ ...KEYS_DEFAULT, ...(SET.keys || {}) });
 const dark = matchMedia('(prefers-color-scheme: dark)');
 const effTheme = () => SET.appearance === 'device' ? (dark.matches ? 'dark' : 'light') : (SET.appearance === 'light' ? 'light' : 'dark');
-dark.addEventListener('change', () => { if (SET.appearance === 'device') { syncChrome(); S.cache.clear(); if (isMod()) solveNow(); } });
+dark.addEventListener('change', () => { if (SET.appearance === 'device') { syncChrome(); retheme3d(); S.cache.clear(); if (isMod()) solveNow(); } });
 const solveOpts = () => ({ convention: S.conv || SET.convention || 'course', body: SET.bodyNotation, frames: SET.frames, textures: SET.textures, model: SET.model, fps: SET.fps, palette: SET.palette, repeat: SET.repeat !== false });
 
 /* ---------- text style (headers: APA title case, explanations: lower case) ---------- */
@@ -152,8 +152,9 @@ new ResizeObserver(() => { const p = $('.plots'), m = $('#main'); if (p && m) p.
 /* ---------- menu bar (file / edit / view / go / help) ---------- */
 const goto = (page, tab) => { if (tab) S.setTab = tab; if (page === 'settings' && S.page !== 'settings') S.prev = S.page; go(page); };
 const copyText = async txt => { try { await navigator.clipboard.writeText(txt); toast('copied to the clipboard', 'ok'); } catch (e) { toast('could not copy: ' + e, 'err'); } };
-const setPalette = id => { SET.palette = id; saveSet(); syncChrome(); S.cache.clear(); S.last = {}; if (S.page === 'settings') renderUtil(); else if (isMod()) solveNow(); };
-const setAppearance = v => { SET.appearance = v; saveSet(); syncChrome(); S.cache.clear(); S.last = {}; if (S.page === 'settings') renderUtil(); else if (isMod()) solveNow(); };
+const setPalette = id => { SET.palette = id; saveSet(); syncChrome(); retheme3d(); S.cache.clear(); S.last = {}; if (S.page === 'settings') renderUtil(); else if (isMod()) solveNow(); };
+const retheme3d = () => { try { const t = effTheme(); if (typeof EX !== 'undefined' && EX.space) EX.space.setTheme(t); if (typeof MIS !== 'undefined' && MIS.space) MIS.space.setTheme(t); } catch (e) { } };
+const setAppearance = v => { SET.appearance = v; saveSet(); syncChrome(); retheme3d(); S.cache.clear(); S.last = {}; if (S.page === 'settings') renderUtil(); else if (isMod()) solveNow(); };
 function menuDefs() {
   const K = keys(), res = S.res && !S.res.error ? S.res : null, M = isMod(), tile = id => ({ label: TILE_NAME[id], check: () => !isClosed(id), run: () => (isClosed(id) ? openTile(id) : closeTile(id)), dis: !M });
   return {
@@ -296,7 +297,7 @@ function gpuInfo() {
 }
 
 /* ---------- chrome and navigation ---------- */
-const PALETTES = [['prussian', 'Prussian Blue & Orange', ['#0f1628', '#1c2d56', '#ff6b4a']], ['forest', 'Forest Green & Amber', ['#0e1a15', '#1d4a38', '#f5b73b']], ['graphite', 'Graphite & Teal', ['#151618', '#33363f', '#2ec4b6']], ['plum', 'Plum & Coral', ['#1a1226', '#3b2a63', '#ff5d73']]];
+const PALETTES = [['prussian', 'Prussian Blue & Orange', ['#0f1628', '#1c2d56', '#ff6b4a']], ['forest', 'Forest Green & Amber', ['#0e1a15', '#1d4a38', '#f5b73b']], ['graphite', 'Graphite & Teal', ['#151618', '#33363f', '#2ec4b6']], ['plum', 'Plum & Coral', ['#1a1226', '#3b2a63', '#ff5d73']], ['obsidian', 'Obsidian & White', ['#0a0a0a', '#2a2a2c', '#dcdcdc']]];
 function syncChrome() {
   const th = effTheme(); document.body.dataset.theme = th; document.body.dataset.palette = SET.palette || 'prussian'; document.documentElement.dataset.boot = th;
   $('#unitChip').innerHTML = 'Units: ' + String(SET.unit).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/_([A-Za-z0-9]+)/, '<sub>$1</sub>') + ' · s'; showFps();
@@ -712,9 +713,9 @@ function renderUtil() {
 function constPage(main) {
   const rows = Object.entries(META.bodies).map(([n, b]) => {
     const mu = b.mu, R = b.R;
-    return [n, el('span', { class: 'bsym' }, (BODY_SYM[n] || '') + '︎'), mu.toLocaleString('en-US', { maximumFractionDigits: 6 }), R.toLocaleString('en-US'), b.a ? b.a.toLocaleString('en-US') : '—', b.e != null ? String(b.e) : '—', ex ? 'exam value' : ''];
+    return [n, el('span', { class: 'bsym' }, (BODY_SYM[n] || '') + '︎'), mu.toLocaleString('en-US', { maximumFractionDigits: 6 }), R.toLocaleString('en-US'), b.a ? b.a.toLocaleString('en-US') : '—', b.e != null ? String(b.e) : '—'];
   });
-  main.append(el('div', { class: 'sheet' }, el('h3', {}, `Body Constants — ${SET.const}`), table(['Body', 'Symbol', 'μ (km³·s⁻²)', 'R (km)', 'a (km)', 'e', ''], rows),
+  main.append(el('div', { class: 'sheet' }, el('h3', {}, 'Body Constants — JPL / GMAT 2020a'), table(['Body', 'Symbol', 'μ (km³·s⁻²)', 'R (km)', 'a (km)', 'e'], rows),
     el('div', { class: 'dim', style: 'margin-top:10px' }, `1 au = ${META.AU.toLocaleString('en-US')} km (reproduces the hw4 numbers). the table lists earth’s a = 149 597 898 km: use that for “earth’s orbit radius”. julian year = 365.25 d, hw4 months = 30 d, jd day = 86 400 s.`)));
 }
 function jdPage(main) {

@@ -63,6 +63,19 @@ function calPop(anchor) {
   draw();
 }
 
+/* ---- object search: the way to select (and fly to) something that is already in the scene; the Add library only adds new things ---- */
+function objectSearch(anchor) {
+  if (EX.pop === 'objects') { closePop(); return; } closePop(); EX.pop = 'objects'; if (!EX.scene) return;
+  const r = anchor.getBoundingClientRect(), list = el('div', { class: 'xobjlist' }), q = el('input', { type: 'text', placeholder: 'search the scene', class: 'wide', oninput: () => fill() });
+  const pick = b => { closePop(); EX.sel = b.id; EX.space.select(b.id); EX.space.focus(b.id); EX.panelOpen = true; exPanel(); };
+  function fill() {
+    const f = q.value.trim().toLowerCase(), rows = EX.scene.bodies.filter(b => !f || b.name.toLowerCase().includes(f) || (KIND_NAME[b.kind] || b.kind).toLowerCase().includes(f));
+    list.replaceChildren(...(rows.length ? rows.map(b => el('button', { class: 'xobj' + (b.id === EX.sel ? ' on' : ''), onclick: () => pick(b) }, el('span', { class: 'xdot', style: `background:${b.color || '#8aa0c8'}` }), el('b', {}, b.name), el('span', {}, KIND_NAME[b.kind] || b.kind))) : [el('div', { class: 'dim', style: 'padding:10px' }, 'nothing matches')]));
+  }
+  const d = el('div', { class: 'xpop objpop', style: `right:${Math.max(8, innerWidth - r.right)}px;bottom:${innerHeight - r.top + 10}px;left:auto` }, el('div', { class: 'xpt' }, 'Objects in the Scene'), q, list);
+  document.body.append(d); fill(); q.focus();
+}
+
 /* ---- popovers (view / more / actions) ---- */
 function closePop() { document.querySelectorAll('.xpop').forEach(e => e.remove()); EX.pop = null; }
 function openPop(name, anchor, ...kids) {
@@ -90,7 +103,7 @@ async function exEdit(edits, selectAfter) {
   const jd = EX.space ? EX.space.jd : EX.scene.epoch_jd; const r = await api('sandbox_edit', { scene: EX.scene, jd, edits, horizon: EX.horizon, constants: SET.const }); EX.busy = false; exBusy(false);
   if (!r.ok) { toast(r.error, 'err'); return false; }
   EX.undo.push(EX.scene); if (EX.undo.length > 30) EX.undo.shift(); EX.redo = []; EX.scene = r.scene; EX.sim = r.sim;
-  if (r.sim.limited_days) toast(`a fast orbit is in the scene, so the simulation covers ±${r.sim.limited_days} days (the longer lengths would take far too many steps)`, 'ok');
+  if (r.sim.limited_days) toast(`a fast orbit is in the scene, so the simulation covers at most ${r.sim.limited_days} days ahead (a longer run would take far too many steps)`, 'ok');
   if (selectAfter) { const ids = r.scene.bodies.map(b => b.id); EX.sel = selectAfter === 'last' ? ids[ids.length - 1] : (ids.includes(EX.sel) ? EX.sel : null); } else if (EX.sel && !r.scene.bodies.some(b => b.id === EX.sel)) EX.sel = null;
   await exBuild(true); return true;
 }
@@ -110,7 +123,7 @@ async function exBuild(keepCam) {
   let ext = 1; for (const b of bodies) if (b.path) for (let i = 0; i < b.path.r.length; i += 7) ext = Math.max(ext, Math.abs(b.path.r[i][0]), Math.abs(b.path.r[i][1]), Math.abs(b.path.r[i][2]));
   const heavy = EX.sim.bodies.slice().sort((a, b) => b.mu - a.mu)[0];
   const data = { center: heavy ? heavy.id : 'Sun', jd0: EX.sim.jd0, jd1: EX.sim.jd1, bodies, tracks: [], extent: ext, events: [], lagrange: [], refs: [], markers: EX.meta.markers || [], models: EX.meta.models };
-  let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(inner, data, { sky: EX.sky, hires: texHires() }); } catch (e) { inner.replaceChildren(el('div', { class: 'empty' }, 'the sandbox needs WebGL: ' + e)); return; }
+  let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(inner, data, { sky: EX.sky, hires: texHires(), theme: effTheme(), osc: true }); } catch (e) { inner.replaceChildren(el('div', { class: 'empty' }, 'the sandbox needs WebGL: ' + e)); return; }
   if (EX.sim.status && EX.sim.status !== 'done') toast('the simulation stopped early (a very close encounter or too violent a change); everything up to that moment is shown. undo or move the bodies apart.', 'err');
   EX.space = S3; Object.assign(S3.state, EX.view, { bright: EX.bright, exag: EX.exag, focus: heavy ? heavy.id : 'Sun' }); S3.setJD(EX.scene.epoch_jd); S3.setRate(10 ** EX.rateExp); S3.play(EX.playing); S3.select(EX.sel);
   if (cam) S3.setCamera(cam); else if (!EX.scene.name || EX.scene.name === 'Solar System') S3.setCamera({ p: [2.6e8, -2.6e8, 1.7e8], t: [0, 0, 0] }); else S3.setCamera({ p: [ext * 1.7, -ext * 1.7, ext * 1.1], t: [0, 0, 0] });
@@ -142,7 +155,7 @@ function exLib() {
     el('div', { class: 'xgrid', id: 'xgrid' }));
   exLibGrid(); function exLibGrid() {
     const g = $('#xgrid'); if (!g) return; const its = EX.meta.catalog.filter(it => (EX.cat === 'All' ? it.cat !== 'Scene' : it.cat === EX.cat) && (!EX.q || it.name.toLowerCase().includes(EX.q.toLowerCase())));
-    g.replaceChildren(...its.map(it => el('button', { class: 'xitem' + (EX.placing && EX.placing.name === it.name ? ' placing' : '') + (EX.sel && EX.scene && EX.scene.bodies.some(b => b.id === EX.sel && b.name === it.name) ? ' sel' : ''), title: it.whatif ? 'changes the whole scene (undo is under the lightning-bolt button)' : (it.real ? 'real body from the ephemeris' : 'click, then move the mouse over the scene to preview where it goes (double-click adds it straight away on a default orbit)'), onclick: () => exAdd(it), ondblclick: () => exAddDirect(it) },
+    g.replaceChildren(...its.map(it => el('button', { class: 'xitem' + (EX.placing && EX.placing.name === it.name ? ' placing' : '') + (it.real && inScene(it) ? ' have' : ''), title: it.whatif ? 'changes the whole scene (undo is under the lightning-bolt button)' : (it.real ? 'real body from the ephemeris' : 'click, then move the mouse over the scene to preview where it goes (double-click adds it straight away on a default orbit)'), onclick: () => { if (it.real && inScene(it)) { toast(`${it.name} is already in the scene: click it in the view, or use the object search at the bottom, to select it`); return; } exAdd(it); }, ondblclick: () => { if (!(it.real && inScene(it))) exAddDirect(it); } },
       el('span', { class: 'xthumb', style: it.whatif ? 'background:linear-gradient(135deg,#ff6b4a,#9b8cf2);box-shadow:none' : thumbStyle(it) }, it.whatif ? el('i', {}, '?') : ''), el('span', { class: 'xname' }, it.name))));
     if (!its.length) g.append(el('div', { class: 'dim', style: 'padding:14px' }, 'nothing matches'));
   }
@@ -155,7 +168,6 @@ async function exAdd(it) {
 async function exAddDirect(it) {
   if (EX.placing) exPlaceCancel();
   if (it.whatif && it.whatif !== 'rogue') { await exEdit([{ op: 'whatif', name: it.whatif }]); toast('what-if applied; press undo (actions) to go back', 'ok'); return; }
-  if (it.real && EX.scene.bodies.some(b => b.name === it.name)) { EX.sel = EX.scene.bodies.find(b => b.name === it.name).id; EX.space.select(EX.sel); EX.space.focus(EX.sel); EX.panelOpen = true; exPanel(); return; }
   const ok = await exEdit([{ op: 'add', item: it, parent: EX.sel || undefined, orbit: {} }], 'last'); if (ok) { EX.panelOpen = true; EX.space.select(EX.sel); exPanel(); toast(`${it.name} added${EX.sel ? '' : ''}; edit it in the panel on the right`, 'ok'); }
 }
 
@@ -218,6 +230,15 @@ async function exPlaceClick(cx, cy) {
   const place = { r: T.p, v: T.v }, par = T.par.id; exPlaceCancel();
   const ok = await exEdit([{ op: 'add', item: it, parent: par, orbit: {}, place }], 'last'); if (ok) { EX.panelOpen = true; EX.space.select(EX.sel); exPanel(); toast(`${it.name} placed; edit it in the panel on the right`, 'ok'); }
 }
+/* ---- keyboard in the Sandbox: space plays and pauses, + zooms in, - zooms out ---- */
+const exTyping = e => { const t = e.target; return !!t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable); };
+document.addEventListener('keydown', e => {
+  if (S.page !== 'explore' || !EX.space || e.ctrlKey || e.metaKey || e.altKey || exTyping(e) || document.querySelector('.modalov')) return;
+  if (e.key === ' ') { e.preventDefault(); if (!e.repeat) { EX.space.play(); syncPlay(); } }
+  else if (e.key === '+' || e.key === '=') { e.preventDefault(); EX.space.zoomBy(0.82); }
+  else if (e.key === '-' || e.key === '_') { e.preventDefault(); EX.space.zoomBy(1.22); }
+}, true);
+document.addEventListener('keyup', e => { if (S.page === 'explore' && e.key === ' ' && !exTyping(e)) e.preventDefault(); }, true);
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape' || !EX.placing || S.page !== 'explore') return;
   if (EX.anchor) { EX.anchor = null; if (EX.space) { EX.space.setGhost(null); EX.space.setPreview(null, null); } exPlaceUI(); } else exPlaceCancel(); e.stopPropagation(); e.preventDefault();
@@ -272,16 +293,16 @@ function exBottom() {
   const rate = el('input', { type: 'range', min: 0, max: 100, value: EX.rateExp / 9.5 * 100, 'data-default': 6.0 / 9.5 * 100, oninput: e => { EX.rateExp = e.target.value * 0.095; if (EX.space) EX.space.setRate(10 ** EX.rateExp); rl.textContent = fmtRate(10 ** EX.rateExp) + ' / s'; }, title: 'simulated time per real second' });
   const rl = el('span', { class: 'xrate' }, fmtRate(10 ** EX.rateExp) + ' / s');
   const chk = (k, label) => el('label', { class: 'mcheck' }, el('input', { type: 'checkbox', checked: !!EX.view[k], onchange: e => { EX.view[k] = e.target.checked; if (EX.space) EX.space.set(k, e.target.checked); } }), label);
-  B.replaceChildren(el('button', { class: 'xplay', id: 'xplay', title: 'play / pause', onclick: () => { if (EX.space) { EX.space.play(); syncPlay(); } } }, ico(EX.playing ? 'pause' : 'play')),
+  B.replaceChildren(el('button', { class: 'xplay', id: 'xplay', title: 'play / pause (space bar)', onclick: () => { if (EX.space) { EX.space.play(); syncPlay(); } } }, ico(EX.playing ? 'pause' : 'play')),
     el('button', { class: 'xtool', title: 'run time backwards', onclick: () => { if (EX.space) { EX.space.state.dir = -EX.space.state.dir; toast(EX.space.state.dir < 0 ? 'time runs backwards' : 'time runs forwards'); } } }, ico('rev')),
     el('button', { class: 'xdate', id: 'xdate', 'data-pop': '1', title: 'click to pick a date', onclick: e => calPop(e.currentTarget) }, '–'), el('span', { class: 'xrateWrap' }, rate, rl), el('span', { class: 'xsp' }),
     tool('addc', 'library: add bodies', e => { EX.libOpen = !EX.libOpen; exLib(); }, EX.libOpen),
-    tool('eye', 'view options', e => openPop('view', e.currentTarget, el('div', { class: 'xpt' }, 'View'), chk('labels', 'Labels'), chk('paths', 'Orbits'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic plane'), chk('markers', 'Sky markers (check the sky orientation)'), chk('atmo', 'Atmosphere glow'), chk('spin', 'Body rotation'), el('div', { class: 'xpt', style: 'margin-top:10px' }, 'Lighting'), seg([['real', 'Realistic'], ['even', 'Even'], ['full', 'Fullbright']], EX.view.light, v => { EX.view.light = v; if (EX.space) EX.space.set('light', v); }), el('div', { class: 'dim', style: 'font-size:12.5px;margin:6px 0 0;max-width:290px' }, 'realistic: light fades with the square of the distance to the star, so far planets are dim. even: the true day and night sides at the same brightness everywhere. fullbright: no shading.'),
+    tool('eye', 'view options', e => openPop('view', e.currentTarget, el('div', { class: 'xpt' }, 'View'), chk('labels', 'Labels'), chk('paths', 'Orbits'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic plane'), ...(['milkyway', 'stars'].includes(EX.sky) ? [chk('markers', 'Sky markers (check the sky orientation)')] : []), chk('atmo', 'Atmosphere glow'), chk('spin', 'Body rotation'), el('div', { class: 'xpt', style: 'margin-top:10px' }, 'Lighting'), seg([['real', 'Realistic'], ['even', 'Even'], ['full', 'Fullbright']], EX.view.light, v => { EX.view.light = v; if (EX.space) EX.space.set('light', v); }), el('div', { class: 'dim', style: 'font-size:12.5px;margin:6px 0 0;max-width:290px' }, 'realistic: light fades with the square of the distance to the star, so far planets are dim. even: the true day and night sides at the same brightness everywhere. fullbright: no shading.'),
       el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Look Toward'), el('select', { onchange: e => { const v = e.target.value; if (v && EX.space) { EX.view.markers = true; EX.space.set('markers', true); EX.space.look(...v.split(',').map(Number)); } e.target.value = ''; } }, el('option', { value: '' }, '…'), ...(EX.meta.markers || []).map(m => el('option', { value: m.ra + ',' + m.dec }, m.name)))))),
     tool('orb2', 'show or hide orbits', e => { EX.view.paths = !EX.view.paths; if (EX.space) EX.space.set('paths', EX.view.paths); }, EX.view.paths),
-    tool('palette', 'background: Milky Way, stars, theme color, black', () => { const o = ['milkyway', 'stars', 'theme', 'black']; EX.sky = o[(o.indexOf(EX.sky) + 1) % o.length]; if (EX.space) EX.space.setSky(EX.sky); toast('background: ' + EX.sky.replace('milkyway', 'milky way').replace('theme', 'theme color')); }),
+    tool('palette', 'background: Milky Way, stars, theme color, black', () => { const o = ['milkyway', 'stars', 'theme', 'black']; EX.sky = o[(o.indexOf(EX.sky) + 1) % o.length]; if (EX.space) EX.space.setSky(EX.sky); if (!['milkyway', 'stars'].includes(EX.sky)) { EX.view.markers = false; if (EX.space) EX.space.set('markers', false); } toast('background: ' + EX.sky.replace('milkyway', 'milky way').replace('theme', 'theme color')); }),
     tool('dots', 'more', e => openPop('more', e.currentTarget, el('div', { class: 'xpt' }, 'Simulation and Display'),
-      el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Simulation Length (each way)'), el('select', { onchange: e2 => { EX.horizon = e2.target.value; exRerun(); } }, ...EX.meta.horizons.map(h => el('option', { value: h, selected: h === EX.horizon }, h)))),
+      el('label', { class: 'mf' }, el('span', { class: 'ml', title: 'how far the simulation runs into the future; a fifth of it is also run into the past so time can be reversed. a longer run takes longer to compute after every edit' }, 'Simulation Length'), el('select', { onchange: e2 => { EX.horizon = e2.target.value; exRerun(); } }, ...EX.meta.horizons.map(h => el('option', { value: h, selected: h === EX.horizon }, h)))),
       el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Body Size'), el('input', { type: 'range', min: 1, max: 100, value: EX.exag, 'data-default': 1, oninput: e2 => { EX.exag = +e2.target.value; if (EX.space) EX.space.set('exag', EX.exag); } })),
       el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Sky Brightness'), el('input', { type: 'range', min: 0, max: 80, value: EX.bright * 10, 'data-default': 10, oninput: e2 => { EX.bright = e2.target.value / 10; if (EX.space) EX.space.set('bright', EX.bright); } })),
       el('button', { class: 'btn small', onclick: () => exRecord() }, 'Record Video'))),
@@ -290,7 +311,7 @@ function exBottom() {
       el('button', { class: 'btn small', onclick: async () => { closePop(); const x = await api('sandbox_save', { scene: EX.scene }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); } }, 'Save Scene'),
       el('button', { class: 'btn small', onclick: async () => { closePop(); if (await askConfirm('replace the current scene with the real Solar System?', 'Replace Scene', 'New Solar System')) exNew(); } }, 'New Solar System'))),
     el('span', { class: 'xsp' }), tool('info', 'show or hide the side panels', () => { EX.panelOpen = !EX.panelOpen; EX.libOpen = !EX.libOpen; exLib(); exPanel(); }),
-    tool('search', 'search the library', () => { EX.libOpen = true; exLib(); setTimeout(() => $('#xq') && $('#xq').focus(), 50); }),
+    tool('search', 'find and select an object in the scene', e => objectSearch(e.currentTarget)),
     tool('camera', 'save a picture of the view', async () => { if (!EX.space) return; const x = await api('save_blob', { kind: 'png', name: 'explore', data: EX.space.png() }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); }));
   exTime(); syncPlay();
 }

@@ -68,6 +68,8 @@ function atmoMat(hex, k) {                                                      
     vertexShader: '#include <common>\n#include <logdepthbuf_pars_vertex>\nvarying vec3 vN; varying vec3 vP; void main(){ vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vP = mv.xyz; gl_Position = projectionMatrix * mv;\n#include <logdepthbuf_vertex>\n}',
     fragmentShader: '#include <logdepthbuf_pars_fragment>\nuniform vec3 uColor; uniform vec3 uSun; uniform float uLit; uniform float uK; varying vec3 vN; varying vec3 vP; void main(){\n#include <logdepthbuf_fragment>\n float rim = 1.0 - abs(dot(normalize(vN), normalize(-vP))); float a = pow(rim, 3.2) * uK; float lit = mix(1.0, smoothstep(-0.25, 0.35, dot(normalize(vN), uSun)), uLit); gl_FragColor = vec4(uColor, a * lit); }' });
 }
+const SKY_IMG = new Map();                                                          // decoded sky images, shared by every view that is opened
+const skyImage = url => { if (!SKY_IMG.has(url)) SKY_IMG.set(url, new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; })); return SKY_IMG.get(url); };
 let thumbRenderer = null;
 export function renderThumbs(list, models, size = 112) {                              // [{key, shape, color}] -> {key: dataURL}, drawn with one small off-screen renderer
   if (!thumbRenderer) { thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); thumbRenderer.setSize(size, size); }
@@ -89,9 +91,10 @@ export function createSpace(host, data, opts = {}) {
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(50, W() / H(), 1e-3, 1e14); camera.up.set(0, 0, 1);
   const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.zoomSpeed = 1.2;
   const world = new THREE.Group(); scene.add(world);
+  controls.addEventListener('start', () => { flyTo = null; });                        // the moment you drag or scroll, the fly-to stops and the mouse is in charge again (zoom in and out freely)
   const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 1.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1, light: 'even', atmo: true, spin: true };
   const loader = new THREE.TextureLoader(), t0 = data.jd0, t1 = data.jd1, span = Math.max(1e-9, t1 - t0);
-  let jd = t0, raf = 0, last = 0, flyTo = null;
+  let jd = t0, raf = 0, last = 0, flyTo = null; let disposed = false;
   let ghostGrp = null, ghostMk = null;                                                  // the placement preview of the sandbox (marker, orbit ring, aim arrow)
 
   // ---- sky: a sphere that follows the camera, sampling the galactic map along the ICRF direction
@@ -104,10 +107,26 @@ export function createSpace(host, data, opts = {}) {
   const skyMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), skyMat); skyMesh.renderOrder = -10; skyMesh.frustumCulled = false; scene.add(skyMesh);
   // NASA SVS "Deep Star Maps 2020" (galactic, latitude up, display-referred): 8k when the GPU allows it, else 4k. The older 2k star map has latitude downward and needs a gain.
   const big = renderer.capabilities.maxTextureSize >= 8192; let skyScale = 1;
-  const loadSky = (name, legacy) => loader.load('/assets/textures/' + name, tx => { tx.generateMipmaps = false; tx.minFilter = THREE.LinearFilter; tx.colorSpace = legacy ? THREE.SRGBColorSpace : THREE.NoColorSpace; skyMat.uniforms.map.value = tx; });
+  // Switching the background must be instant: the sky images are decoded once (kept across view rebuilds), turned into textures once, and uploaded to the GPU in the idle time after the view opens,
+  // so a switch only swaps a uniform.
+  const skyTex = {}, skyName = legacy => legacy ? '2k_stars.jpg' : (big ? 'sky_milkyway_8k.jpg' : 'sky_milkyway_4k.jpg');
+  const getSky = async (name, legacy) => {
+    if (skyTex[name]) return skyTex[name]; const img = await skyImage('/assets/textures/' + name), tx = new THREE.Texture(img);
+    tx.generateMipmaps = false; tx.minFilter = THREE.LinearFilter; tx.colorSpace = legacy ? THREE.SRGBColorSpace : THREE.NoColorSpace; tx.needsUpdate = true; skyTex[name] = tx;
+    try { renderer.initTexture(tx); } catch (e) { } return tx;
+  };
+  const loadSky = (name, legacy) => { if (skyTex[name]) skyMat.uniforms.map.value = skyTex[name]; else getSky(name, legacy).then(tx => { if (skyName(state.sky === 'stars') === name && state.sky !== 'black' && state.sky !== 'theme') skyMat.uniforms.map.value = tx; }); };
   const setSky = k => { state.sky = k; skyMat.uniforms.mode.value = k === 'black' ? 2 : k === 'theme' ? 1 : 0; const legacy = k === 'stars'; skyMat.uniforms.flip.value = legacy ? -1 : 1; skyScale = legacy ? 3 : 1;
     if (k === 'theme') { const hex = (getComputedStyle(document.body).getPropertyValue('--bg') || '#0f1628').trim().replace('#', ''); const n = parseInt(hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex, 16); skyMat.uniforms.themeColor.value.set(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); }       // the app's background colour, flat: no stars, no galaxy
     if (k !== 'black' && k !== 'theme') loadSky(legacy ? '2k_stars.jpg' : (big ? 'sky_milkyway_8k.jpg' : 'sky_milkyway_4k.jpg'), legacy); };
+  setTimeout(() => { if (!disposed) getSky(skyName(false), false); }, 1500); setTimeout(() => { if (!disposed) getSky(skyName(true), true); }, 3200);        // preload both star backgrounds
+  let lightUI = opts.theme === 'light';
+  function refreshTheme() {
+    const lb = lightUI && state.sky === 'theme'; host.classList.toggle('lightbg', lb);
+    const css = (getComputedStyle(document.body).getPropertyValue('--bg') || '').trim(), hx = /^#([0-9a-f]{6})$/i.exec(css);                   // the Theme Color background is the page colour of the chosen colour theme
+    if (hx) skyMat.uniforms.themeColor.value.set(parseInt(hx[1].slice(0, 2), 16) / 255, parseInt(hx[1].slice(2, 4), 16) / 255, parseInt(hx[1].slice(4, 6), 16) / 255); else skyMat.uniforms.themeColor.value.set(lightUI ? 0.93 : 0.06, lightUI ? 0.95 : 0.09, lightUI ? 0.98 : 0.16);
+    if (typeof ring !== 'undefined') { ring.material.color.set(lb ? '#16203a' : '#ffffff'); hring.material.color.set(lb ? '#b86a00' : '#ffd27a'); }
+  }
   setSky(state.sky);
 
   // ---- lights
@@ -158,7 +177,13 @@ export function createSpace(host, data, opts = {}) {
     const o = { def: b, mesh, label: mkLabel(b.name, '#cfe0ff'), soi: null, slots, nightU, shells, hiOn: false, spinTarget: shape === 'sphere' ? mesh : (mesh.userData.ball || null) };
     if (b.soi) { o.soi = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 20), new THREE.MeshBasicMaterial({ color: '#4c8df6', wireframe: true, transparent: true, opacity: 0.12 })); world.add(o.soi); }
     const par = b.parent ? data.bodies.find(x => x.name === b.parent) : null;                                      // orbit drawn relative to the parent, around its current position
-    if (b.path && b.path.r.length > 1) {
+    const osc = !!(opts.osc && par && par.path && b.path && b.path.r.length > 1 && (par.mu || 0) > 0);
+    if (osc) {
+      const NV = 181, g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NV * 3), 3)); g.setDrawRange(0, 0);
+      o.orb = new THREE.Line(g, new THREE.LineBasicMaterial({ color: b.orbitColor || '#7b8bb0', transparent: true, opacity: 0.55 })); o.orb.frustumCulled = false; world.add(o.orb);
+      o.hStep = 1.5 * (b.path.jd[b.path.jd.length - 1] - b.path.jd[0]) / Math.max(1, b.path.jd.length - 1);
+    }
+    if (!osc && b.path && b.path.r.length > 1) {
       const pts = par && par.path ? b.path.r.map((p, i) => new THREE.Vector3(p[0] - par.path.r[i][0], p[1] - par.path.r[i][1], p[2] - par.path.r[i][2])) : b.path.r.map(p => new THREE.Vector3(...p));
       if (par && par.path) { let ang = 0; for (let i = 1; i < pts.length; i++) { const a = pts[i - 1], c = pts[i], d = a.dot(c) / Math.max(1e-12, a.length() * c.length()); ang += Math.acos(Math.max(-1, Math.min(1, d))); if (ang >= 2 * Math.PI * 1.005) { pts.length = i + 1; break; } } }       // one revolution is enough: a fast orbit must not fill the screen
       o.line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: b.orbitColor || '#7b8bb0', transparent: true, opacity: 0.55 })); o.rel = !!(par && par.path); world.add(o.line);
@@ -171,9 +196,10 @@ export function createSpace(host, data, opts = {}) {
     const pts = tr.r.map(p => new THREE.Vector3(...p)); const g = new THREE.BufferGeometry().setFromPoints(pts);
     const full = new THREE.Line(g, new THREE.LineBasicMaterial({ color: tr.color, transparent: true, opacity: 0.35 })); world.add(full);
     const g2 = new THREE.BufferGeometry().setFromPoints(pts); const done = new THREE.Line(g2, new THREE.LineBasicMaterial({ color: tr.color })); world.add(done);
+    const tip = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3)), new THREE.LineBasicMaterial({ color: tr.color })); tip.frustumCulled = false; world.add(tip);       // the last piece, from the last sample to the spacecraft
     const model = opts.model && opts.model !== 'marker' && data.models && data.models[opts.model] ? opts.model : null;                    // 'comsat' | 'probe' (the same models as the 3d plots) or a plain marker
     const mk = model ? buildShape(model, tr.color, data.models, loader) : new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: tr.color })); world.add(mk);
-    return { def: tr, full, done, mk, label: mkLabel(tr.name, tr.color), n: pts.length };
+    return { def: tr, full, done, tip, pts, mk, label: mkLabel(tr.name, tr.color), n: pts.length };
   });
   const refs = (data.refs || []).map(rf => { const g = new THREE.BufferGeometry().setFromPoints(rf.r.map(p => new THREE.Vector3(...p))); const l = new THREE.Line(g, new THREE.LineDashedMaterial({ color: '#b37bf0', dashSize: 1, gapSize: 1 })); l.computeLineDistances(); world.add(l); return l; });
   // ---- overlays: Lagrange points, axes, ecliptic plane, event markers
@@ -194,7 +220,7 @@ export function createSpace(host, data, opts = {}) {
 
   state.selected = null; state.hover = null;
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.94, 1, 64), new THREE.MeshBasicMaterial({ color: '#ffffff', side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.9 })); ring.renderOrder = 6; ring.visible = false; scene.add(ring);
-  const hring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 64), new THREE.MeshBasicMaterial({ color: '#ffd27a', side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.95 })); hring.renderOrder = 6; hring.visible = false; scene.add(hring);       // the circle that shows what a click would pick
+  const hring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 64), new THREE.MeshBasicMaterial({ color: '#ffd27a', side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.95 })); hring.renderOrder = 6; hring.visible = false; scene.add(hring); refreshTheme();       // the circle that shows what a click would pick
   const label = (el_, v3, show) => {                                             // project a label; hide it when it falls off screen
     if (!show || !state.labels) { el_.style.display = 'none'; return null; }
     const p = v3.clone().project(camera); if (p.z > 1 || p.z < -1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05) { el_.style.display = 'none'; return null; }
@@ -209,6 +235,24 @@ export function createSpace(host, data, opts = {}) {
     if (perSec > 200) W = sp.w0 + Math.sign(sp.rate) * performance.now() / 1000 * 40;         // too fast to follow at this time warp: a slow steady turn instead of a flicker
     const q = o.spinTarget.quaternion; q.setFromAxisAngle(AZ, ra + Math.PI / 2); qa.setFromAxisAngle(AX, Math.PI / 2 - dec); q.multiply(qa); qb.setFromAxisAngle(AZ, W * DEG); q.multiply(qb); q.multiply(BASEQ);
   }
+  // The osculating orbit of a body about its parent: from the relative position and velocity at the current time (the velocity from the sampled path), the conic is drawn from its
+  // elements. The body is on this curve by definition, so the line can never come loose from the body, however the orbit changes (perturbations, close encounters, edits).
+  function updateOsc(o) {
+    const par = bodies[o.def.parent], mu = par ? (par.def.mu || 0) + (o.def.mu || 0) : 0; if (!par || !(mu > 0)) { o.orb.visible = false; return; }
+    const tp = Math.min(t1, jd + o.hStep), tm = Math.max(t0, jd - o.hStep), dts = (tp - tm) * 86400; if (!(dts > 0)) { o.orb.visible = false; return; }
+    const r1 = interp(o.def.path, jd), q1 = interp(par.def.path, jd), r = [r1[0] - q1[0], r1[1] - q1[1], r1[2] - q1[2]];
+    const a1 = interp(o.def.path, tp), b1 = interp(par.def.path, tp), a0 = interp(o.def.path, tm), b0 = interp(par.def.path, tm);
+    const v = [((a1[0] - b1[0]) - (a0[0] - b0[0])) / dts, ((a1[1] - b1[1]) - (a0[1] - b0[1])) / dts, ((a1[2] - b1[2]) - (a0[2] - b0[2])) / dts];
+    const rn = Math.hypot(r[0], r[1], r[2]), v2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2], rv = r[0] * v[0] + r[1] * v[1] + r[2] * v[2];
+    const hx = r[1] * v[2] - r[2] * v[1], hy = r[2] * v[0] - r[0] * v[2], hz = r[0] * v[1] - r[1] * v[0], h2 = hx * hx + hy * hy + hz * hz; if (!(rn > 0) || !(h2 > 1e-18)) { o.orb.visible = false; return; }
+    const ex = ((v2 - mu / rn) * r[0] - rv * v[0]) / mu, ey = ((v2 - mu / rn) * r[1] - rv * v[1]) / mu, ez = ((v2 - mu / rn) * r[2] - rv * v[2]) / mu, e = Math.hypot(ex, ey, ez), pp = h2 / mu;
+    const hn = Math.sqrt(h2), hh = [hx / hn, hy / hn, hz / hn]; const P = e > 1e-7 ? [ex / e, ey / e, ez / e] : [r[0] / rn, r[1] / rn, r[2] / rn];
+    const Q = [hh[1] * P[2] - hh[2] * P[1], hh[2] * P[0] - hh[0] * P[2], hh[0] * P[1] - hh[1] * P[0]];
+    let nu0 = 0, nu1 = 2 * Math.PI; if (e >= 1) { const m = Math.acos(-1 / e) * 0.985; nu0 = -m; nu1 = m; } else { nu0 = Math.atan2(r[0] * Q[0] + r[1] * Q[1] + r[2] * Q[2], r[0] * P[0] + r[1] * P[1] + r[2] * P[2]); nu1 = nu0 + 2 * Math.PI; }       // start at the body itself
+    const pos = o.orb.geometry.attributes.position, NV = pos.count;
+    for (let k = 0; k < NV; k++) { const nu = nu0 + (nu1 - nu0) * k / (NV - 1), rr = pp / (1 + e * Math.cos(nu)), c = Math.cos(nu) * rr, sn = Math.sin(nu) * rr; pos.setXYZ(k, c * P[0] + sn * Q[0], c * P[1] + sn * Q[1], c * P[2] + sn * Q[2]); }
+    pos.needsUpdate = true; o.orb.geometry.setDrawRange(0, NV); o.orb.visible = state.paths; o.orb.position.set(q1[0], q1[1], q1[2]); o.orb.material.opacity = state.selected === o.def.name ? 1 : 0.45;
+  }
   function layout() {
     const cp = camera.position.clone().add(world.position.clone().negate()), tgt = controls.target.clone();
     const tgtD = camera.position.distanceTo(controls.target), unit = tgtD * 0.012, placed = [];
@@ -222,6 +266,7 @@ export function createSpace(host, data, opts = {}) {
       if (o.mesh.userData.tail) { const sp = bodies.Sun ? posOf('Sun') : [0, 0, 0], a = new THREE.Vector3(p[0] - sp[0], p[1] - sp[1], p[2] - sp[2]).normalize(); o.mesh.userData.tail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), a); }
       if (o.mesh.userData.ring) o.mesh.userData.ring.quaternion.copy(camera.quaternion);
       if (o.soi) { o.soi.position.set(...p); o.soi.scale.setScalar(o.def.soi); o.soi.visible = state.soi; }
+      if (o.orb) updateOsc(o);
       if (o.line) { o.line.visible = state.paths; if (o.rel) o.line.position.set(...posOf(o.def.parent)); o.line.material.opacity = state.selected === o.def.name ? 1 : 0.45; } const l = label(o.label, o.mesh.position, true); if (l) placed.push(l);
       if (o.spinTarget && o.def.spin && state.spin) spinBody(o);
       if (o.nightU || o.shells.length) { dirV.set(sp[0] - p[0], sp[1] - p[1], sp[2] - p[2]).transformDirection(camera.matrixWorldInverse); const lit = state.light === 'full' ? 0 : 1;
@@ -231,8 +276,9 @@ export function createSpace(host, data, opts = {}) {
     if (!bodies.Sun) sun.position.set(1e8, 3e7, 4e7);
     for (const t of tracks) {
       const p = interp(t.def, jd); t.mk.position.set(...p); t.mk.scale.setScalar(unit * (t.mk.userData.orient ? 3.5 : 0.9));
-      if (t.mk.userData.orient) { const q = interp(t.def, Math.min(t.def.jd[t.def.jd.length - 1], jd + 0.01)), q0 = interp(t.def, Math.max(t.def.jd[0], jd - 0.01)), v = new THREE.Vector3(q[0] - q0[0], q[1] - q0[1], q[2] - q0[2]); if (v.length() > 0) t.mk.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), v.normalize()); } const f = Math.max(2, Math.floor(t.n * clamp01((jd - t.def.jd[0]) / Math.max(1e-9, t.def.jd[t.def.jd.length - 1] - t.def.jd[0]))));
-      t.done.geometry.setDrawRange(0, f); t.full.visible = t.done.visible = state.paths; const l = label(t.label, t.mk.position, true); if (l) placed.push(l);
+      if (t.mk.userData.orient) { const q = interp(t.def, Math.min(t.def.jd[t.def.jd.length - 1], jd + 0.01)), q0 = interp(t.def, Math.max(t.def.jd[0], jd - 0.01)), v = new THREE.Vector3(q[0] - q0[0], q[1] - q0[1], q[2] - q0[2]); if (v.length() > 0) t.mk.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), v.normalize()); } const k = sampleAt(t.def.jd, jd);
+      t.done.geometry.setDrawRange(0, k + 1); { const a = t.pts[k], at = t.tip.geometry.attributes.position; at.setXYZ(0, a.x, a.y, a.z); at.setXYZ(1, p[0], p[1], p[2]); at.needsUpdate = true; }
+      t.full.visible = t.done.visible = t.tip.visible = state.paths; const l = label(t.label, t.mk.position, true); if (l) placed.push(l);
     }
     for (const l of lag) { l.mk.position.set(...interp(l.def, jd)); l.mk.scale.setScalar(unit * 0.8); l.mk.visible = state.lag; label(l.label, l.mk.position, state.lag); }
     axes.visible = state.axes; axes.scale.setScalar(ext * 0.6); ecl.visible = state.ecl; ecl.scale.setScalar(ext * 1.5);
@@ -270,17 +316,19 @@ export function createSpace(host, data, opts = {}) {
   }
   let preview = null, nodeMk = null;
   const clamp01 = x => Math.max(0, Math.min(1, x));
+  const sampleAt = (arr, v) => { let lo = 0, hi = arr.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (arr[m] <= v) lo = m; else hi = m - 1; } return lo; };            // the last sample at or before a time
 
   // ---- focus: the controls target follows the chosen object (smooth fly-to)
   function followFocus(dt) {
     const p = posOf(state.focus), want = new THREE.Vector3(...p), delta = want.clone().sub(controls.target);
     if (flyTo) { const k = Math.min(1, dt * 3); controls.target.add(delta.clone().multiplyScalar(k)); camera.position.add(delta.clone().multiplyScalar(k)); const d = camera.position.distanceTo(controls.target); flyTo.dist += (flyTo.want - flyTo.dist) * k;
-      camera.position.sub(controls.target).setLength(flyTo.dist).add(controls.target); if (delta.length() < 1e-6 * Math.max(1, flyTo.dist) && Math.abs(flyTo.want - flyTo.dist) < 1e-3 * flyTo.want) flyTo = null; }
+      camera.position.sub(controls.target).setLength(flyTo.dist).add(controls.target); if (Math.abs(flyTo.want - flyTo.dist) < 0.02 * flyTo.want) flyTo = null; }                  // arrived (a moving body must not keep the camera locked at this distance)
     else { controls.target.add(delta); camera.position.add(delta); }
   }
   function frame(now) {
     raf = requestAnimationFrame(frame); const dt = last ? Math.min(0.1, (now - last) / 1000) : 0; last = now;
     if (state.playing) { jd += state.dir * dt * (state.rate != null ? state.rate : WARPS[state.warp]) / 86400; if (jd > t1) { jd = t1; state.playing = false; host.dispatchEvent(new CustomEvent('space-state')); } if (jd < t0) { jd = t0; state.playing = false; host.dispatchEvent(new CustomEvent('space-state')); } host.dispatchEvent(new CustomEvent('space-time')); }
+    { const fb = bodies[state.focus], rF = fb ? Math.max(fb.def.R * state.exag, 1e-6) : ext * 0.01, ratio = camera.position.distanceTo(controls.target) / rF; controls.minDistance = fb ? rF * 1.05 : 0; controls.zoomSpeed = ratio > 30 ? Math.min(11, 1.2 + 2.5 * Math.log10(ratio / 30)) : 1.2; }
     followFocus(dt); controls.update(); layout(); if (++frameN % 24 === 0) hiUpdate(); perf(now); skyMat.uniforms.gain.value = state.bright * skyScale; renderer.render(scene, camera);
   }
   frame(0);
@@ -326,15 +374,17 @@ export function createSpace(host, data, opts = {}) {
     },
     onPick(cb) { let dn = null; const c = renderer.domElement; c.addEventListener('pointerdown', e => { dn = [e.clientX, e.clientY]; }); c.addEventListener('pointerup', e => { if (dn && Math.hypot(e.clientX - dn[0], e.clientY - dn[1]) < 4) cb(this.pick(e.clientX, e.clientY), e); dn = null; }); },
     posOf: name => posOf(name), velOf(name) { const d = 0.01, a = posOf(name); const sv = interp(bodies[name].def.path, Math.max(t0, jd - d)), sb = interp(bodies[name].def.path, Math.min(t1, jd + d)); const dtS = (Math.min(t1, jd + d) - Math.max(t0, jd - d)) * 86400 || 1; return [(sb[0] - sv[0]) / dtS, (sb[1] - sv[1]) / dtS, (sb[2] - sv[2]) / dtS]; },
-    setSky, set(k, v) { state[k] = v; }, nextEvent() { const ts = (data.events || []).map(e => e.jd).filter(t => t > jd + 1e-9).sort((a, b) => a - b); if (ts.length) jd = ts[0]; },
+    orbitPoints(name) { const o = bodies[name]; if (!o || !o.orb) return null; const a = o.orb.geometry.attributes.position, c = o.orb.position, out = []; for (let k = 0; k < a.count; k++) out.push([a.getX(k) + c.x, a.getY(k) + c.y, a.getZ(k) + c.z]); return out; },
+    zoomBy(f) { flyTo = null; const t = controls.target, v = camera.position.clone().sub(t), d = v.length(); if (d <= 0) return; camera.position.copy(t).addScaledVector(v.normalize(), Math.max(controls.minDistance || d * 1e-6, d * f)); controls.update(); },
+    setSky(k) { setSky(k); refreshTheme(); }, setTheme(t) { lightUI = t === 'light'; refreshTheme(); }, set(k, v) { state[k] = v; }, nextEvent() { const ts = (data.events || []).map(e => e.jd).filter(t => t > jd + 1e-9).sort((a, b) => a - b); if (ts.length) { jd = ts[0]; host.dispatchEvent(new CustomEvent('space-time')); return true; } return false; },
     png() { return renderer.domElement.toDataURL('image/png'); },
     record(on, done) {
       if (on) { const stream = renderer.domElement.captureStream(30); const chunks = []; const rec = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm', videoBitsPerSecond: 8e6 });
         rec.ondataavailable = e => chunks.push(e.data); rec.onstop = () => done(new Blob(chunks, { type: 'video/webm' })); rec.start(250); this._rec = rec; } else if (this._rec) { this._rec.stop(); this._rec = null; }
     },
     dispose() {                                                                       // free the GPU memory (the sandbox rebuilds the view after every edit)
-      cancelAnimationFrame(raf); ro.disconnect(); controls.dispose();
-      for (const o of Object.values(bodies)) { dropHi(o); for (const sl of o.slots) if (sl.baseTex) sl.baseTex.dispose(); } if (skyMat.uniforms.map.value) skyMat.uniforms.map.value.dispose();
+      disposed = true; cancelAnimationFrame(raf); ro.disconnect(); controls.dispose();
+      for (const o of Object.values(bodies)) { dropHi(o); for (const sl of o.slots) if (sl.baseTex) sl.baseTex.dispose(); } for (const k of Object.keys(skyTex)) skyTex[k].dispose();
       renderer.dispose(); try { renderer.forceContextLoss(); } catch (e) { } host.replaceChildren();
     }
   };

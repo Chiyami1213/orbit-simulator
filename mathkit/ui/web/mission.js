@@ -267,13 +267,13 @@ async function renderMission() {
     el('option', { value: '' }, 'Start from a mission…'), ...MIS.meta.starters.map(s => el('option', { value: s }, s)));
   const file = el('input', { type: 'file', accept: '.script,.orbitmission,.txt', style: 'display:none', onchange: e => { if (e.target.files[0]) misImportFile(e.target.files[0]); e.target.value = ''; } });
   const tabs = el('div', { class: 'tabs' }, ...MIS_TABS.map(t => el('button', { class: 'tab' + (MIS.tab === t ? ' on' : ''), onclick: () => { MIS.tab = t; renderMission(); } }, t)));
-  const head = el('div', { class: 'mtool' }, el('div', { class: 'mt1' }, el('input', { class: 'mname', type: 'text', value: m.name, title: 'mission name', onchange: e => { m.name = e.target.value; misTouch(); } }), starter,
+  const eph = el('span', { class: 'meph', title: `ephemeris: ${MIS.meta.ephemeris.name}${MIS.meta.kernel.path ? '' : ' — download DE440s under settings → ephemeris for metre-level planets'}` }, 'Ephemeris: ' + (MIS.meta.kernel.path ? 'DE440s' : 'Built-In'));
+  const head = el('div', { class: 'mtool' }, el('div', { class: 'mrow1' }, el('input', { class: 'mname', type: 'text', value: m.name, title: 'mission name', onchange: e => { m.name = e.target.value; misTouch(); } }), starter,
     mbtn('Import…', () => file.click(), ''), file, mbtn('New', () => { MIS.m = misNew(); MIS.res = null; MIS.cmp = null; misTouch(); renderMission(); }),
     el('div', { class: 'seg', title: 'how angles and names are shown: the default convention or GMAT parameter names (the script export is always GMAT)' }, ...[['course', 'Default'], ['gmat', 'GMAT']].map(([v, l]) => el('button', { class: conv === v ? 'on' : '', onclick: () => { m.convention = v; misTouch(); renderMission(); if (MIS.res) runMission(); } }, l))),
-    el('button', { class: 'solve msolve', onclick: () => runMission() }, 'Run Mission')),
-    el('div', { id: 'mbar', class: 'pbar' }, el('div', { class: 'track' }, el('i')), el('span', {})),
-    el('div', { class: 'dim' }, `ephemeris: ${MIS.meta.ephemeris.name}${MIS.meta.kernel.path ? '' : ' — download DE440s under settings → ephemeris for metre-level planets'}`));
-  main.append(head, tabs, el('div', { class: 'mbody', id: 'mbody' }));
+    tabs, eph, el('button', { class: 'solve msolve', onclick: () => runMission() }, 'Run Mission')),
+    el('div', { id: 'mbar', class: 'pbar' }, el('div', { class: 'track' }, el('i')), el('span', {})));
+  main.append(head, el('div', { class: 'mbody', id: 'mbody' }));
   const body = $('#mbody');
   const t = MIS.tab; if (t === 'Resources') body.append(resourcesTab()); else if (t === 'Sequence') body.append(sequenceTab()); else if (t === 'Plots') body.append(plotsTab()); else if (t === 'Reports') body.append(reportsTab());
   else if (t === 'Compare') body.append(await compareTab()); else if (t === 'Porkchop') body.append(porkchopTab()); else body.append(await scriptTab());
@@ -287,7 +287,7 @@ function spaceCard(r) {
   const host = el('div', { class: 'spaceview' }), bar = el('div', { class: 'spacebar' }), card = el('div', { class: 'cardx spacecard' }, el('h3', {}, el('b', {}, 'Space View'), el('span', { class: 'hint' }, ' · drag to orbit, scroll to zoom, right-drag to pan; time warp up to 10⁷×')), bar, host);
   setTimeout(async () => {
     if (MIS.space) { try { MIS.space.dispose(); } catch (e) { } MIS.space = null; }
-    let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(host, sp, { sky: SET.sky || 'milkyway', model: SET.model, hires: texHires() }); } catch (e) { host.replaceChildren(el('div', { class: 'empty' }, 'the space view needs WebGL: ' + e)); return; }
+    let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(host, sp, { sky: SET.sky || 'milkyway', model: SET.model, hires: texHires(), theme: effTheme() }); } catch (e) { host.replaceChildren(el('div', { class: 'empty' }, 'the space view needs WebGL: ' + e)); return; }
     MIS.space = S3; const st = S3.state;
     const btn = (label, fn, title) => el('button', { class: 'btn small', title: title || '', onclick: fn }, label);
     const play = btn('▶ Play', () => { S3.play(); sync(); }), rev = btn('◀ Reverse', () => { st.dir = -st.dir; if (!st.playing) S3.play(true); sync(); }, 'play backwards');
@@ -295,19 +295,21 @@ function spaceCard(r) {
     const warp = el('input', { type: 'range', min: 0, max: 7, step: 1, value: st.warp, 'data-default': 3, oninput: e => { S3.setWarp(+e.target.value); sync(); } }), wl = el('b', {});
     const focus = el('select', { onchange: e => S3.focus(e.target.value) }, ...S3.names().map(n => el('option', { value: n, selected: n === st.focus }, n)));
     const chk = (k, label, tip) => el('label', { class: 'mcheck', title: tip || '' }, el('input', { type: 'checkbox', checked: !!st[k], onchange: e => S3.set(k, e.target.checked) }), label);
-    const skysel = el('select', { onchange: e => { SET.sky = e.target.value; saveSet(); S3.setSky(e.target.value); } }, ...[['milkyway', 'Milky Way'], ['stars', 'Stars Only'], ['theme', 'Theme Color'], ['black', 'Black']].map(([v, l]) => el('option', { value: v, selected: (SET.sky || 'milkyway') === v }, l)));
+    const skyEls = [], isStarSky = k => k === 'milkyway' || k === 'stars', showSky = k => { skyEls.forEach(x => { x.style.display = isStarSky(k) ? '' : 'none'; }); if (!isStarSky(k)) { S3.set('markers', false); const c = skyEls[0] && skyEls[0].querySelector('input'); if (c) c.checked = false; } };
+    const skysel = el('select', { onchange: e => { SET.sky = e.target.value; saveSet(); S3.setSky(e.target.value); showSky(e.target.value); } }, ...[['milkyway', 'Milky Way'], ['stars', 'Stars Only'], ['theme', 'Theme Color'], ['black', 'Black']].map(([v, l]) => el('option', { value: v, selected: (SET.sky || 'milkyway') === v }, l)));
     const rec = btn('● Record', () => { if (!st.rec) { st.rec = true; rec.textContent = '■ Stop'; S3.record(true); } else { st.rec = false; rec.textContent = '● Record'; S3.record(false, async blob => { const b64 = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); }); const x = await api('save_blob', { kind: 'webm', name: MIS.m.name + '_space', data: b64 }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); }); } }, 'record the view as a webm video while it plays');
     function sync() { play.textContent = st.playing ? '⏸ Pause' : '▶ Play'; wl.textContent = S3.warpLabel() + (st.dir < 0 ? ' (reverse)' : ''); }
+    queueMicrotask(() => showSky(SET.sky || 'milkyway'));
     host.addEventListener('space-time', () => { slider.value = 10000 * (S3.jd - S3.t0) / Math.max(1e-9, S3.t1 - S3.t0); date.textContent = S3.fmt(S3.jd); }); host.addEventListener('space-state', sync); date.textContent = S3.fmt(S3.jd); sync();
-    bar.append(el('div', { class: 'srow' }, play, rev, btn('Next Event', () => S3.nextEvent(), 'jump to the next burn or stop'), el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Time Warp'), warp), wl, date),
+    bar.append(el('div', { class: 'srow' }, play, rev, btn('Next Event', () => { if (!S3.nextEvent()) toast('there are no more burns or stops after this time'); }, 'jump to the next burn or stop'), el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Time Warp'), warp), wl, date),
       el('div', { class: 'srow' }, slider),
       el('div', { class: 'srow' }, el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Focus'), focus), btn('Top', () => S3.view('top')), btn('Isometric', () => S3.view('iso')), btn('Side', () => S3.view('side')),
         chk('labels', 'Labels'), chk('paths', 'Orbits'), chk('soi', 'SOI'), chk('lag', 'Lagrange'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic'),
         el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Background'), skysel),
         el('label', { class: 'mf', title: 'draw bodies larger than life' }, el('span', { class: 'ml' }, 'Body Size'), el('input', { type: 'range', min: 1, max: 100, value: 1, 'data-default': 1, oninput: e => S3.set('exag', +e.target.value) })),
         el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Sky Brightness'), el('input', { type: 'range', min: 0, max: 40, value: 10, 'data-default': 10, oninput: e => S3.set('bright', e.target.value / 10) })),
-        chk('markers', 'Sky Markers', 'label the galactic centre, Polaris and bright stars on the sky (checks the sky orientation)'),
-        el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Look Toward'), el('select', { onchange: e => { if (e.target.value) { st.markers = true; S3.look(...e.target.value.split(',').map(Number)); } e.target.value = ''; } }, el('option', { value: '' }, '…'), ...sp.markers.map(mk => el('option', { value: mk.ra + ',' + mk.dec }, mk.name)))),
+        skyEls[0] = chk('markers', 'Sky Markers', 'label the galactic centre, Polaris and bright stars on the sky (checks the sky orientation); only for the Milky Way and Stars Only backgrounds'),
+        skyEls[1] = el('label', { class: 'mf', title: 'only for the Milky Way and Stars Only backgrounds' }, el('span', { class: 'ml' }, 'Look Toward'), el('select', { onchange: e => { if (e.target.value) { st.markers = true; S3.look(...e.target.value.split(',').map(Number)); } e.target.value = ''; } }, el('option', { value: '' }, '…'), ...sp.markers.map(mk => el('option', { value: mk.ra + ',' + mk.dec }, mk.name)))),
         el('label', { class: 'mf', title: 'how spacecraft are drawn (also under settings → figures and animation)' }, el('span', { class: 'ml' }, 'Spacecraft Model'), el('select', { onchange: e => { SET.model = e.target.value; saveSet(); S.cache.clear(); renderMission(); } }, ...[['marker', 'Simple Marker'], ['comsat', 'Satellite A'], ['probe', 'Satellite B (Probe)']].map(([v, l]) => el('option', { value: v, selected: (SET.model || 'marker') === v }, l)))),
         rec, btn('Save Image', async () => { const x = await api('save_blob', { kind: 'png', name: MIS.m.name + '_space', data: S3.png() }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); })));
   }, 0);
