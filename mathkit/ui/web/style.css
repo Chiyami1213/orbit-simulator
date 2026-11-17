@@ -461,3 +461,11 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-we
 .dock2 [data-dt=tables]>.tbody{padding-top:0}
 .dock2 [data-dt=tables]>.tbody::before{content:"";display:block;flex:none;position:sticky;top:0;height:34px;z-index:6;background:var(--bg)}
 .dock2 [data-dt=tables]>.tbody>.sheet:first-child{margin-top:0}
+
+/* ----- Design tables panel: one panel (like the other tiles) that holds the icons and the tables, so the icons are not floating above it ----- */
+.dock2 [data-dt=tables]>.tbody{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:0 0 8px}
+.dock2 [data-dt=tables]>.tbody::before{height:36px;background:var(--card)}
+.dock2 [data-dt=tables] .grip{top:10px;left:10px}.dock2 [data-dt=tables] .trash{top:9px;right:10px}
+.dock2 [data-dt=tables]>.tbody>.sheet{background:transparent;border:0;border-radius:0;box-shadow:none;margin:0;padding:4px 22px 18px}
+.dock2 [data-dt=tables]>.tbody>.sheet+.sheet{border-top:1px solid var(--line);padding-top:14px}
+.dock2 [data-dt=tables]>.tbody>:not(.sheet){margin-left:22px;margin-right:22px}
