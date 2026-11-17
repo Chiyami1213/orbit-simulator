@@ -28,9 +28,7 @@ N-body acceleration module), no ephemeris. Planets are on circular heliocentric 
 | Calendar | 30-day months in HW4, Julian year $=365.25$ d, JD day $=86\,400$ s, 1 AU $=149\,597\,870.7$ km. The constants table lists Earth's $a=149\,597\,898$ km: use that for "Earth's orbit radius". |
 | Units | km, km·s⁻¹, km³·s⁻² for $\mu$, degrees for angles, seconds internally (results shown also in h, d, yr). |
 
-**Two constant sets** (switchable): *Course table* (GMAT 2020a / JPL "Useful Constants": $\mu,R,a,e$ for Sun, Moon, planets, Pluto) and *Exam rounded*
-($\mu_\oplus=4.0\times10^5$, $R_\oplus=6400$ km; Moon $\mu=5000$, $R=2000$ km on Exam 1 and $1500$ km on Exam 2; Mars $\mu=4.2\times10^4$, $R=3400$ km).
-Always ask which set a number came from — answers differ in the 4th digit.
+**Constants:** only the JPL / GMAT 2020a "Useful Constants" table is used ($\mu,R,a,e$ for the Sun, Moon, planets and Pluto). Printed course answers that were worked with rounded exam constants (for example $\mu_\oplus=4.0	imes10^5$) differ from this program's values in the 4th digit, and those exam presets were removed.
 
 ---
 
@@ -187,7 +185,7 @@ Everything in modules 1–12, the presets and the Test Cases stays in the **cour
 | Bodies / dates | Moon; JD | `Luna`; `UTCModJulian` | $\mathrm{ModJulian}=\mathrm{JD}-2430000.0$ (**not** JD $-2400000.5$) |
 
 Worked check (HW4 problem 3): $\gamma=-62.397426^\circ\Rightarrow$ `VFPA` $=152.397426^\circ$; $\theta^*_{aim}=-56.4427^\circ\Rightarrow$ `TA` $=303.5573^\circ$. The solution text's "270° offset" is really $\mathrm{VFPA}=90^\circ-\gamma$.
-Constants stay a separate switch (Course table / Exam rounded): GMAT uses its own $\mu$ values, so with *Exam rounded* constants a GMAT script will not reproduce the printed exam answers exactly (the exported script says so).
+Constants are always the JPL / GMAT table, so a GMAT script reproduces this program's numbers.
 
 ### 7.2 Realistic models: why answers differ from the course
 

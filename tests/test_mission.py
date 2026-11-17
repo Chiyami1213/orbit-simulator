@@ -232,9 +232,10 @@ def test_script_syntax_matches_gmat_template():
     assert 'Luna' in export_script(MS.starter('GEO with Moon and Sun perturbations')) and '% expected' in t
 
 
-def test_exam_rounded_constants_write_a_warning():
-    m = MS.starter('LEO to GEO Hohmann transfer'); m.constants = 'Exam rounded'
-    assert 'WARNING' in export_script(m)
+def test_only_jpl_constants_are_used():
+    from mathkit.mission.model import Mission
+    m = MS.starter('LEO to GEO Hohmann transfer'); d = m.to_dict(); d['constants'] = 'Exam rounded'              # an older file
+    m2 = Mission.from_dict(d); assert m2.constants == 'Course table' and 'WARNING' not in export_script(m2)
 
 
 def test_importer_loads_the_gmat_tutorial_script():

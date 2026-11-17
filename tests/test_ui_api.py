@@ -41,7 +41,7 @@ def test_bad_input_is_reported_not_raised():
 
 
 def test_run_tests_all_pass():
-    t = api.run_tests(); assert t['total'] == t['passed'] == 169
+    t = api.run_tests(); assert t['total'] == t['passed'] == 152
 
 
 def test_jd_tools():

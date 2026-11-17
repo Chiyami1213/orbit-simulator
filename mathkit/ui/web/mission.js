@@ -176,7 +176,7 @@ function plotsTab() {
   DK.bodies.v2d.append(el('div', { class: 'cardx c2d' }, el('h3', {}, el('b', {}, '2D View')), el('div', { class: 'body' }, el('div', { class: 'svgw', html: sc.svg }))));
   DK.bodies.tables.append(
     el('div', { class: 'sheet' }, el('h3', {}, 'Final States'), table(['Spacecraft', 'Epoch (UTC)', 'Elapsed', 'Elements', 'Angles', 'Magnitudes'], fin)),
-    r.burns.length ? el('div', { class: 'sheet' }, el('h3', {}, 'Maneuvers'), table(['When', 'Spacecraft', 'Burn', 'Δv (km·s⁻¹)', conv ? 'GMAT ImpulsiveBurn' : 'Course form', 'Other form'], burnRows)) : '',
+    r.burns.length ? el('div', { class: 'sheet' }, el('h3', {}, 'Maneuvers'), table(['When', 'Spacecraft', 'Burn', 'Δv (km·s⁻¹)', conv ? 'GMAT ImpulsiveBurn' : 'Default form', 'Other form'], burnRows)) : '',
     el('div', { class: 'sheet' }, el('h3', {}, 'Events'), table(['When (UTC)', 'Spacecraft', 'Event'], evRows)),
     el('div', { class: 'sheet' }, el('h3', {}, 'Reference Trajectories'), el('div', { class: 'dim' }, 'import a CSV (utc or jd, x, y, z …), a CCSDS OEM file, or an SPK kernel to draw it dashed next to the mission and measure the difference. only ICRF / EME2000 inertial frames in utc are accepted.'),
       el('div', { class: 'btnrow' }, (() => { const f = el('input', { type: 'file', accept: '.csv,.oem,.txt', style: 'display:none', onchange: async e => { const fl = e.target.files[0]; if (!fl) return; const x = await api('mission_import_trajectory', { filename: fl.name, text: await fl.text() }); e.target.value = '';
@@ -231,7 +231,6 @@ async function scriptTab() {
   host.append(el('div', { class: 'btnrow' }, mbtn('Copy', () => copyText(r.script)), mbtn('Save .script', async () => { const x = await api('mission_save', { mission: MIS.m, kind: 'script' }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); }, 'pri'),
     mbtn('Save Mission File', async () => { const x = await api('mission_save', { mission: MIS.m, kind: 'orbitmission' }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); }),
     el('span', { class: 'dim' }, r.round_trip_commands ? 'checked: this script imports back to the same command list' : 'warning: the script did not import back to the same command list')),
-    ...(MIS.m.constants === 'Exam rounded' ? [el('div', { class: 'chk warn' }, el('span', { class: 'ic' }, '!'), el('span', {}, 'exam rounded constants are on: GMAT uses its own gravitational parameters, so its results differ slightly from the printed answers'))] : []),
     el('pre', { class: 'script' }, r.script));
   return host;
 }
@@ -270,7 +269,7 @@ async function renderMission() {
   const tabs = el('div', { class: 'tabs' }, ...MIS_TABS.map(t => el('button', { class: 'tab' + (MIS.tab === t ? ' on' : ''), onclick: () => { MIS.tab = t; renderMission(); } }, t)));
   const head = el('div', { class: 'mtool' }, el('div', { class: 'mt1' }, el('input', { class: 'mname', type: 'text', value: m.name, title: 'mission name', onchange: e => { m.name = e.target.value; misTouch(); } }), starter,
     mbtn('Import…', () => file.click(), ''), file, mbtn('New', () => { MIS.m = misNew(); MIS.res = null; MIS.cmp = null; misTouch(); renderMission(); }),
-    el('div', { class: 'seg', title: 'how angles and names are shown: the course convention or GMAT parameter names (the script export is always GMAT)' }, ...[['course', 'Course'], ['gmat', 'GMAT']].map(([v, l]) => el('button', { class: conv === v ? 'on' : '', onclick: () => { m.convention = v; misTouch(); renderMission(); if (MIS.res) runMission(); } }, l))),
+    el('div', { class: 'seg', title: 'how angles and names are shown: the default convention or GMAT parameter names (the script export is always GMAT)' }, ...[['course', 'Default'], ['gmat', 'GMAT']].map(([v, l]) => el('button', { class: conv === v ? 'on' : '', onclick: () => { m.convention = v; misTouch(); renderMission(); if (MIS.res) runMission(); } }, l))),
     el('button', { class: 'solve msolve', onclick: () => runMission() }, 'Run Mission')),
     el('div', { id: 'mbar', class: 'pbar' }, el('div', { class: 'track' }, el('i')), el('span', {})),
     el('div', { class: 'dim' }, `ephemeris: ${MIS.meta.ephemeris.name}${MIS.meta.kernel.path ? '' : ' — download DE440s under settings → ephemeris for metre-level planets'}`));

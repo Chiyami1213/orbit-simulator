@@ -176,3 +176,21 @@ def test_texture_download_accepts_only_images(tmp_path, monkeypatch):
     assert TX.PROG['state'] == 'error' and st['count'] == 0
     st = run(b'\xff\xd8\xff\xe0' + b'x' * 200_000); assert TX.PROG['state'] == 'done' and st['count'] == 1 and st['map'] == {'2k_a.jpg': '8k_a.jpg'}
     assert TX.delete_all() == 1 and TX.status()['count'] == 0
+
+
+def test_sandbox_starts_at_the_current_time():
+    import time
+    sc = SS.default_scene(EPH); now = time.time() / 86400.0 + 2440587.5
+    assert abs(sc['epoch_jd'] - now) < 0.01 and sc['name'] == 'Solar System' and len(sc['bodies']) == 11
+
+
+def test_space_engine_exposes_everything_the_sandbox_calls():
+    space = (ROOT / 'mathkit' / 'ui' / 'web' / 'space.js').read_text(encoding='utf-8')
+    for m in ('setRate(', 'getCamera()', 'setCamera(', 'setHires(', 'select(', 'hover(', 'planePoint(', 'setGhost(', 'setPreview(', 'focus(', 'posOf:', 'velOf(', 'pick(', 'onPick(', 'dispose()', 'setJD(', 'play('):
+        assert m in space, m
+    explore = (ROOT / 'mathkit' / 'ui' / 'web' / 'explore.js').read_text(encoding='utf-8')
+    import re
+    called = set(re.findall(r'\bS3\.(\w+)\(', explore)) | set(re.findall(r'\bEX\.space\.(\w+)\(', explore))
+    missing = [c for c in sorted(called) if c not in ('set',) and not re.search(r'(^|[\s,{])' + c + r'\(|(^|[\s,{])' + c + r':', space)]
+    assert not missing, missing
+    assert "class: 'cd blank'" in explore and 'cd.empty' not in (ROOT / 'mathkit' / 'ui' / 'web' / 'style.css').read_text(encoding='utf-8')

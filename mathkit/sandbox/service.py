@@ -35,8 +35,13 @@ def meta(consts: ConstantSet | None = None) -> dict:
     return dict(texmodes={k: [m[0] for m in v] for k, v in SM.TEXMODES.items()}, presets=SM.PRESETS, catalog=cat, categories=SM.CATEGORIES, horizons=list(HORIZONS), kinds=['star', 'planet', 'moon', 'small', 'spacecraft', 'custom'], models=models(), markers=markers)
 
 
+def now_jd() -> float:
+    import time
+    return round(time.time()) / 86400.0 + 2440587.5
+
+
 def default_scene(eph, jd_utc: float | None = None, name: str | None = None, consts: ConstantSet | None = None) -> dict:
-    jd = jd_utc if jd_utc is not None else TU.calendar_to_jd(2026, 1, 1, 12.0)
+    jd = jd_utc if jd_utc is not None else now_jd()                                                   # the sandbox starts at the current date and time (UTC)
     return SM.preset(name or 'Solar System', eph, jd, consts)
 
 

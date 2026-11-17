@@ -26,10 +26,6 @@ def gmat_text(s: str) -> str:
 def export_script(m: Mission, expected: list[str] | None = None, warn_exam: bool | None = None) -> str:
     out: list[str] = []; a = out.append
     a('%  GMAT script written by OrbSim (compatible with GMAT R2022a).'); a(f'%  Mission: {m.name}')
-    if warn_exam is None: warn_exam = (m.constants == 'Exam rounded')
-    if warn_exam:
-        a('%  WARNING: this mission was built with the "Exam rounded" constants (e.g. mu_Earth = 4.0e5, R_Earth = 6400 km).')
-        a('%  GMAT uses its own gravitational parameters, so GMAT results will differ slightly from the printed exam answers.')
     for line in (expected or []) + list(m.notes): a(f'% expected: {line}' if not line.startswith('%') else line)
     approximated = [p.name for p in m.propagators if p.dynamics in ('cr3bp', 'patched') or p.integrator == 'Kepler (analytic)']
     for n in approximated: a(f'%  note: propagator {n} uses a model GMAT does not have (analytic Kepler or the circular restricted three-body problem); exported as the closest GMAT force model.')

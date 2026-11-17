@@ -429,7 +429,7 @@ button.xdate{background:transparent;border:0;border-radius:8px;padding:4px 8px;m
 .calpop{width:318px;padding:12px;animation:calup .2s ease-out}@keyframes calup{from{transform:translateY(28px);opacity:0}to{transform:none;opacity:1}}
 .calhead{display:flex;align-items:center;gap:8px;margin-bottom:10px}.calhead .calm{flex:1;min-width:0;padding:6px 8px}.calhead .caly{width:84px;padding:6px 8px;text-align:center}.calhead .xib{font-size:20px;line-height:1;width:34px;height:34px}
 .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.calgrid .cw{text-align:center;color:var(--muted);font-size:12px;padding:4px 0}
-.calgrid .cd{height:36px;border:0;border-radius:9px;background:transparent;color:var(--text);cursor:pointer;font-size:14px}.calgrid .cd:hover{background:var(--inset)}.calgrid .cd.on{background:var(--orange);color:#fff;font-weight:700}.calgrid .cd.empty{pointer-events:none}
+.calgrid .cd{height:36px;border:0;border-radius:9px;background:transparent;color:var(--text);cursor:pointer;font-size:14px}.calgrid .cd:hover{background:var(--inset)}.calgrid .cd.on{background:var(--orange);color:#fff;font-weight:700}.calgrid .cd.blank{pointer-events:none;padding:0;height:36px}
 .caltime{display:flex;align-items:center;gap:6px;margin:12px 0 4px;color:var(--text2);font-size:13px}.caltime span{flex:1}.caltime input{width:54px;padding:5px 6px;text-align:center}
 .calfoot{display:flex;justify-content:space-between;margin-top:10px}
 

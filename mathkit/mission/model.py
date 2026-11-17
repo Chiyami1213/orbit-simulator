@@ -140,7 +140,7 @@ class Mission:
 
     @classmethod
     def from_dict(cls, d: dict) -> 'Mission':
-        m = cls(name=d.get('name', 'Mission'), convention=d.get('convention', 'course'), notes=list(d.get('notes', [])), constants=d.get('constants', 'Course table'))
+        m = cls(name=d.get('name', 'Mission'), convention=d.get('convention', 'course'), notes=list(d.get('notes', [])), constants='Course table')                                  # JPL / GMAT constants only (older files may say otherwise)
         m.spacecraft = [Spacecraft(**x) for x in d.get('spacecraft', [])]; m.coords = [CoordSys(**x) for x in d.get('coords', [])]
         m.propagators = [Propagator(**x) for x in d.get('propagators', [])]; m.burns = [Burn(**x) for x in d.get('burns', [])]
         m.reports = [ReportFile(**x) for x in d.get('reports', [])]; m.views = [OrbitView(**x) for x in d.get('views', [])]

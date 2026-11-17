@@ -102,7 +102,7 @@ def _nonfinite(res) -> list[str]:
 def solve(p: dict) -> dict:
     mid = p['mid']; spec = MODULES[mid]; vals = _vals(mid, p.get('vals')); theme = p.get('theme', 'dark'); user = p.get('name', '')
     vals['_label'] = p.get('label') or f'Module {mid}'
-    c = p.get('consts') or {}; C = ConstantSet(c.get('mode', 'Course table'), float(c.get('moon_R', 2000.0)))
+    C = ConstantSet('Course table')                                                       # JPL / GMAT constants only
     problems: list[str] = []
     with LOCK:
         apply_palette((p.get('opts') or {}).get('palette', 'prussian'))
@@ -159,7 +159,7 @@ def export(idx: int, fmt: str, theme: str = 'light'):
         if fmt == 'script':
             from ..mission.from_module import from_module
             from ..gmat.export import export_script
-            m = from_module(LAST['mid'], LAST['vals'], res, ConstantSet(LAST.get('consts_mode', 'Course table')))
+            m = from_module(LAST['mid'], LAST['vals'], res, ConstantSet('Course table'))
             return export_script(m).encode('utf-8'), 'text/plain', stem + '.script'
         if fmt in ('py', 'm'):
             from . import codegen
@@ -273,7 +273,7 @@ def mission_import(p: dict) -> dict:
 def mission_from_module(p: dict) -> dict:
     from ..mission.from_module import from_module, NotAvailable
     if not LAST: return dict(ok=False, error='solve a module first')
-    try: m = from_module(LAST['mid'], LAST['vals'], LAST['res'], ConstantSet(LAST.get('consts_mode', 'Course table')))
+    try: m = from_module(LAST['mid'], LAST['vals'], LAST['res'], ConstantSet('Course table'))
     except NotAvailable as ex: return dict(ok=False, error=str(ex))
     except Exception as ex: return dict(ok=False, error=f'could not build a mission from this result: {ex}')
     return dict(ok=True, mission=m.to_dict())
@@ -391,14 +391,14 @@ def save_blob(p: dict) -> dict:
 # ------------------------------------------------------------------------------------------------ Explore (sandbox)
 def sandbox_meta(p: dict) -> dict:
     from ..sandbox import service as SS
-    out = SS.meta(ConstantSet(p.get('constants', 'Course table'))); e = _eph(); out['ephemeris'] = dict(name=e.name, accuracy=e.accuracy); return out
+    out = SS.meta(ConstantSet('Course table')); e = _eph(); out['ephemeris'] = dict(name=e.name, accuracy=e.accuracy); return out
 
 
 def sandbox_new(p: dict) -> dict:
     from ..sandbox import service as SS
     try:
         with LOCK:
-            scene = SS.default_scene(_eph(), p.get('jd'), p.get('preset'), ConstantSet(p.get('constants', 'Course table'))); return dict(ok=True, scene=scene, sim=SS.run(scene, p.get('horizon', '1 year')))
+            scene = SS.default_scene(_eph(), p.get('jd'), p.get('preset'), ConstantSet('Course table')); return dict(ok=True, scene=scene, sim=SS.run(scene, p.get('horizon', '1 year')))
     except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
 
 
@@ -414,7 +414,7 @@ def sandbox_edit(p: dict) -> dict:
     from ..sandbox import service as SS
     try:
         with LOCK:
-            scene = SS.edit(p['scene'], float(p['jd']), p['edits'], _eph(), ConstantSet(p.get('constants', 'Course table')))
+            scene = SS.edit(p['scene'], float(p['jd']), p['edits'], _eph(), ConstantSet('Course table'))
             return dict(ok=True, scene=scene, sim=SS.run(scene, p.get('horizon', '1 year')))
     except (KeyError, ValueError) as ex: return dict(ok=False, error=str(ex.args[0]) if ex.args else str(ex))
     except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
@@ -431,7 +431,7 @@ def sandbox_panel(p: dict) -> dict:
 
 def sandbox_to_mission(p: dict) -> dict:
     from ..sandbox import service as SS
-    try: return dict(ok=True, mission=SS.to_mission(p['scene'], p['id'], p.get('name'), ConstantSet(p.get('constants', 'Course table'))).to_dict())
+    try: return dict(ok=True, mission=SS.to_mission(p['scene'], p['id'], p.get('name'), ConstantSet('Course table')).to_dict())
     except Exception as ex: return dict(ok=False, error=str(ex))
 
 
@@ -479,7 +479,7 @@ def mission_porkchop(p: dict) -> dict:
         o, t = p.get('origin', 'Earth'), p.get('target', 'Mars'); d0, a0 = jd_of(p['dep_start']), jd_of(p['arr_start']); n = int(min(60, max(8, p.get('n', 30))))
         with LOCK:
             apply_palette(p.get('palette', 'prussian')); MPROG.update(stage='porkchop', frac=0.0)
-            g = PK.grid(_eph(), o, t, d0, float(p['dep_days']), a0, float(p['arr_days']), n, ConstantSet(p.get('constants', 'Course table')), lambda s_, f: MPROG.update(stage=s_, frac=f))
+            g = PK.grid(_eph(), o, t, d0, float(p['dep_days']), a0, float(p['arr_days']), n, ConstantSet('Course table'), lambda s_, f: MPROG.update(stage=s_, frac=f))
             svg = PK.render_svg(g, o, t, p.get('theme', 'dark')); MPROG.update(stage='done', frac=1.0)
         b = g['best']
         if not b: return dict(ok=False, error='no valid transfers in this date range (check that the arrival dates are after the departure dates)')
@@ -489,7 +489,7 @@ def mission_porkchop(p: dict) -> dict:
 
 def mission_from_porkchop(p: dict) -> dict:
     from ..mission import porkchop as PK
-    try: return dict(ok=True, mission=PK.transfer_mission(_eph(), p.get('origin', 'Earth'), p.get('target', 'Mars'), float(p['dep_jd']), float(p['arr_jd']), ConstantSet(p.get('constants', 'Course table'))).to_dict())
+    try: return dict(ok=True, mission=PK.transfer_mission(_eph(), p.get('origin', 'Earth'), p.get('target', 'Mars'), float(p['dep_jd']), float(p['arr_jd']), ConstantSet('Course table')).to_dict())
     except Exception as ex: return dict(ok=False, error=str(ex))
 
 

@@ -77,7 +77,7 @@ const LAY_DEFAULT = { dock: null, navw: 285, subw: 275, panelw: 384, f3d: 0.56, 
 const FRAME_PRESETS = [[240, 'Low'], [480, 'Medium'], [1200, 'High'], [3000, 'Ultra']];
 const fresh = o => JSON.parse(JSON.stringify(o));
 let META = null;
-let SET = { const: 'Course table', moonR: 2000, unit: 'km', appearance: 'dark', name: '', label: '', sliders: true, layout: {}, keys: {},
+let SET = { const: 'Course table', unit: 'km', appearance: 'dark', name: '', label: '', sliders: true, layout: {}, keys: {},
   view: 'both', palette: 'prussian', repeat: true, convention: 'course', tourDone: false, ephemMode: 'auto', ephemPath: '', gmatPath: '', bodyNotation: 'symbol', frames: 480, textures: false, model: 'marker', fps: false, texq: '2k' };
 const LAY = fresh(LAY_DEFAULT);
 const S = { mode: 'solve', page: '12', prev: '12', canon: {}, tab: 'Plots', scene: 0, res: null, seq: 0, tests: null, rebind: null, cache: new Map(), last: {}, setTab: 'Appearance', backups: null, gpu: '', focus: null, fshow: { menu: false, inputs: false, results: false } };
@@ -105,7 +105,6 @@ new MutationObserver(restyleSoon).observe(document.body, { childList: true, subt
 
 /* ---------- units and constants ---------- */
 function bodyR(name) {
-  if (SET.const === 'Exam rounded' && META.exam[name]) return name === 'Moon' ? SET.moonR : META.exam[name].R;
   return META.bodies[name] ? META.bodies[name].R : 1;
 }
 function factor(m) {
@@ -300,7 +299,6 @@ function gpuInfo() {
 const PALETTES = [['prussian', 'Prussian Blue & Orange', ['#0f1628', '#1c2d56', '#ff6b4a']], ['forest', 'Forest Green & Amber', ['#0e1a15', '#1d4a38', '#f5b73b']], ['graphite', 'Graphite & Teal', ['#151618', '#33363f', '#2ec4b6']], ['plum', 'Plum & Coral', ['#1a1226', '#3b2a63', '#ff5d73']]];
 function syncChrome() {
   const th = effTheme(); document.body.dataset.theme = th; document.body.dataset.palette = SET.palette || 'prussian'; document.documentElement.dataset.boot = th;
-  document.querySelectorAll('[data-const]').forEach(b => b.classList.toggle('on', b.dataset.const === SET.const));
   $('#unitChip').innerHTML = 'Units: ' + String(SET.unit).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/_([A-Za-z0-9]+)/, '<sub>$1</sub>') + ' · s'; showFps();
 }
 function navItem(id, label, iconNode, tip, on) {
@@ -359,7 +357,7 @@ function renderPanel() {
 function loadPreset(m, i) {
   const pr = m.presets[i]; S.canon[m.id] = Object.fromEntries(m.fields.map(f => [f.key, JSON.parse(JSON.stringify(f.default))]));
   Object.assign(S.canon[m.id], JSON.parse(JSON.stringify(pr.vals)));
-  SET.const = pr.consts; if (pr.consts === 'Exam rounded') SET.moonR = pr.moon_R; SET.label = pr.label.split(' — ')[0]; saveSet(); syncChrome();
+  SET.label = pr.label.split(' — ')[0]; saveSet(); syncChrome();
   $('#pnote').textContent = pr.note ? 'ℹ ' + pr.note : ''; renderFields(); solveNow();
 }
 function renderFields() {
@@ -442,7 +440,7 @@ function askText(message, { title = 'Enter a Value', placeholder = '', okLabel =
 }
 async function solveNow(live = false, explicit = false) {
   const m = mod(); if (!m) return; const id = ++S.seq;
-  const payload = { mid: m.id, vals: S.canon[m.id], consts: { mode: SET.const, moon_R: SET.moonR }, theme: effTheme(), name: SET.name, label: SET.label, opts: solveOpts() };
+  const payload = { mid: m.id, vals: S.canon[m.id], consts: { mode: 'Course table' }, theme: effTheme(), name: SET.name, label: SET.label, opts: solveOpts() };
   const key = JSON.stringify(payload);
   if (!live && S.cache.has(key)) { const r = S.cache.get(key); S.cache.delete(key); S.cache.set(key, r); S.res = S.last[m.id] = r; showChecks(r); renderMain(); return; }
   $('#spin').classList.add('on'); const endBar = (!live) ? progressStart() : () => { };
@@ -481,7 +479,7 @@ function tabRow(r) {
   const views = el('div', { class: 'seg viewseg', title: 'choose the 3d view, the 2d figure, or both' }, ...[['3d', '3D'], ['2d', '2D'], ['both', '3D + 2D']].map(([v, l]) =>
     el('button', { class: SET.view === v ? 'on' : '', onclick: () => { SET.view = v; saveSet(); setFocus(null); renderMain(); } }, l)));
   const chips = S.tab === 'Plots' && closed.length ? el('div', { class: 'closedchips', title: 'closed panels: click to bring one back' }, ...closed.map(id => el('button', { class: 'chip', onclick: () => openTile(id) }, '+ ' + TILE_NAME[id]))) : '';
-  const convSeg = el('div', { class: 'seg convseg', title: 'show this result with course names and angles, or with GMAT parameter names (VFPA, TA 0 to 360 …). the values behind it do not change' }, ...[['course', 'Course'], ['gmat', 'GMAT']].map(([v, l]) =>
+  const convSeg = el('div', { class: 'seg convseg', title: 'show this result with the default names and angles, or with GMAT parameter names (VFPA, TA 0 to 360 …). the values behind it do not change' }, ...[['course', 'Default'], ['gmat', 'GMAT']].map(([v, l]) =>
     el('button', { class: (S.conv || SET.convention || 'course') === v ? 'on' : '', onclick: () => { S.conv = v; S.cache.clear(); solveNow(); } }, l)));
   const toMission = el('button', { class: 'btn small', title: 'build the matching spacecraft, propagator, burns and stop conditions in the Mission workspace', onclick: () => openInMission() }, 'Open in Mission');
   return el('div', { class: 'tabrow' }, el('div', { class: 'tabs' }, ...tabs.map(t => el('button', { class: 'tab' + (t === S.tab ? ' on' : ''), onclick: () => { S.tab = t; renderMain(); } }, t))), chips, el('div', { class: 'tabtools' }, convSeg, toMission), S.tab === 'Plots' ? views : '');
@@ -713,7 +711,7 @@ function renderUtil() {
 }
 function constPage(main) {
   const rows = Object.entries(META.bodies).map(([n, b]) => {
-    const ex = SET.const === 'Exam rounded' && META.exam[n]; const mu = ex ? META.exam[n].mu : b.mu, R = ex ? (n === 'Moon' ? SET.moonR : META.exam[n].R) : b.R;
+    const mu = b.mu, R = b.R;
     return [n, el('span', { class: 'bsym' }, (BODY_SYM[n] || '') + '︎'), mu.toLocaleString('en-US', { maximumFractionDigits: 6 }), R.toLocaleString('en-US'), b.a ? b.a.toLocaleString('en-US') : '—', b.e != null ? String(b.e) : '—', ex ? 'exam value' : ''];
   });
   main.append(el('div', { class: 'sheet' }, el('h3', {}, `Body Constants — ${SET.const}`), table(['Body', 'Symbol', 'μ (km³·s⁻²)', 'R (km)', 'a (km)', 'e', ''], rows),
@@ -762,7 +760,7 @@ const SET_TABS = ['Appearance', 'Figures and Animation', 'Figure Title', 'Consta
 const redo3d = () => { S.cache.clear(); S.last = {}; };
 async function refreshBackups() { const r = await api('backup_list'); S.backups = r.ok ? r.backups : []; if (S.page === 'settings' && S.setTab === 'Backup') renderUtil(); }
 function afterRestore(r) {
-  Object.assign(SET, r.settings || {}); Object.assign(LAY, fresh(LAY_DEFAULT), SET.layout || {}); LAY.groups = { ...LAY_DEFAULT.groups, ...(LAY.groups || {}) }; SET.layout = LAY;
+  Object.assign(SET, r.settings || {}); SET.const = 'Course table'; Object.assign(LAY, fresh(LAY_DEFAULT), SET.layout || {}); LAY.groups = { ...LAY_DEFAULT.groups, ...(LAY.groups || {}) }; SET.layout = LAY;
   S.backups = r.backups; S.cache.clear(); S.last = {}; applyLayout(); syncChrome(); buildNav(); renderUtil();
 }
 function backupPage() {
@@ -829,20 +827,18 @@ function settingsPage(main) {
       setRow('Frame Rate Monitor', 'show frames per second for the page and the 3d animation', el('input', { type: 'checkbox', checked: SET.fps, onchange: e => { SET.fps = e.target.checked; saveSet(); redo3d(); showFps(); } })),
       el('div', { class: 'dim', style: 'margin:8px 0 0' }, 'planet textures: solar system scope (2k maps), cc by 4.0, https://www.solarsystemscope.com/textures/')),
     'Conventions': () => el('div', { class: 'sheet' },
-      setRow('Convention', 'how angles and names are shown in results, steps and the mission workspace. the numbers behind them, the presets and the test cases always stay in the course convention',
-        seg([['course', 'Course'], ['gmat', 'GMAT']], SET.convention || 'course', v => { SET.convention = v; S.conv = null; saveSet(); redo3d(); if (isMod()) solveSoon(); renderUtil(); })),
-      el('div', { class: 'dim', style: 'margin:10px 0 6px' }, 'what changes in gmat mode (each converted line also shows the course value):'),
-      table(['Quantity', 'Course', 'GMAT'], [['Flight-path angle', 'γ from the local horizon, positive when ṙ > 0', 'HFPA = γ and VFPA = 90° − γ (from the radius vector)'], ['Anomalies', 'θ*, M, E in (−180°, 180°]', 'TA, MA, EA in [0°, 360°)'],
+      setRow('Convention', 'how angles and names are shown in results, steps and the mission workspace. the numbers behind them, the presets and the test cases always stay in the default convention',
+        seg([['course', 'Default'], ['gmat', 'GMAT']], SET.convention || 'course', v => { SET.convention = v; S.conv = null; saveSet(); redo3d(); if (isMod()) solveSoon(); renderUtil(); })),
+      el('div', { class: 'dim', style: 'margin:10px 0 6px' }, 'what changes in gmat mode (each converted line also shows the default value):'),
+      table(['Quantity', 'Default', 'GMAT'], [['Flight-path angle', 'γ from the local horizon, positive when ṙ > 0', 'HFPA = γ and VFPA = 90° − γ (from the radius vector)'], ['Anomalies', 'θ*, M, E in (−180°, 180°]', 'TA, MA, EA in [0°, 360°)'],
         ['Impulse', 'Δv, α, β in VNC (α from v̄⁻ toward Ĉ)', 'Element1..3 in VNB: E1 = Δv cosβ cosα, E2 = Δv sinβ, E3 = Δv cosβ sinα'], ['Energy', 'ε', 'Energy and C3Energy = 2ε'], ['Moon', 'Moon', 'Luna'],
         ['Dates', 'calendar / Julian date', 'UTCGregorian and UTCModJulian = JD − 2430000.0']]),
-      el('div', { class: 'dim', style: 'margin-top:10px' }, 'the constants switch (course table / exam rounded) is separate and unaffected. exported gmat scripts are always written in gmat convention.')),
+      el('div', { class: 'dim', style: 'margin-top:10px' }, 'exported gmat scripts are always written in gmat convention.')),
     'Ephemeris and GMAT': () => ephemPage(),
     'Figure Title': () => el('div', { class: 'sheet' },
       setRow('Your Name', 'printed in every figure title (homework figures must carry it)', el('input', { type: 'text', value: SET.name, placeholder: 'your name', oninput: e => { SET.name = e.target.value; saveSet(); } })),
       setRow('Problem Label', 'for example hw7 p2; also printed in the figure title', el('input', { type: 'text', value: SET.label, placeholder: 'problem label', oninput: e => { SET.label = e.target.value; saveSet(); } }))),
     'Constants and Units': () => el('div', { class: 'sheet' },
-      setRow('Constants', 'course table (gmat 2020a / jpl) or the rounded values used on exams', seg([['Course table', 'Course Table'], ['Exam rounded', 'Exam Rounded']], SET.const, v => setSet({ const: v }, false))),
-      setRow('Moon Radius (km)', 'used by exam rounded constants: exam 1 uses 2000, exam 2 uses 1500', el('input', { type: 'number', value: SET.moonR, step: 100, oninput: e => { SET.moonR = +e.target.value || 2000; saveSet(); } })),
       setRow('Distance Units', 'how distances are entered and shown in the input panels', seg([['km', 'km'], ['R_body', 'R_body'], ['AU', 'AU']], SET.unit, v => setSet({ unit: v }, false)))),
     'Inputs': () => el('div', { class: 'sheet' },
       setRow('Sliders for Angles and Time', 'turn off to use plain number boxes only', el('input', { type: 'checkbox', checked: SET.sliders, onchange: e => { SET.sliders = e.target.checked; saveSet(); } }))),
@@ -930,8 +926,7 @@ function texQualityRows() {
 async function boot() {
   requestAnimationFrame(splashTick); requestAnimationFrame(fpsLoop); splash(8, 'loading modules');
   META = await api('meta'); api('textures_status', {}).then(r => { if (r && r.ok) { S.tex = r; applyTexQuality(); } }).catch(() => { });
-  Object.assign(SET, META.settings || {}); Object.assign(LAY, fresh(LAY_DEFAULT), SET.layout || {}); LAY.groups = { ...LAY_DEFAULT.groups, ...(LAY.groups || {}) }; SET.layout = LAY; splash(38, 'preparing the interface');
-  document.querySelectorAll('[data-const]').forEach(b => b.onclick = () => setSet({ const: b.dataset.const }));
+  Object.assign(SET, META.settings || {}); SET.const = 'Course table'; Object.assign(LAY, fresh(LAY_DEFAULT), SET.layout || {}); LAY.groups = { ...LAY_DEFAULT.groups, ...(LAY.groups || {}) }; SET.layout = LAY; splash(38, 'preparing the interface');
   $('#unitChip').onclick = () => setSet({ unit: { km: 'R_body', R_body: 'AU', AU: 'km' }[SET.unit] });
   initSplitters(); syncChrome(); buildNav(); buildMenubar(); buildModeSwitch(); initNavPeek(); splash(58, 'drawing the first transfer');
   await go(META.modules.some(m => m.id === SET.lastPage) ? SET.lastPage : S.page); splash(100, 'ready'); SPLASH.done = true; restyle(); if (!SET.tourDone) setTimeout(() => startTour(), 1800);

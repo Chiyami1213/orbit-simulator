@@ -307,7 +307,7 @@ export function createSpace(host, data, opts = {}) {
       if (g.arrow) ghostGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(g.arrow.map(q => new THREE.Vector3(...q))), new THREE.LineBasicMaterial({ color: '#ffffff' })));
       world.add(ghostGrp);
     },
-    select(name) { state.selected = name; }, hover(name) { state.hover = name; }, setHires(m) { hiMap = m || null; hiUpdate(); },
+    select(name) { state.selected = name; }, hover(name) { state.hover = name; }, setHires(m) { hiMap = m || null; hiUpdate(); }, setRate(r) { state.rate = r; }, getCamera() { return { p: camera.position.toArray(), t: controls.target.toArray() }; },
     setCamera(c) { camera.position.fromArray(c.p); controls.target.fromArray(c.t); controls.update(); },
     pick(cx, cy) {                                                                    // nearest body to a screen point (within 18 px), preferring the larger on-screen body
       const rect = renderer.domElement.getBoundingClientRect(), x = cx - rect.left, y = cy - rect.top; let best = null, bd = 18;

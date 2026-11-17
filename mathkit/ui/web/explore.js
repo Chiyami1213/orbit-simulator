@@ -47,7 +47,7 @@ function calPop(anchor) {
   const step = k => { M += k; if (M < 0) { M = 11; Y--; } else if (M > 11) { M = 0; Y++; } draw(); };
   function draw() {
     const first = dateOfJd(jdOfDate(Y, M, 1)).getUTCDay(), n = dateOfJd(jdOfDate(Y, M + 1, 0)).getUTCDate(), cells = [];
-    for (let i = 0; i < first; i++) cells.push(el('span', { class: 'cd empty' }));
+    for (let i = 0; i < first; i++) cells.push(el('span', { class: 'cd blank' }));
     for (let d = 1; d <= n; d++) cells.push(el('button', { class: 'cd' + (Y === sel.y && M === sel.m && d === sel.d ? ' on' : ''), onclick: () => go(Y, M, d) }, String(d)));
     const tin = i => el('input', { type: 'number', min: 0, max: i ? 59 : 23, value: String(T[i]).padStart(2, '0'), onchange: e => { T[i] = Math.max(0, Math.min(i ? 59 : 23, Math.round(+e.target.value) || 0)); e.target.value = String(T[i]).padStart(2, '0'); } });
     box.replaceChildren(

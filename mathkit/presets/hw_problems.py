@@ -22,12 +22,6 @@ add = lambda mod, p: PRESETS[mod].append(p)
 add('3', Preset('HW3 P3 — state (alt 8560 km, v_r, v_θ) → conic', dict(body='Earth', mode='polar', r=RE + 8560, vr=-2.11, vt=4.89),
     [X('a', lambda r: dd(r, 'a'), 15942.3), X('p', lambda r: dd(r, 'p'), 13386.7), X('e', lambda r: dd(r, 'e'), 0.4004), X('P', lambda r: dd(r, 'conic_from_rv_polar')['P'], 20032.7),
      X('θ* (0–360°)', lambda r: wrap360(dd(r, 'ths')), 254.97), X('γ', lambda r: dd(r, 'gamma'), -23.340)]))
-_R, _mu = EXAM['Earth']['R'], EXAM['Earth']['mu']
-add('3', Preset('Exam 1 P2 — r̄, v̄ in the plane → conic (exam constants)', dict(body='Earth', mode='xy', rx=-2 * _R, ry=2 * np.sqrt(3) * _R, vx=-np.sqrt(_mu / (4 * _R)), vy=0.0),
-    [X('p/R', lambda r: dd(r, 'p') / _R, 3.0), X('e', lambda r: dd(r, 'e'), 0.5), X('θ*', lambda r: dd(r, 'ths'), 120.0), X('γ', lambda r: dd(r, 'gamma'), 30.0)], consts='Exam rounded'))
-add('3', Preset('Exam 1 P3 — Mars orbit from h and ε (exam constants)', dict(body='Mars', mode='h_eps', h=2.5e4, eps=-1.2351, ths=0.0),
-    [X('p/R', lambda r: dd(r, 'p') / 3400, 4.377, 5e-4), X('e', lambda r: dd(r, 'e'), 0.3530, 1e-3)], consts='Exam rounded',
-    note='Printed "P = 18.877 da" is 18.88 h (a = 5R♂ gives 18.877 h) — unit label error in the solution.'))
 
 # ------------------------------------------------------------------ Module 4
 add('4', Preset('HW4 P1 — Anteros, propagate 6.4 months (30-day)', dict(body='Sun', a_kind='a', a=1.43018128 * AU, e=0.2576460, start_kind='ths', start_val=118.65, dt=6.4, dt_unit='30-day months'),
@@ -43,9 +37,6 @@ add('4', Preset('HW5 P1 — Mars orbit, M₀ = −120°, Δt = 0.75 P (f, g)', d
 _a = 4 * B['Earth']['R']
 add('4', Preset('Exam 2 P3 — TOF θ* = 90° → −120° (course constants)', dict(body='Earth', a_kind='a', a=_a, e=0.5, start_kind='ths', start_val=90.0, dt_mode='until θ*₁', end_ths=-120.0),
     [X('TOF [h]', lambda r: dd(r, 'tof_s') / 3600, 8.24419)], note='The printed 8.24419 h uses course-table constants for n.'))
-add('4', Preset('Exam 2 P3 — same, with the exam’s rounded constants', dict(body='Earth', a_kind='a', a=4 * EXAM['Earth']['R'], e=0.5, start_kind='ths', start_val=90.0, dt_mode='until θ*₁', end_ths=-120.0),
-    [X('TOF [h]', lambda r: dd(r, 'tof_s') / 3600, 8.2721, 2e-4)], consts='Exam rounded',
-    note='Erratum: with μ = 4×10⁵, R = 6400 the mean motion is n = 1.5441×10⁻⁴ s⁻¹ and TOF = 8.2721 h (the printed 8.24419 h used course constants).'))
 
 # ------------------------------------------------------------------ Module 5
 V_ = B['Venus']
@@ -85,11 +76,6 @@ add('7', Preset('HW7 P1 — raise r_p, lower r_a, advance perigee 90°', dict(bo
 add('7', Preset('HW7 P2 — Δv = 1, α = 45°, β = 60° at θ* = 150°', dict(body='Earth', sub='given Δv, α, β', g_a=8 * RE, g_e=0.7, g_inc=30.0, g_Om=60.0, g_om=90.0, g_ths=150.0, g_dv=1.0, g_alpha=45.0, g_beta=60.0),
     [X('Δv_r', lambda r: r.get('Δv̄_rθh')[0], 0.4991, 5e-4), X('Δv_θ', lambda r: r.get('Δv̄_rθh')[1], 0.0294, 5e-3), X('a⁺/R⊕', lambda r: dd(r, 'new')['a'] / RE, 11.6729), X('e⁺', lambda r: dd(r, 'new')['e'], 0.7257),
      X('i⁺', lambda r: dd(r, 'new')['inc'], 28.47), X('Ω⁺', lambda r: dd(r, 'new')['Om'], 358.68), X('ω⁺', lambda r: dd(r, 'new')['om'], 164.69), X('θ*⁺', lambda r: dd(r, 'new')['ths'], 130.03)]))
-_p1 = 6000.0; _e1 = 1 / np.sqrt(3); _eN = 0.25; _pN = _p1 * (1 + _eN * np.cos(np.radians(-120)))
-_nearest = lambda r: min(r.data['intersections'], key=lambda d: abs(wrap180(d['th1'] + 90)))
-add('7', Preset('Exam 2 P1 — impulse at θ* = −90° into a rotated orbit (exam constants, Moon μ = 5000)', dict(body='Moon', sub='target orbit (find intersections)', o1_mode='p, e', o1_p=_p1, o1_e=_e1, o2_mode='p, e', o2_p=_pN, o2_e=_eN, d_omega=30.0),
-    [X('Δv at θ* = −90°', lambda r: _nearest(r)['dv'], 0.32122), X('α', lambda r: _nearest(r)['alpha'], 130.577)], consts='Exam rounded',
-    note='The solver lists both crossings; the exam fixes the burn at θ* = −90°. The other crossing (θ* ≈ 43°) is slightly cheaper.'))
 
 # ------------------------------------------------------------------ Module 8
 Pl = B['Pluto']
@@ -151,9 +137,3 @@ add('12', Preset('Lecture notes LLex 2 — Mars-centred, TA = 240° (type 2B), l
     note='Erratum (lecture notes LLex 2): TOF_min(Phobos → Deimos) is 8.210 h, not 5.705 h.'))
 add('12', Preset('Lecture notes LLex 2 — Earth → Mars heliocentric, TOF = 90 d (type 1H)', dict(body='Sun', pos_kind='radii', r1=1.496e8, r2=2.2795e8, TA=140.0, t_mode='tof', tof_h=90 * 24.0, root='large'),
     [X('a', lambda r: dd(r, 'sel')['a'], -3.0252e8, 5e-4), X('TOF_par [d]', lambda r: dd(r, 'sel')['tof_par'] / 86400, 104.62, 5e-4)]))
-_R2 = EXAM['Earth']['R']
-add('12', Preset('Exam 2 P2 — two 3-D vectors, p = 3R (exam constants)', dict(body='Earth', pos_kind='vectors', r1v=[np.sqrt(3) * _R2, -_R2, 0.0], r2v=[0.0, 2 * _R2, 2 * np.sqrt(3) * _R2], t_mode='given p', p=3 * _R2),
-    [X('TA', lambda r: dd(r, 'TA'), 104.478), X('i', lambda r: S(r, 'i'), 63.435), X('Ω', lambda r: S(r, 'Ω'), 330.0)] +
-    [X(f'v₁_{k}', (lambda r, i=i: dd(r, 'v1_xyz')[i]), ex, 1e-3) for i, (k, ex) in enumerate(zip('xyz', [2.04119, 2.35691, 6.12348]))] +
-    [X('h (exam constants)', lambda r: S(r, 'h'), 8.7636e4, 1e-4), X('g [s] (exam constants)', lambda r: S(r, 'g'), 3620.39, 1e-4)], consts='Exam rounded',
-    note='Erratum: the solution prints h = 8.7333×10⁴, g = 3608.166 s; with the exam constants h = √(μp) = 8.7636×10⁴ and g = 3620.39 s (v̄₁ agrees to 4 digits either way).'))
