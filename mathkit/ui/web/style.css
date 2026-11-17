@@ -447,3 +447,7 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-we
 #tile-inputs #panel h2{position:sticky;top:0;z-index:6;background:var(--panel);margin:0 -18px 6px;padding:0 48px 0 38px}
 #tile-results .tilehead{position:sticky;top:0;z-index:6;background:var(--bg)}
 .dock2 .tile .spacecard>h3,.dock2 .tile .nodecard>h3{position:sticky;top:0;z-index:6;background:var(--card)}
+
+/* ----- every panel title is the same size; the Results cards keep a gap below the title bar ----- */
+#tile-inputs #panel h2{font-size:14.5px}
+#tile-results .tilehead{border-bottom:8px solid var(--bg)}
