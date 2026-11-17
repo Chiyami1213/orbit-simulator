@@ -194,3 +194,23 @@ def test_space_engine_exposes_everything_the_sandbox_calls():
     missing = [c for c in sorted(called) if c not in ('set',) and not re.search(r'(^|[\s,{])' + c + r'\(|(^|[\s,{])' + c + r':', space)]
     assert not missing, missing
     assert "class: 'cd blank'" in explore and 'cd.empty' not in (ROOT / 'mathkit' / 'ui' / 'web' / 'style.css').read_text(encoding='utf-8')
+
+
+def test_body_rotation_follows_the_jpl_pck_constants(scene):
+    from mathkit import spin as SP
+    assert abs(SP.period_hours(SP.spin_for('Earth')) - 23.93447) < 1e-3                       # sidereal day
+    assert SP.period_hours(SP.spin_for('Venus')) < 0 and abs(SP.period_hours(SP.spin_for('Venus')) + 5832.44) < 0.1       # retrograde
+    assert SP.period_hours(SP.spin_for('Uranus')) < 0 and abs(SP.period_hours(SP.spin_for('Jupiter')) - 9.9249) < 1e-3
+    assert abs(SP.period_hours(SP.spin_for('Moon')) - 655.72) < 0.01                          # synchronous with its orbit (27.32 d)
+    ra, dec = SP.pole(SP.spin_for('Earth'), 2451545.0 + 36525.0); assert abs(ra + 0.641) < 1e-9 and abs(dec - (90 - 0.557)) < 1e-9        # pole drift per century
+    assert abs(SP.prime_meridian(SP.spin_for('Earth'), 2451545.0) - 190.147) < 1e-9 and SP.spin_for('Spacecraft') is None
+    earth = next(b for b in scene['bodies'] if b['id'] == 'Earth'); assert abs(24 * 360 / earth['spin']['rate'] - 23.93447) < 1e-3
+
+
+def test_body_rotation_can_be_edited_and_reaches_the_views(scene):
+    sc = SM.apply_edits(scene, [dict(op='set', id='Mars', fields=dict(spin_h=-30.0, pole_dec=10.0, pole_ra=100.0))], EPH)
+    m = next(b for b in sc['bodies'] if b['id'] == 'Mars'); assert abs(24 * 360 / m['spin']['rate'] + 30.0) < 1e-9 and m['spin']['dec'] == 10.0 and m['spin']['ra'] == 100.0
+    out = SS.run(sc, '30 days'); assert next(b for b in out['bodies'] if b['id'] == 'Mars')['spin']['dec'] == 10.0
+    assert 'spinBody' in (ROOT / 'mathkit' / 'ui' / 'web' / 'space.js').read_text(encoding='utf-8')
+    from mathkit.mission import service as MS
+    assert 'spin_for(n)' in (ROOT / 'mathkit' / 'mission' / 'service.py').read_text(encoding='utf-8')

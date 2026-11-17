@@ -9,6 +9,7 @@ import numpy as np
 from ..core.constants import BODIES, ConstantSet, D2R
 from ..core.elements import rv_from_elements, elements_from_rv
 from ..core import timeutil as TU
+from ..spin import spin_for, period_hours
 from ..mission.model import Spacecraft  # noqa: F401  (re-exported for callers that build missions)
 
 G_KM = 6.67430e-20                                                    # km^3 kg^-1 s^-2
@@ -41,10 +42,12 @@ BODY_COLOR = {'Sun': '#ffd27a', 'Mercury': '#a79d93', 'Venus': '#e0c28b', 'Earth
 
 
 def new_body(name: str, kind: str, mu: float, radius: float, r, v, **kw) -> dict:
-    shape = kw.pop('shape', None)
+    shape = kw.pop('shape', None); kw_spin = kw.pop('spin', None)
     body = dict(id=kw.pop('id', name), name=name, kind=kind, mu=float(mu), radius=float(radius), color=kw.pop('color', BODY_COLOR.get(name, KIND_COLOR.get(kind, '#8aa0c8'))),
                 texture=kw.pop('texture', TEXTURES.get(name)), r=[float(x) for x in r], v=[float(x) for x in v], gravity=kw.pop('gravity', mu > 0), visible=True, **kw)
     if shape: body['shape'] = shape                                                              # a chosen 3D model ('comsat' / 'probe' for spacecraft)
+    sp = kw_spin if kw_spin is not None else spin_for(name)                                      # rotation constants from JPL's PCK (known bodies only)
+    if sp: body['spin'] = sp
     if name in TEXMODES and body.get('texture') == TEXTURES.get(name): apply_texmode(body)     # the default map set of Earth and Venus
     return body
 
@@ -224,6 +227,11 @@ def apply_edits(scene: dict, edits: list[dict], eph=None, consts: ConstantSet | 
                 if k in ('mu', 'radius'): b[k] = max(float(v), 0.0)
                 elif k in ('r', 'v'): b[k] = [float(x) for x in v]
                 elif k == 'texmode': apply_texmode(b, v)
+                elif k in ('spin_h', 'pole_ra', 'pole_dec'):                                   # rotation period in hours (negative = retrograde, 0 = none) and pole direction
+                    sp = b.setdefault('spin', dict(ra=0.0, ra_rate=0.0, dec=90.0, dec_rate=0.0, w0=0.0, rate=0.0))
+                    if k == 'spin_h': sp['rate'] = 24.0 * 360.0 / float(v) if float(v) else 0.0
+                    elif k == 'pole_ra': sp['ra'] = float(v); sp['ra_rate'] = 0.0
+                    else: sp['dec'] = max(-90.0, min(90.0, float(v))); sp['dec_rate'] = 0.0
                 elif k in ('name', 'color', 'texture', 'gravity', 'visible', 'kind', 'shape'): b[k] = v
             if 'mu' in e['fields']: b['gravity'] = b['mu'] > 0 if 'gravity' not in e['fields'] else b['gravity']
         elif op == 'scale_mass': get(sc, e['id'])['mu'] *= float(e['factor'])

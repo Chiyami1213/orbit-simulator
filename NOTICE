@@ -32,3 +32,5 @@ Icons: Lucide (ISC licence, https://lucide.dev, partly derived from Feather, MIT
 three.js r160 (MIT, mathkit/ui/web/vendor/, full text LICENSES/three-MIT.txt) draws the Sandbox and Design space views.
 
 Plotly (MIT), pywebview (BSD-3-Clause), NumPy (BSD-3-Clause) and Matplotlib (PSF-based licence) are used under their own licences.
+
+Body rotation (pole and prime-meridian constants): NASA/JPL NAIF SPICE kernel pck00011.tpc (IAU 2009 WGCCRE report, Archinal et al. 2011), https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc

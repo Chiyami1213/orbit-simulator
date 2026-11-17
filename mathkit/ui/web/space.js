@@ -89,7 +89,7 @@ export function createSpace(host, data, opts = {}) {
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(50, W() / H(), 1e-3, 1e14); camera.up.set(0, 0, 1);
   const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.zoomSpeed = 1.2;
   const world = new THREE.Group(); scene.add(world);
-  const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 1.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1, light: 'even', atmo: true };
+  const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 1.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1, light: 'even', atmo: true, spin: true };
   const loader = new THREE.TextureLoader(), t0 = data.jd0, t1 = data.jd1, span = Math.max(1e-9, t1 - t0);
   let jd = t0, raf = 0, last = 0, flyTo = null;
   let ghostGrp = null, ghostMk = null;                                                  // the placement preview of the sandbox (marker, orbit ring, aim arrow)
@@ -155,7 +155,7 @@ export function createSpace(host, data, opts = {}) {
       if (isStar(b)) mesh.add(glowSprite('#ffd27a', 4.5));
     }
     world.add(mesh);
-    const o = { def: b, mesh, label: mkLabel(b.name, '#cfe0ff'), soi: null, slots, nightU, shells, hiOn: false };
+    const o = { def: b, mesh, label: mkLabel(b.name, '#cfe0ff'), soi: null, slots, nightU, shells, hiOn: false, spinTarget: shape === 'sphere' ? mesh : (mesh.userData.ball || null) };
     if (b.soi) { o.soi = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 20), new THREE.MeshBasicMaterial({ color: '#4c8df6', wireframe: true, transparent: true, opacity: 0.12 })); world.add(o.soi); }
     const par = b.parent ? data.bodies.find(x => x.name === b.parent) : null;                                      // orbit drawn relative to the parent, around its current position
     if (b.path && b.path.r.length > 1) {
@@ -201,6 +201,14 @@ export function createSpace(host, data, opts = {}) {
     el_.style.display = 'block'; el_.style.transform = `translate(${(p.x * 0.5 + 0.5) * W() + 8}px, ${(-p.y * 0.5 + 0.5) * H() - 8}px)`; return el_;
   };
   const sl0pos = () => posOf(starLights[0].def.name);
+  // Body rotation: the IAU / JPL pole and prime meridian (def.spin). The body-fixed frame is Rz(ra+90) Rx(90-dec) Rz(W); the sphere's poles lie along z and its texture centre (longitude 0) along +x.
+  const DEG = Math.PI / 180, qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), AX = new THREE.Vector3(1, 0, 0), AZ = new THREE.Vector3(0, 0, 1), BASEQ = new THREE.Quaternion().setFromAxisAngle(AX, Math.PI / 2);
+  function spinBody(o) {
+    const sp = o.def.spin, d = jd - 2451545.0, T = d / 36525, ra = (sp.ra + (sp.ra_rate || 0) * T) * DEG, dec = (sp.dec + (sp.dec_rate || 0) * T) * DEG; let W = sp.w0 + sp.rate * d;
+    const perSec = state.playing ? Math.abs(sp.rate * (state.rate != null ? state.rate : WARPS[state.warp]) / 86400) : 0;
+    if (perSec > 200) W = sp.w0 + Math.sign(sp.rate) * performance.now() / 1000 * 40;         // too fast to follow at this time warp: a slow steady turn instead of a flicker
+    const q = o.spinTarget.quaternion; q.setFromAxisAngle(AZ, ra + Math.PI / 2); qa.setFromAxisAngle(AX, Math.PI / 2 - dec); q.multiply(qa); qb.setFromAxisAngle(AZ, W * DEG); q.multiply(qb); q.multiply(BASEQ);
+  }
   function layout() {
     const cp = camera.position.clone().add(world.position.clone().negate()), tgt = controls.target.clone();
     const tgtD = camera.position.distanceTo(controls.target), unit = tgtD * 0.012, placed = [];
@@ -215,6 +223,7 @@ export function createSpace(host, data, opts = {}) {
       if (o.mesh.userData.ring) o.mesh.userData.ring.quaternion.copy(camera.quaternion);
       if (o.soi) { o.soi.position.set(...p); o.soi.scale.setScalar(o.def.soi); o.soi.visible = state.soi; }
       if (o.line) { o.line.visible = state.paths; if (o.rel) o.line.position.set(...posOf(o.def.parent)); o.line.material.opacity = state.selected === o.def.name ? 1 : 0.45; } const l = label(o.label, o.mesh.position, true); if (l) placed.push(l);
+      if (o.spinTarget && o.def.spin && state.spin) spinBody(o);
       if (o.nightU || o.shells.length) { dirV.set(sp[0] - p[0], sp[1] - p[1], sp[2] - p[2]).transformDirection(camera.matrixWorldInverse); const lit = state.light === 'full' ? 0 : 1;
         if (o.nightU) { o.nightU.uSun.value.copy(dirV); o.nightU.uNight.value = lit; } for (const sh of o.shells) { sh.visible = state.atmo; sh.material.uniforms.uSun.value.copy(dirV); sh.material.uniforms.uLit.value = lit; } }
       if (o.def.name === 'Sun' && !starLights.length) { const c = o.mesh.position; sun.position.copy(c); sun.target.position.set(0, 0, 0); }

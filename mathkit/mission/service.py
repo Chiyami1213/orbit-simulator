@@ -1,5 +1,6 @@
 """Mission workspace back end: starters, running (with 2D/3D scenes), the course-vs-propagated comparison, script export/import, files."""
 from __future__ import annotations
+from ..spin import spin_for
 import csv
 import io
 import json
@@ -317,7 +318,7 @@ def space_payload(m: Mission, res: RunResult, eph, refs: list | None = None, cap
     bodies = []; jds = np.linspace(jd0, max(jd1, jd0 + 1e-6), 160)
     patched = any(p.dynamics == 'patched' for p in m.propagators)
     for n in names:
-        b = dict(name=n, R=consts.R(n), texture=TEXTURES.get(n), color=BODY_COLOR.get(n, '#8aa0c8'))
+        b = dict(name=n, R=consts.R(n), texture=TEXTURES.get(n), color=BODY_COLOR.get(n, '#8aa0c8'), spin=spin_for(n))
         if n != center:
             if eph is None or n not in getattr(eph, 'bodies', ()): continue
             B = np.array([eph.state(n, TU.utc_to_tdb(j), center)[0] for j in jds]); b['path'] = dict(jd=jds.tolist(), r=B.tolist())
