@@ -436,3 +436,14 @@ button.xdate{background:transparent;border:0;border-radius:8px;padding:4px 8px;m
 /* ----- colour inputs: just the swatch, no grey box around it ----- */
 input[type=color],.xrow input[type=color],.mf input[type=color]{background:transparent!important;border:0!important;padding:0!important;box-shadow:none;width:46px;height:30px;cursor:pointer}
 input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-webkit-color-swatch{border:1px solid rgba(255,255,255,.35);border-radius:7px}
+
+/* ----- the Results panel: grip, title and trash share one centre line, and the cards have even space on every side ----- */
+#tile-results .grip{top:10px;left:10px}
+#tile-results .trash{top:9px;right:10px}
+#tile-results .tbody{padding:0 10px 10px}
+#tile-results .tilehead{margin:0 -10px}
+
+/* ----- scrolling panels: the title bar (grip, title, trash) stays put and the content scrolls underneath it instead of passing behind the icons ----- */
+#tile-inputs #panel h2{position:sticky;top:0;z-index:6;background:var(--panel);margin:0 -18px 6px;padding:0 48px 0 38px}
+#tile-results .tilehead{position:sticky;top:0;z-index:6;background:var(--bg)}
+.dock2 .tile .spacecard>h3,.dock2 .tile .nodecard>h3{position:sticky;top:0;z-index:6;background:var(--card)}

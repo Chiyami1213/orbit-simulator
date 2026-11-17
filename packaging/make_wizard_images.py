@@ -49,8 +49,9 @@ def side(w, h):
 
 
 def small(w, h):
-    W, H = w * SS, h * SS; im = Image.new('RGB', (W, H), (255, 255, 255)); d = ImageDraw.Draw(im); s = int(min(W, H) * 0.86)
-    logo(d, (W - s) // 2, (H - s) // 2, s); return im.resize((w, h), Image.LANCZOS)
+    # the wizard draws this image flush against the top-right corner of the header, so the logo is smaller and sits left of centre: that leaves even white space on every side
+    W, H = w * SS, h * SS; im = Image.new('RGB', (W, H), (255, 255, 255)); d = ImageDraw.Draw(im); s = int(min(W, H) * 0.66)
+    logo(d, int((W - s) * 0.40), (H - s) // 2, s); return im.resize((w, h), Image.LANCZOS)
 
 
 for w, h in ((164, 314), (246, 459), (328, 604), (410, 797)):
