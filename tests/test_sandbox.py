@@ -239,3 +239,13 @@ def test_stylesheet_keeps_every_theme_and_sandbox_block():
         assert k in css, k
     js = (ROOT / 'mathkit' / 'ui' / 'web' / 'app.js').read_text(encoding='utf-8'); assert "['obsidian'" in js
     from mathkit import theme; assert 'obsidian' in theme.PALETTES
+
+
+def test_solve_3d_view_spins_the_textured_body():
+    from mathkit.view3d.scene import build_figure
+    from mathkit.view3d import animate
+    src = (ROOT / 'mathkit' / 'view3d' / 'animate.py').read_text(encoding='utf-8'); assert 'function spinAt' in src and 'id="spin"' in src
+    from mathkit.ui import api
+    r = api.solve(dict(mid='12', vals=None, theme='light', opts=dict(textures=True, frames=60)))
+    html = next((s.get('html3d') for s in r['scenes'] if s.get('html3d')), '')
+    assert '"spin": {"idx"' in html and '"name": "Earth"' in html

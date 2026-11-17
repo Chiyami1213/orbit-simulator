@@ -77,12 +77,24 @@ function modelVerts(f){                                                  // orie
     X.push(p[0] + S*(a*fwd[0] + b*right[0] + c*up[0])); Y.push(p[1] + S*(a*fwd[1] + b*right[1] + c*up[1])); Z.push(p[2] + S*(a*fwd[2] + b*right[2] + c*up[2])); }
   return [X, Y, Z];
 }
+// Body spin: the textured central body turns about the scene's z axis (its pole in these frames) at its real sidereal rate (JPL / IAU), with simulated time. Far too fast to follow at
+// high speed-up (a year in 20 s), it then turns slowly and steadily instead of flickering. The mesh is redrawn at most about 12 times a second.
+let spinOn = true, spinW = null, spinT = 0;
+function spinAt(){
+  const S = D.spin, now = performance.now(), perSec = Math.abs(S.rate * (D.duration > 0 ? D.duration / 20 * speed : 0) / 86400);
+  let W = S.rate * (t / 86400); if (playing && perSec > 200) W = Math.sign(S.rate) * now / 1000 * 40;
+  if (spinW !== null && playing && (now - spinT < 80 || Math.abs(W - spinW) < 0.3)) return null;
+  spinW = W; spinT = now; const c = Math.cos(W * Math.PI / 180), s = Math.sin(W * Math.PI / 180), n = S.x.length, X = new Array(n), Y = new Array(n), Z = new Array(n);
+  for (let i = 0; i < n; i++) { X[i] = S.c[0] + S.R * (S.x[i] * c - S.y[i] * s); Y[i] = S.c[1] + S.R * (S.x[i] * s + S.y[i] * c); Z[i] = S.c[2] + S.R * S.z[i]; }
+  return [X, Y, Z];
+}
 function render(withTrail){
   const f = D.duration > 0 ? (t / D.duration) * (N-1) : 0; const k = Math.min(N-1, Math.floor(f)), X = [], Y = [], Z = [], ids = [];
   TR.forEach((tr, j) => { const x = interp(tr.xyz[0], f), y = interp(tr.xyz[1], f), z = interp(tr.xyz[2], f); X.push([x]); Y.push([y]); Z.push([z]); ids.push(IDX[j][1]); });
   if (withTrail) TR.forEach((tr, j) => { const xs = [], ys = [], zs = []; for (let i = 0; i <= k; i += STRIDE[j]) { xs.push(tr.xyz[0][i]); ys.push(tr.xyz[1][i]); zs.push(tr.xyz[2][i]); }
     xs.push(X[j][0]); ys.push(Y[j][0]); zs.push(Z[j][0]); X.push(xs); Y.push(ys); Z.push(zs); ids.push(IDX[j][0]); });
   if (D.model && TR.length) { const m = modelVerts(f); X.push(m[0]); Y.push(m[1]); Z.push(m[2]); ids.push(D.model.idx); }
+  if (D.spin && spinOn) { const sp = spinAt(); if (sp) { X.push(sp[0]); Y.push(sp[1]); Z.push(sp[2]); ids.push(D.spin.idx); } }
   const cam = userCam && playing ? userCam : null;                                                   // you are moving the view while it plays: the new camera is sent with the frame
   if (ids.length) { if (cam) Plotly.update(gd, {x: X, y: Y, z: Z}, {'scene.camera': cam}, ids); else Plotly.restyle(gd, {x: X, y: Y, z: Z}, ids); if (cam && !interacting()) userCam = null; }       // ONE batched update per frame (the camera stays in the layout once you let go)
   $('scrub').value = D.duration > 0 ? 1000 * t / D.duration : 0;
@@ -125,6 +137,7 @@ $('speed').ondblclick = () => { $('speed').value = 0; $('speed').oninput({target
 $('scrub').ondblclick = () => { $('scrub').value = 0; $('scrub').oninput({target: $('scrub')}); };
 $('scrub').oninput = e => { t = D.duration * e.target.value / 1000; dirty = true; lastTrail = 0; };
 $('auto').onclick = () => { auto = !auto; $('auto').classList.toggle('on', auto); };
+if (D.spin) { const b = $('spin'); b.classList.add('on'); b.onclick = () => { spinOn = !spinOn; b.classList.toggle('on', spinOn); spinW = null; if (spinOn) dirty = true; }; } else $('spin').style.display = 'none';
 let labelsOn = true; $('labels').onclick = () => { labelsOn = !labelsOn; const u = {}; for (let k = 0; k < D.nlabels; k++) u['scene.annotations[' + k + '].visible'] = labelsOn; Plotly.relayout(gd, u); $('labels').classList.toggle('on', labelsOn); };
 let legendOn = true; $('legend').onclick = () => { legendOn = !legendOn; $('legendbar').style.display = legendOn ? 'flex' : 'none'; $('legend').classList.toggle('on', legendOn); };
 (function(){                                                          // the legend: swatch + LaTeX label (KaTeX), click to hide or show that item
@@ -155,7 +168,7 @@ def build_html(sc: Scene, theme: str = 'light', user_name: str = '', n_frames: i
     """Return a self-contained HTML page for an <iframe>. ``model``: 'marker' (simple dot) or a key of models.MODELS ('comsat', 'probe')."""
     T = THEMES[theme]; fig, meta = build_figure(sc, theme, user_name, body, textures)
     data = sample_tracks(sc, n_frames) if sc.tracks else dict(times=[0, 1], duration=0, tracks=[])
-    data['views'] = view_presets(sc); data['idx'] = meta['track_idx']; data['nlabels'] = meta['n_labels']; data['showFps'] = bool(show_fps); data['repeat'] = bool(repeat); data['model'] = None
+    data['spin'] = meta.get('spin'); data['views'] = view_presets(sc); data['idx'] = meta['track_idx']; data['nlabels'] = meta['n_labels']; data['showFps'] = bool(show_fps); data['repeat'] = bool(repeat); data['model'] = None
     if model in MODELS and sc.tracks:
         m = spacecraft_mesh(model); fig.add_trace(go.Mesh3d(x=m['x'], y=m['y'], z=m['z'], i=m['i'], j=m['j'], k=m['k'], vertexcolor=m['colors'], flatshading=True, name=MODELS[model],
                                                              showlegend=False, hoverinfo='name', lighting=dict(ambient=0.7, diffuse=0.6, specular=0.2)))
@@ -181,7 +194,7 @@ def build_html(sc: Scene, theme: str = 'light', user_name: str = '', n_frames: i
   <label class="anim">Speed <input id="speed" type="range" min="-1" max="1" step="0.01" value="0"> <b id="spd">1.0×</b></label>
   <label class="anim">Time <input id="scrub" type="range" min="0" max="1000" step="1" value="0"></label>
   <span>View: <button id="v_normal">Orbit Normal</button> <button id="v_nodes">Along Line of Nodes</button> <button id="v_iso">Isometric</button></span>
-  <button id="auto">⟳ Auto-Rotate</button> <button id="repeat" class="anim" title="loop the animation, or stop at the end">Repeat</button> <button id="labels" class="on">Labels</button> <button id="legend" class="on">Legend</button>
+  <button id="auto">⟳ Auto-Rotate</button> <button id="repeat" class="anim" title="loop the animation, or stop at the end">Repeat</button> <button id="spin" class="on" title="turn the body at its real rotation rate">Spin</button> <button id="labels" class="on">Labels</button> <button id="legend" class="on">Legend</button>
 </div>
 <div id="readout" class="anim"><span>t <b id="r_t">0</b></span><span>r <b id="r_r">–</b></span><span>v <b id="r_v">–</b></span>
   <span>γ <b id="r_g">–</b></span><span>θ* <b id="r_th">–</b></span></div>"""

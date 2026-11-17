@@ -32,7 +32,7 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 
 * **Step-by-step tables** with the symbol, equation and units of every intermediate value, plus the quadrant and sanity checks that were performed.
 * **2-D figures** in the homework style (Cartesian, equal axes, label collision avoidance, your name and the problem label in the title), exported at 300 dpi. Scroll to zoom the plot, drag to pan, double-click to reset.
-* **3-D animation** with play/pause, 0.1×–10× speed, scrubber, view presets, auto-rotate, label and legend toggles, live readout, optional real planet textures
+* **3-D animation** with play/pause, 0.1×–10× speed, scrubber, view presets, auto-rotate, label and legend toggles, live readout, optional real planet textures (the textured central body turns at its real rotation rate, with a *Spin* button)
   and 3-D satellite models. You can rotate and zoom the view while the animation keeps playing. Frames are uniform in *time* (Kepler's equation), so the motion is physically correct.
 * **LaTeX everywhere in figures and exports:** labels such as $a_{\mathrm{tot}}$, $\bar v_\infty$, $\theta^{*}$ are typeset with real sub/superscripts; celestial bodies can be shown
   as symbols (R⊕) or as name subscripts ($R_{\mathrm{earth}}$).

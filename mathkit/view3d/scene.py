@@ -85,14 +85,17 @@ def stagger_labels(labels, thr):
 
 def build_figure(sc: Scene, theme: str = 'light', user_name: str = '', body: str = 'symbol', textures: bool = False) -> tuple[go.Figure, dict]:
     T = THEMES[theme]; fig = go.Figure(); col = lambda r: color(theme, r)
-    ext = sc.extent(); allp = []; labs = []
+    ext = sc.extent(); allp = []; labs = []; spin = None
 
     for d in sc.disks:
         if textures and d.body and has_texture(d.body):                       # real surface map sampled onto a sphere mesh
-            x, y, z, i, j, k, colors = sphere_mesh(d.body)
+            x, y, z, i, j, k, colors = sphere_mesh(d.body, 80, 40)                                  # a slightly lighter mesh: it is redrawn while it spins
             fig.add_trace(go.Mesh3d(x=d.center[0] + d.radius * x, y=d.center[1] + d.radius * y, z=d.center[2] + d.radius * z, i=i, j=j, k=k, vertexcolor=colors,
                                     flatshading=False, lighting=dict(ambient=0.95, diffuse=0.3, specular=0.0), name=d.body, showlegend=False, hoverinfo='name'))
             fig.add_trace(legend_dot(d.body, T['body']))
+            from ..spin import spin_for
+            sp = spin_for(d.body)
+            if sp and spin is None: spin = dict(idx=len(fig.data) - 2, x=np.round(x, 5).tolist(), y=np.round(y, 5).tolist(), z=np.round(z, 5).tolist(), c=[float(v) for v in d.center], R=float(d.radius), rate=float(sp['rate']), name=d.body)
         else:
             fig.add_trace(sphere(d.center, d.radius, T['body'], name=d.label or 'central body'))
             fig.add_trace(legend_dot(d.label or 'central body', T['body']))
@@ -156,4 +159,4 @@ def build_figure(sc: Scene, theme: str = 'light', user_name: str = '', body: str
                                  aspectmode='cube', annotations=annots, camera=dict(eye=dict(x=1.1, y=-1.1, z=0.78))),
                       paper_bgcolor=T['surface'], plot_bgcolor=T['surface'], font=dict(color=T['ink2']), margin=dict(l=0, r=0, t=34, b=0),
                       legend=dict(font=dict(color=T['ink2'], size=11), bgcolor='rgba(0,0,0,0)', orientation='h', x=0.0, y=-0.02, yanchor='top', itemsizing='constant', tracegroupgap=0), uirevision='keep', autosize=True)
-    return fig, dict(track_idx=track_idx, n_labels=len(annots), center=ctr.tolist(), half=half)
+    return fig, dict(track_idx=track_idx, n_labels=len(annots), center=ctr.tolist(), half=half, spin=spin)
