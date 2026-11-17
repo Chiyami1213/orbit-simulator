@@ -517,3 +517,55 @@ input[type=number]{color-scheme:dark}
 body[data-theme=light] input[type=number]{color-scheme:light}
 input[type=number]::-webkit-inner-spin-button{opacity:0;background:transparent}
 input[type=number]:hover::-webkit-inner-spin-button,input[type=number]:focus::-webkit-inner-spin-button{opacity:.9}
+
+/* ----- the Sandbox main menu ----- */
+.xmenubtn{position:absolute;top:12px;left:12px;z-index:35;width:42px;height:42px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(10,14,26,.55);color:#e8eeff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:9px;backdrop-filter:blur(6px)}
+.xmenubtn:hover{background:rgba(255,255,255,.16)}.xp.lib-open .xmenubtn{left:376px}
+.xp.clean #xleft,.xp.clean #xright,.xp.clean #xbottom,.xp.clean .xmenubtn,.xp.clean #xplace{display:none!important}
+.xmenuov{position:absolute;inset:0;z-index:65;background:rgba(0,0,0,.4)}
+.xmenu{position:absolute;left:0;top:0;bottom:0;width:380px;max-width:92vw;z-index:70;background:var(--panel);border-right:1px solid var(--line);box-shadow:14px 0 50px rgba(0,0,0,.5);transform:translateX(-102%);transition:transform .24s cubic-bezier(.22,.9,.3,1);overflow:auto;padding:18px 20px 16px;display:flex;flex-direction:column;gap:18px}
+.xmenu.open{transform:none}
+.mhead{display:flex;align-items:center;gap:12px}.mhead>div{flex:1;display:flex;flex-direction:column;line-height:1.2}.mhead b{font-size:20px}.mhead span{color:var(--muted);font-size:13px}
+.mlogo{width:44px;height:44px;border-radius:12px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--orange);padding:9px}
+.mtiles{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}.mcol{display:flex;flex-direction:column;gap:10px}
+.mtile{display:flex;align-items:center;gap:12px;text-align:left;border:1px solid transparent;background:transparent;color:var(--text);border-radius:12px;padding:12px 10px;cursor:pointer}
+.mtile:hover{background:var(--inset);border-color:var(--line)}.mtile svg{width:30px;height:30px;flex:none;color:var(--orange)}
+.mtile span{display:flex;flex-direction:column;min-width:0}.mtile b{font-size:15.5px}.mtile i{font-style:normal;color:var(--muted);font-size:12px;line-height:1.25}
+.mlist{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;border-top:1px solid var(--line);padding-top:14px}
+.mitem{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:var(--text2);text-align:left;padding:9px 8px;border-radius:9px;cursor:pointer;font-size:14px}
+.mitem:hover{background:var(--inset);color:var(--text)}.mitem svg{width:20px;height:20px;flex:none;color:var(--muted)}
+.mfoot{margin-top:auto;border-top:1px solid var(--line);padding-top:12px;color:var(--muted);font-size:12px;line-height:1.4}
+.modal.wide{max-width:640px}.mnews{margin:6px 0 4px;padding-left:20px;display:flex;flex-direction:column;gap:8px;color:var(--text2);line-height:1.4}
+.mkeys{width:100%;border-collapse:collapse;margin:8px 0}.mkeys td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}.mkeys td:first-child{color:var(--text2);white-space:nowrap;width:38%}
+.mkeys kbd{background:var(--inset);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:13px}
+.xmenubtn svg,.mtile svg,.mitem svg,.mlogo svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ----- the Sandbox side panels, popovers and fields follow the colour theme (light and dark) ----- */
+.xside{background:color-mix(in srgb,var(--panel) 94%,transparent)}
+.xsearch,.xcat,.xrow input[type=text],.xrow input[type=number],.xrow select{background:var(--inset)}
+.xcat.on{background:var(--orange)}
+.xitem:hover{background:var(--inset)}
+.xrow{border-bottom-color:var(--line)}
+.xpop{background:var(--panel)}
+
+/* ----- the OrbSim icon is the menu button of every mode; the drawer opens on hover (a peek) or on click (pinned) ----- */
+.logobtn{border:0;background:transparent;padding:5px;margin-right:6px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:var(--text)}
+.logobtn .applogo{margin:0}.logobtn:hover,.logobtn.open{background:var(--inset)}
+.xmenu{position:fixed!important;top:64px!important;bottom:0!important;left:0!important;z-index:300!important}
+.xmenuov{position:fixed!important;inset:64px 0 0 0!important;z-index:290!important}
+.xmenubtn{display:none!important}
+.pklist{display:flex;flex-direction:column;gap:4px;max-height:min(60vh,520px);overflow:auto;margin:8px 0}
+.pkitem{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1px solid transparent;background:transparent;color:var(--text);border-radius:10px;padding:9px 12px;cursor:pointer}
+.pkitem:hover{background:var(--inset);border-color:var(--line)}.pkitem b{font-weight:600;font-size:14.5px}.pkitem span{color:var(--muted);font-size:12.5px}
+
+/* ----- colour theme: Obsidian & White (black and dark grey with a white accent) ----- */
+body[data-palette=obsidian][data-theme=dark]{--orange:#dcdcdc;--bg:#0a0a0a;--nav:#0f0f10;--panel:#131313;--card:#1a1a1b;--line:#2b2b2d;--chip-on:#262628;--chip-on-line:#4a4a4d;--chip-on-text:#ffffff;--inset:#0e0e0f;--seg-on:#2a2a2c;--track:#333336;--nav-on:#1d1d1f;--muted:#8a8a90}
+body[data-palette=obsidian][data-theme=light]{--orange:#2b2b2d;--bg:#f2f2f2;--nav:#ffffff;--panel:#fafafa;--line:#dcdcdc;--chip-on:#e6e6e6;--chip-on-line:#bdbdbd;--chip-on-text:#111111;--inset:#ececec;--track:#d4d4d4;--nav-on:#e8e8e8}
+body[data-palette=obsidian][data-theme=dark] :is(button.solve,.btn.pri,.fbtns button.pri,.xcat.on,.msolve,.nv.on .n){color:#0a0a0a}
+
+/* ----- the Add library only adds; objects already in the scene are dimmed, and selecting them is the job of the object search ----- */
+.xitem.have{opacity:.42;cursor:default}.xitem.have:hover{background:transparent}.xitem.have:hover .xthumb{box-shadow:none}
+.objpop{width:300px;max-height:min(520px,70vh);display:flex;flex-direction:column}
+.xobjlist{overflow:auto;display:flex;flex-direction:column;gap:2px;margin-top:6px}
+.xobj{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:var(--text);text-align:left;padding:8px 10px;border-radius:9px;cursor:pointer;font-size:14px}
+.xobj:hover,.xobj.on{background:var(--inset)}.xobj b{font-weight:600;flex:1}.xobj span:last-child{color:var(--muted);font-size:12.5px}.xobj .xdot{width:12px;height:12px;border-radius:50%;flex:none}

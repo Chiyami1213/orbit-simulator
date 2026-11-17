@@ -101,8 +101,9 @@ function rot(v, u, ang){ const c = Math.cos(ang), s = Math.sin(ang), k = VEC.cro
 function liveCam(){ try { const c = gd._fullLayout.scene._scene.getCamera(); return {eye: {...c.eye}, up: {...c.up}, center: {...c.center}}; } catch (e) { const c = gd.layout.scene.camera; return {eye: {...c.eye}, up: {...c.up}, center: {...c.center || {x: 0, y: 0, z: 0}}}; } }
 function moveCam(dx, dy, zoom){
   const c = userCam || liveCam(), up = VEC.mul([c.up.x, c.up.y, c.up.z], 1/(VEC.len([c.up.x, c.up.y, c.up.z]) || 1)); let e = [c.eye.x - c.center.x, c.eye.y - c.center.y, c.eye.z - c.center.z];
-  if (dx) e = rot(e, up, -dx * 0.008);
-  if (dy){ const ax = VEC.cross(up, e), n = VEC.len(ax); if (n > 1e-9){ const a = VEC.mul(ax, 1/n), e2 = rot(e, a, dy * 0.008), cosA = VEC.dot(e2, up) / VEC.len(e2); if (Math.abs(cosA) < 0.995) e = e2; } }
+  const K = 3.72 / Math.max(200, gd.clientWidth);                                                     // radians per pixel, as Plotly's own drag
+  if (dx) e = rot(e, up, -dx * K);
+  if (dy){ const ax = VEC.cross(up, e), n = VEC.len(ax); if (n > 1e-9){ const a = VEC.mul(ax, 1/n), e2 = rot(e, a, -dy * K), cosA = VEC.dot(e2, up) / VEC.len(e2); if (Math.abs(cosA) < 0.995) e = e2; } }
   if (zoom) e = VEC.mul(e, Math.exp(zoom));
   userCam = {eye: {x: c.center.x + e[0], y: c.center.y + e[1], z: c.center.z + e[2]}, up: c.up, center: c.center}; dirty = true; eye0 = {...userCam.eye}; phi = 0;
 }

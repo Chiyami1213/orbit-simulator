@@ -19,6 +19,8 @@ MAP = {
     'search': 'search', 'camera': 'camera', 'close': 'x', 'undo': 'undo-2', 'redo': 'redo-2', 'rev': 'rewind',
     'basic': 'bookmark', 'motion': 'move-right', 'orbitt': 'orbit', 'forces': 'asterisk', 'actions': 'zap',
     'rocks': 'gem', 'sat': 'satellite', 'whatif': 'circle-help', 'star': 'star', 'scene': 'sparkles',
+    'menu': 'menu', 'newf': 'file-plus', 'openf': 'folder-open', 'guide': 'graduation-cap', 'savef': 'save', 'exit': 'log-out', 'news': 'megaphone', 'credits': 'scroll-text',
+    'feedback': 'message-square', 'perf': 'gauge', 'debug': 'wrench', 'keys': 'keyboard', 'share': 'share-2',
 }
 
 

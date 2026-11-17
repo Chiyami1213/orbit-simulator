@@ -92,7 +92,7 @@ export function createSpace(host, data, opts = {}) {
   const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.zoomSpeed = 1.2;
   const world = new THREE.Group(); scene.add(world);
   controls.addEventListener('start', () => { flyTo = null; });                        // the moment you drag or scroll, the fly-to stops and the mouse is in charge again (zoom in and out freely)
-  const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 1.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1, light: 'even', atmo: true, spin: true };
+  const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 1.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1, light: 'even', atmo: true, spin: true, equ: false };
   const loader = new THREE.TextureLoader(), t0 = data.jd0, t1 = data.jd1, span = Math.max(1e-9, t1 - t0);
   let jd = t0, raf = 0, last = 0, flyTo = null; let disposed = false;
   let ghostGrp = null, ghostMk = null;                                                  // the placement preview of the sandbox (marker, orbit ring, aim arrow)
@@ -206,6 +206,7 @@ export function createSpace(host, data, opts = {}) {
   const lag = (data.lagrange || []).map(L => ({ def: L, mk: new THREE.Mesh(new THREE.OctahedronGeometry(1), new THREE.MeshBasicMaterial({ color: '#f5b73b' })), label: mkLabel(L.name, '#f5b73b') })); lag.forEach(l => world.add(l.mk));
   const axes = new THREE.Group(); for (const [c, v] of [['#ff6161', [1, 0, 0]], ['#3ecf8e', [0, 1, 0]], ['#4c8df6', [0, 0, 1]]]) { const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(...v)]); axes.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: c }))); } axes.visible = false; world.add(axes);
   const ecl = new THREE.GridHelper(2, 20, '#556', '#334'); ecl.rotation.x = Math.PI / 2 + 0.40909280; ecl.visible = false; world.add(ecl);               // ecliptic: tilted by the obliquity from the equator (z up)
+  const equ = new THREE.GridHelper(2, 24, '#3ec9b0', '#2a6f66'); equ.visible = false; equ.material.transparent = true; equ.material.opacity = 0.55; world.add(equ);                        // equatorial plane of the focus body
   const evMarks = (data.events || []).map(e => { const m = new THREE.Mesh(new THREE.OctahedronGeometry(1), new THREE.MeshBasicMaterial({ color: e.kind === 'burn' ? '#ff6161' : '#ffffff' })); m.position.set(...e.r); world.add(m); return { def: e, m }; });
 
   // ---- sky markers (debug aid for the sky orientation): bright stars, the galactic centre and Polaris, drawn on the sky sphere
@@ -281,6 +282,8 @@ export function createSpace(host, data, opts = {}) {
       t.full.visible = t.done.visible = t.tip.visible = state.paths; const l = label(t.label, t.mk.position, true); if (l) placed.push(l);
     }
     for (const l of lag) { l.mk.position.set(...interp(l.def, jd)); l.mk.scale.setScalar(unit * 0.8); l.mk.visible = state.lag; label(l.label, l.mk.position, state.lag); }
+    { equ.visible = state.equ; if (state.equ) { const fb = bodies[state.focus], sp = fb && fb.def.spin; let nz = new THREE.Vector3(0, 0, 1); if (sp) { const T = (jd - 2451545.0) / 36525, ra = (sp.ra + (sp.ra_rate || 0) * T) * Math.PI / 180, dec = (sp.dec + (sp.dec_rate || 0) * T) * Math.PI / 180; nz.set(Math.cos(dec) * Math.cos(ra), Math.cos(dec) * Math.sin(ra), Math.sin(dec)); }
+        equ.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), nz); const c = fb ? posOf(state.focus) : [0, 0, 0]; equ.position.set(c[0], c[1], c[2]); equ.scale.setScalar(ext * 1.5); } }
     axes.visible = state.axes; axes.scale.setScalar(ext * 0.6); ecl.visible = state.ecl; ecl.scale.setScalar(ext * 1.5);
     for (const e of evMarks) e.m.scale.setScalar(unit * 0.6);
     if (nodeMk) nodeMk.scale.setScalar(unit * 0.9);
@@ -375,6 +378,7 @@ export function createSpace(host, data, opts = {}) {
     onPick(cb) { let dn = null; const c = renderer.domElement; c.addEventListener('pointerdown', e => { dn = [e.clientX, e.clientY]; }); c.addEventListener('pointerup', e => { if (dn && Math.hypot(e.clientX - dn[0], e.clientY - dn[1]) < 4) cb(this.pick(e.clientX, e.clientY), e); dn = null; }); },
     posOf: name => posOf(name), velOf(name) { const d = 0.01, a = posOf(name); const sv = interp(bodies[name].def.path, Math.max(t0, jd - d)), sb = interp(bodies[name].def.path, Math.min(t1, jd + d)); const dtS = (Math.min(t1, jd + d) - Math.max(t0, jd - d)) * 86400 || 1; return [(sb[0] - sv[0]) / dtS, (sb[1] - sv[1]) / dtS, (sb[2] - sv[2]) / dtS]; },
     orbitPoints(name) { const o = bodies[name]; if (!o || !o.orb) return null; const a = o.orb.geometry.attributes.position, c = o.orb.position, out = []; for (let k = 0; k < a.count; k++) out.push([a.getX(k) + c.x, a.getY(k) + c.y, a.getZ(k) + c.z]); return out; },
+    perf() { return { pixelRatio: pr, baseRatio: prBase, fps: Math.round(1000 / emaMs), bodies: Object.keys(bodies).length, width: renderer.domElement.width, height: renderer.domElement.height }; },
     zoomBy(f) { flyTo = null; const t = controls.target, v = camera.position.clone().sub(t), d = v.length(); if (d <= 0) return; camera.position.copy(t).addScaledVector(v.normalize(), Math.max(controls.minDistance || d * 1e-6, d * f)); controls.update(); },
     setSky(k) { setSky(k); refreshTheme(); }, setTheme(t) { lightUI = t === 'light'; refreshTheme(); }, set(k, v) { state[k] = v; }, nextEvent() { const ts = (data.events || []).map(e => e.jd).filter(t => t > jd + 1e-9).sort((a, b) => a - b); if (ts.length) { jd = ts[0]; host.dispatchEvent(new CustomEvent('space-time')); return true; } return false; },
     png() { return renderer.domElement.toDataURL('image/png'); },

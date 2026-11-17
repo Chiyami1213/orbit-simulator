@@ -15,7 +15,7 @@ const MASS_UNITS = [['Earth masses', 5.9722e24], ['Moon masses', 7.342e22], ['Ju
 const RAD_UNITS = [['km', 1], ['Earth radii', 6378.137], ['Moon radii', 1737.4], ['Jupiter radii', 71492], ['Solar radii', 695700]];
 const G_KM = 6.6743e-20, KIND_NAME = { star: 'Star', planet: 'Planet', moon: 'Moon', small: 'Small Body', spacecraft: 'Spacecraft', custom: 'Custom Body' };
 const EX = { scene: null, sim: null, sel: null, space: null, undo: [], redo: [], cat: 'All', q: '', libOpen: true, panelOpen: true, tab: 'Basic', meta: null, horizon: '1 year', busy: false, rateExp: 6.0, playing: true,
-  view: { labels: true, paths: true, axes: false, ecl: false, markers: false, light: 'even', atmo: true, spin: true }, thumbs: {}, mu: 'Earth masses', ru: 'km', pd: null, live: null, pop: null, sky: 'milkyway', bright: 1.0, exag: 1 };
+  view: { labels: true, paths: true, axes: false, ecl: false, markers: false, light: 'even', atmo: true, spin: true, equ: false }, thumbs: {}, mu: 'Earth masses', ru: 'km', pd: null, live: null, pop: null, sky: 'milkyway', bright: 1.0, exag: 1 };
 
 function exDispose() { EX.placing = null; EX.anchor = null; if (EX.live) { clearInterval(EX.live); EX.live = null; } if (EX.space) { try { EX.space.dispose(); } catch (e) { } EX.space = null; } closePop(); }
 const fmtNum = (x, d = 6) => (Number.isFinite(x) ? (Math.abs(x) >= 1e-3 && Math.abs(x) < 1e9 || x === 0 ? +x.toPrecision(d) : x.toExponential(4)) : '–');
@@ -61,6 +61,24 @@ function calPop(anchor) {
         el('button', { class: 'btn small', title: 'jump to the day shown, at the time above', onclick: () => go(sel.y, sel.m, sel.d) }, 'Go')));
   }
   draw();
+}
+
+/* ---- Sandbox helpers used by the shared main menu (appmenu.js) ---- */
+async function exOpenFile(f) { if (!f) return; try { const o = JSON.parse(await f.text()); EX.scene = o.scene; EX.undo = []; EX.redo = []; EX.sel = null; await exRerunFromScene(); } catch (e2) { toast('not a valid scene file', 'err'); } }
+async function exPicture() { if (!EX.space) return; const r = await api('save_blob', { kind: 'png', name: 'sandbox', data: EX.space.png() }); toast(r.ok ? 'saved to ' + r.path : r.error, r.ok ? 'ok' : 'err'); }
+function exShare() {
+  const m = infoModal('Save and Share', el('div', { class: 'dim' }, 'files go to your OrbSim folder (settings → local files).'),
+    el('div', { class: 'btnrow' }, el('button', { class: 'btn', onclick: async () => { const r = await api('sandbox_save', { scene: EX.scene }); toast(r.ok ? 'saved to ' + r.path : r.error, r.ok ? 'ok' : 'err'); } }, 'Save Scene File'),
+      el('button', { class: 'btn', onclick: () => exPicture() }, 'Save Picture'), el('button', { class: 'btn', onclick: () => { m.close(); exRecord(); } }, 'Record Video')));
+}
+function exDebug() {
+  const sim = EX.sim || {}, p = EX.space ? EX.space.perf() : {}, span = sim.jd1 ? ((sim.jd1 - sim.jd0) / 365.25).toFixed(2) + ' years' : '–';
+  const rows = [['Bodies in the scene', EX.scene ? EX.scene.bodies.length : 0], ['Simulation length', `${span} (${EX.horizon} chosen)`], ['Integrator steps', sim.steps], ['Stored samples per body', sim.samples], ['Energy drift', sim.energy_drift != null ? sim.energy_drift.toExponential(2) : '–'],
+    ['Simulation status', sim.status], ['Ephemeris', EX.meta && EX.meta.ephemeris ? `${EX.meta.ephemeris.name} (${EX.meta.ephemeris.accuracy})` : '–'], ['Render scale', p.pixelRatio ? p.pixelRatio.toFixed(2) + ' of ' + p.baseRatio.toFixed(2) : '–'], ['Frame rate now', p.fps ? p.fps + ' fps' : '–'], ['Graphics', gpuInfo() || 'unknown']];
+  const text = rows.map(([a, b]) => a + ': ' + b).join('\n');
+  const m = infoModal('Debug Tools', el('table', { class: 'mkeys' }, ...rows.map(([a, b]) => el('tr', {}, el('td', {}, a), el('td', {}, String(b))))),
+    el('div', { class: 'btnrow' }, el('label', { class: 'tgl' }, el('span', { class: 'dim', style: 'margin:0' }, 'show the frame rate in the title bar'), el('input', { type: 'checkbox', checked: !!SET.fps, onchange: e => { SET.fps = e.target.checked; saveSet(); showFps(); } })),
+      el('button', { class: 'btn', onclick: () => { try { navigator.clipboard.writeText(text); toast('copied', 'ok'); } catch (e) { toast('could not copy', 'err'); } } }, 'Copy Report')));
 }
 
 /* ---- object search: the way to select (and fly to) something that is already in the scene; the Add library only adds new things ---- */
@@ -230,11 +248,18 @@ async function exPlaceClick(cx, cy) {
   const place = { r: T.p, v: T.v }, par = T.par.id; exPlaceCancel();
   const ok = await exEdit([{ op: 'add', item: it, parent: par, orbit: {}, place }], 'last'); if (ok) { EX.panelOpen = true; EX.space.select(EX.sel); exPanel(); toast(`${it.name} placed; edit it in the panel on the right`, 'ok'); }
 }
-/* ---- keyboard in the Sandbox: space plays and pauses, + zooms in, - zooms out ---- */
+/* ---- keyboard in the Sandbox: space plays and pauses, + zooms in, - zooms out, . speeds the simulation up, , slows it down ---- */
+function exSetRate(exp) {
+  EX.rateExp = Math.max(0, Math.min(9.5, exp)); if (EX.space) EX.space.setRate(10 ** EX.rateExp);
+  const sl = $('#xrateinput'); if (sl) sl.value = EX.rateExp / 9.5 * 100; const lb = $('#xratelabel'); if (lb) lb.textContent = fmtRate(10 ** EX.rateExp) + ' / s';
+}
 const exTyping = e => { const t = e.target; return !!t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable); };
 document.addEventListener('keydown', e => {
   if (S.page !== 'explore' || !EX.space || e.ctrlKey || e.metaKey || e.altKey || exTyping(e) || document.querySelector('.modalov')) return;
-  if (e.key === ' ') { e.preventDefault(); if (!e.repeat) { EX.space.play(); syncPlay(); } }
+  if (e.key === 'Tab') { e.preventDefault(); const xp = $('.xp'); if (xp) { xp.classList.toggle('clean'); if (xp.classList.contains('clean')) toast('interface hidden: press tab to show it again'); } }
+  else if (e.key === ' ') { e.preventDefault(); if (!e.repeat) { EX.space.play(); syncPlay(); } }
+  else if (e.key === '.' || e.key === '>') { e.preventDefault(); exSetRate(EX.rateExp + Math.LOG10E * Math.LN2); }                 // twice as fast
+  else if (e.key === ',' || e.key === '<') { e.preventDefault(); exSetRate(EX.rateExp - Math.LOG10E * Math.LN2); }                 // half as fast
   else if (e.key === '+' || e.key === '=') { e.preventDefault(); EX.space.zoomBy(0.82); }
   else if (e.key === '-' || e.key === '_') { e.preventDefault(); EX.space.zoomBy(1.22); }
 }, true);
@@ -290,14 +315,14 @@ async function exPanel() {
 /* ---- bottom bar ---- */
 function exBottom() {
   const B = $('#xbottom'); if (!B) return; const tool = (icon, tip, fn, on) => el('button', { class: 'xtool' + (on ? ' on' : ''), title: tip, onclick: fn }, ico(icon));
-  const rate = el('input', { type: 'range', min: 0, max: 100, value: EX.rateExp / 9.5 * 100, 'data-default': 6.0 / 9.5 * 100, oninput: e => { EX.rateExp = e.target.value * 0.095; if (EX.space) EX.space.setRate(10 ** EX.rateExp); rl.textContent = fmtRate(10 ** EX.rateExp) + ' / s'; }, title: 'simulated time per real second' });
-  const rl = el('span', { class: 'xrate' }, fmtRate(10 ** EX.rateExp) + ' / s');
+  const rate = el('input', { id: 'xrateinput', type: 'range', min: 0, max: 100, value: EX.rateExp / 9.5 * 100, 'data-default': 6.0 / 9.5 * 100, oninput: e => { EX.rateExp = e.target.value * 0.095; if (EX.space) EX.space.setRate(10 ** EX.rateExp); rl.textContent = fmtRate(10 ** EX.rateExp) + ' / s'; }, title: 'simulated time per real second' });
+  const rl = el('span', { class: 'xrate', id: 'xratelabel' }, fmtRate(10 ** EX.rateExp) + ' / s');
   const chk = (k, label) => el('label', { class: 'mcheck' }, el('input', { type: 'checkbox', checked: !!EX.view[k], onchange: e => { EX.view[k] = e.target.checked; if (EX.space) EX.space.set(k, e.target.checked); } }), label);
   B.replaceChildren(el('button', { class: 'xplay', id: 'xplay', title: 'play / pause (space bar)', onclick: () => { if (EX.space) { EX.space.play(); syncPlay(); } } }, ico(EX.playing ? 'pause' : 'play')),
     el('button', { class: 'xtool', title: 'run time backwards', onclick: () => { if (EX.space) { EX.space.state.dir = -EX.space.state.dir; toast(EX.space.state.dir < 0 ? 'time runs backwards' : 'time runs forwards'); } } }, ico('rev')),
     el('button', { class: 'xdate', id: 'xdate', 'data-pop': '1', title: 'click to pick a date', onclick: e => calPop(e.currentTarget) }, '–'), el('span', { class: 'xrateWrap' }, rate, rl), el('span', { class: 'xsp' }),
     tool('addc', 'library: add bodies', e => { EX.libOpen = !EX.libOpen; exLib(); }, EX.libOpen),
-    tool('eye', 'view options', e => openPop('view', e.currentTarget, el('div', { class: 'xpt' }, 'View'), chk('labels', 'Labels'), chk('paths', 'Orbits'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic plane'), ...(['milkyway', 'stars'].includes(EX.sky) ? [chk('markers', 'Sky markers (check the sky orientation)')] : []), chk('atmo', 'Atmosphere glow'), chk('spin', 'Body rotation'), el('div', { class: 'xpt', style: 'margin-top:10px' }, 'Lighting'), seg([['real', 'Realistic'], ['even', 'Even'], ['full', 'Fullbright']], EX.view.light, v => { EX.view.light = v; if (EX.space) EX.space.set('light', v); }), el('div', { class: 'dim', style: 'font-size:12.5px;margin:6px 0 0;max-width:290px' }, 'realistic: light fades with the square of the distance to the star, so far planets are dim. even: the true day and night sides at the same brightness everywhere. fullbright: no shading.'),
+    tool('eye', 'view options', e => openPop('view', e.currentTarget, el('div', { class: 'xpt' }, 'View'), chk('labels', 'Labels'), chk('paths', 'Orbits'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic plane'), chk('equ', 'Equatorial plane (of the body in focus)'), ...(['milkyway', 'stars'].includes(EX.sky) ? [chk('markers', 'Sky markers (check the sky orientation)')] : []), chk('atmo', 'Atmosphere glow'), chk('spin', 'Body rotation'), el('div', { class: 'xpt', style: 'margin-top:10px' }, 'Lighting'), seg([['real', 'Realistic'], ['even', 'Even'], ['full', 'Fullbright']], EX.view.light, v => { EX.view.light = v; if (EX.space) EX.space.set('light', v); }), el('div', { class: 'dim', style: 'font-size:12.5px;margin:6px 0 0;max-width:290px' }, 'realistic: light fades with the square of the distance to the star, so far planets are dim. even: the true day and night sides at the same brightness everywhere. fullbright: no shading.'),
       el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Look Toward'), el('select', { onchange: e => { const v = e.target.value; if (v && EX.space) { EX.view.markers = true; EX.space.set('markers', true); EX.space.look(...v.split(',').map(Number)); } e.target.value = ''; } }, el('option', { value: '' }, '…'), ...(EX.meta.markers || []).map(m => el('option', { value: m.ra + ',' + m.dec }, m.name)))))),
     tool('orb2', 'show or hide orbits', e => { EX.view.paths = !EX.view.paths; if (EX.space) EX.space.set('paths', EX.view.paths); }, EX.view.paths),
     tool('palette', 'background: Milky Way, stars, theme color, black', () => { const o = ['milkyway', 'stars', 'theme', 'black']; EX.sky = o[(o.indexOf(EX.sky) + 1) % o.length]; if (EX.space) EX.space.setSky(EX.sky); if (!['milkyway', 'stars'].includes(EX.sky)) { EX.view.markers = false; if (EX.space) EX.space.set('markers', false); } toast('background: ' + EX.sky.replace('milkyway', 'milky way').replace('theme', 'theme color')); }),
@@ -312,7 +337,7 @@ function exBottom() {
       el('button', { class: 'btn small', onclick: async () => { closePop(); if (await askConfirm('replace the current scene with the real Solar System?', 'Replace Scene', 'New Solar System')) exNew(); } }, 'New Solar System'))),
     el('span', { class: 'xsp' }), tool('info', 'show or hide the side panels', () => { EX.panelOpen = !EX.panelOpen; EX.libOpen = !EX.libOpen; exLib(); exPanel(); }),
     tool('search', 'find and select an object in the scene', e => objectSearch(e.currentTarget)),
-    tool('camera', 'save a picture of the view', async () => { if (!EX.space) return; const x = await api('save_blob', { kind: 'png', name: 'explore', data: EX.space.png() }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); }));
+    tool('camera', 'save a picture of the view', () => exPicture()));
   exTime(); syncPlay();
 }
 function exRecord() {
@@ -325,7 +350,7 @@ async function renderExplore() {
   const main = $('#main'); main.replaceChildren(); exDispose();
   if (!EX.meta) EX.meta = await api('sandbox_meta', { constants: SET.const });
   exThumbs(); if (!S.tex) { try { const r = await api('textures_status', {}); if (r.ok) S.tex = r; } catch (e) { } }
-  main.append(el('div', { class: 'xp' }, el('div', { id: 'xview', class: 'xview' }), el('aside', { id: 'xleft', class: 'xside xleft' }), el('aside', { id: 'xright', class: 'xside xright shut' }), el('div', { id: 'xbottom', class: 'xbottom' }),
+  main.append(el('div', { class: 'xp' }, el('div', { id: 'xview', class: 'xview' }),  el('aside', { id: 'xleft', class: 'xside xleft' }), el('aside', { id: 'xright', class: 'xside xright shut' }), el('div', { id: 'xbottom', class: 'xbottom' }),
     el('div', { id: 'xbusy', class: 'xbusy' }, el('span', {}, 'simulating…'))));
   exLib(); exBottom();
   if (!EX.scene) await exNew(); else await exBuild(false);

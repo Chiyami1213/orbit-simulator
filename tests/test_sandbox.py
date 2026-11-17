@@ -220,3 +220,22 @@ def test_no_leftover_exam_rounded_code_in_the_front_end():
     web = ROOT / 'mathkit' / 'ui' / 'web'
     for f in ('app.js', 'mission.js', 'explore.js', 'index.html'):
         t = (web / f).read_text(encoding='utf-8'); assert 'Exam rounded' not in t and 'moonR' not in t and "ex ? 'exam value'" not in t, f
+
+
+def test_shared_main_menu_is_wired():
+    web = ROOT / 'mathkit' / 'ui' / 'web'; ex = (web / 'explore.js').read_text(encoding='utf-8'); am = (web / 'appmenu.js').read_text(encoding='utf-8'); icons = (web / 'icons.js').read_text(encoding='utf-8'); html = (web / 'index.html').read_text(encoding='utf-8')
+    for name in ('exOpenFile', 'exShare', 'exDebug', 'objectSearch', "e.key === 'Tab'"): assert name in ex, name
+    for name in ('function appMenu', 'MODE_TILES', 'appShare', 'appKeys', 'appDebug', 'appPerf', 'menuPinned', "'mouseover'", 'infoModal', 'pickList'): assert name in am, name
+    assert 'id="logoBtn"' in html and '/appmenu.js' in html and 'exMenu' not in ex
+    for icon in ('menu:', 'newf:', 'openf:', 'guide:', 'savef:', 'exit:', 'news:', 'credits:', 'feedback:', 'perf:', 'debug:', 'keys:'): assert icon in icons, icon
+    assert 'perf()' in (web / 'space.js').read_text(encoding='utf-8')
+
+
+
+def test_stylesheet_keeps_every_theme_and_sandbox_block():
+    css = (ROOT / 'mathkit' / 'ui' / 'web' / 'style.css').read_text(encoding='utf-8')
+    for k in ('body[data-palette=obsidian][data-theme=dark]', 'body[data-palette=obsidian][data-theme=light]', 'body[data-palette=graphite][data-theme=dark]', 'body[data-palette=forest][data-theme=dark]', 'body[data-palette=plum][data-theme=dark]',
+              '.xobj{', '.xitem.have', '.objpop', '.xmenu{', '.mtile{', '.logobtn{', '.mrow1{', 'UNIVERSAL PANEL HEADER', '.xside{background:color-mix'):
+        assert k in css, k
+    js = (ROOT / 'mathkit' / 'ui' / 'web' / 'app.js').read_text(encoding='utf-8'); assert "['obsidian'" in js
+    from mathkit import theme; assert 'obsidian' in theme.PALETTES
