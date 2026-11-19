@@ -954,7 +954,7 @@ function ephemPage() {
 }
 let LIC = null;
 function aboutPage() {
-  const host = el('div', { class: 'sheet' }, setRow('OrbSim', 'version ' + META.version), setRow('Project Page', 'source code, installation notes and the issue tracker', el('span', { class: 'path' }, 'github.com/Chiyami1213/orbit-simulator')),
+  const host = el('div', { class: 'sheet' }, setRow('OrbSim', 'version ' + META.version), setRow('Project Page', 'source code, installation notes and the issue tracker', el('span', { class: 'path' }, 'github.com/Chiyami1213/orbsim')),
     el('div', { class: 'sh2', style: 'margin-top:22px' }, 'Licenses and Credits'),
     el('div', { class: 'dim', style: 'margin-bottom:8px' }, 'this program contains portions derived from nasa gmat (general mission analysis tool), licensed under the apache license 2.0: the runge-kutta coefficient tables of its integrators, translated and modified. it is not affiliated with or endorsed by nasa, and no gmat binaries are included. the jpl ephemeris kernel, if you download it, comes from nasa/jpl naif.'));
   const draw = items => { host.append(...items.map(it => el('details', { class: 'lic' }, el('summary', {}, it.name), el('pre', {}, it.text)))); };

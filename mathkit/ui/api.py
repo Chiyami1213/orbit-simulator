@@ -598,7 +598,7 @@ def _bk_delete(p):
     backup.delete_backup(p['name']); return dict(backups=backup.list_backups())
 
 
-REPO_URL = 'https://github.com/Chiyami1213/orbit-simulator'
+REPO_URL = 'https://github.com/Chiyami1213/orbsim'
 
 
 def _scrub(text: str) -> str:

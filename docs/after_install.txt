@@ -19,6 +19,6 @@ HELP AND SOURCE CODE
   "OrbSim Help"). The project page, installation notes and issue
   tracker are on GitHub:
 
-      https://github.com/Chiyami1213/orbit-simulator
+      https://github.com/Chiyami1213/orbsim
 
 On the next page you can open the help page and the GitHub project page.

@@ -3,7 +3,7 @@
 A desktop app for **orbit-mechanics problems**: it solves the standard two-body / patched-conic problem types step by step, draws annotated 2-D figures
 and an interactive 3-D animation, and checks itself against hundreds of published homework and exam answers.
 
-> **Version 1.0.0.** Installers are not published yet; they will appear on the [Releases](https://github.com/Chiyami1213/orbit-simulator/releases) page.
+> **Version 1.0.0.** Installers are not published yet; they will appear on the [Releases](https://github.com/Chiyami1213/orbsim/releases) page.
 
 ## What it does
 
@@ -63,7 +63,7 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 
 ### Windows 10 / 11 (installer)
 
-1. Download `OrbSim-Setup-<version>.exe` from the [Releases](https://github.com/Chiyami1213/orbit-simulator/releases) page.
+1. Download `OrbSim-Setup-<version>.exe` from the [Releases](https://github.com/Chiyami1213/orbsim/releases) page.
 2. Run it. The wizard lets you **choose the install folder**, and choose a **Start Menu shortcut** and/or a **desktop shortcut**. It can also open the help page and this project page when it finishes.
 3. Windows 10 only: if the app opens in your browser instead of its own window, install the free [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/). Windows 11 already includes it.
 

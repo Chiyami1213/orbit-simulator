@@ -3,7 +3,7 @@
 #define MyAppName "OrbSim"
 #define MyAppVersion "1.0.0"
 #define MyAppExe "OrbSim.exe"
-#define MyAppUrl "https://github.com/Chiyami1213/orbit-simulator"
+#define MyAppUrl "https://github.com/Chiyami1213/orbsim"
 #ifndef BuildRoot
   #define BuildRoot "..\release"
 #endif

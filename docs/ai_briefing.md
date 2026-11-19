@@ -166,7 +166,7 @@ If your own algebra disagrees with a printed solution, check this table before c
 5. For gravity assists name the pass geometry (behind = gain, ahead = lose) and the sign of $\Delta\varepsilon$.
 6. Never invent expected values; if a problem is not in §4's list, derive it and say so.
 
-Project page: <https://github.com/Chiyami1213/orbit-simulator> · Source of truth for the math: `mathkit/core/` (verbatim reference port) and `tests/test_hw.py`.
+Project page: <https://github.com/Chiyami1213/orbsim> · Source of truth for the math: `mathkit/core/` (verbatim reference port) and `tests/test_hw.py`.
 
 ---
 
