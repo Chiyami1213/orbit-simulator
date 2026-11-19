@@ -59,6 +59,22 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 * Light / dark / device appearance and five colour themes (including a black and dark-grey Obsidian theme), rebindable keys (`F12` maximizes a plot, `F8` resets the panel arrangement), movable and closable panels,
   a File / Edit / View / Go / Help menu bar, backup & restore of your data, built-in issue reporting.
 
+## Validation
+
+The automated tests are run with `python -m pytest`: the last full run gave **623 passed, 2 skipped**.
+
+* `tests/test_hw.py` holds **173 regression checks** of the physics core (`mathkit/core/`); the file itself asserts that count, and pytest reports 174 tests there (the 173 checks plus that count guard).
+* The *Test Cases* page in the app runs every homework / exam / lecture preset through the same code path as the module pages and compares the result with the printed answer: **152 comparisons**, all passing (`tests/test_ui_api.py` asserts the total).
+* The expected values are copied from the published solutions: HW 3–10, the Fall 2024 exam problems that use the JPL constants, and lecture-note examples. The tolerance is a relative 2×10⁻⁴ unless the solution prints fewer digits.
+* Exam problems that were worked with the exam's own rounded constants are not included, because the app uses only the JPL / GMAT constants.
+* Known errors in the printed solutions are not silently matched: each affected preset carries an *Erratum* note (shown in the app) that explains the corrected value.
+* `tests/test_mission.py` and `tests/test_sandbox.py` check the mission and sandbox code (numerical propagation, GMAT script round trips, N-body energy conservation, scene editing); `tests/data/` holds a GMAT tutorial script used by the importer tests.
+
+## How it was built
+
+I built OrbSim with Claude in VS Code, working from a written specification: [`BUILD_PROMPT.md`](BUILD_PROMPT.md) and [`docs/ai_briefing.md`](docs/ai_briefing.md) (the equations, conventions and checks).
+The physics reference implementation was verified against the course lecture notes, the textbook and the homework and exam solutions before the app was built around it; `mathkit/core/` is a port of it that keeps every formula unchanged, and any disagreement with a source was to be raised with a failing test, not fixed silently (rules in `BUILD_PROMPT.md`, section 1).
+
 ## Installation
 
 ### Windows 10 / 11 (installer)

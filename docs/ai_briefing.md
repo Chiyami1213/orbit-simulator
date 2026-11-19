@@ -121,7 +121,7 @@ pastes results, ask for that table and the checks list, and for the constants se
 
 ## 4. How correct is it? (verification you can rely on)
 
-* The math core was ported from a reference implementation without changing any formula and is guarded by **173 regression checks**, plus **169 preset checks** run through
+* The math core was ported from a reference implementation without changing any formula and is guarded by **173 regression checks**, plus **152 preset checks** run through
   the full application code path. Every expected value is copied from the official homework / exam solutions (HW 3–10, Fall 2024 Exams 1–2) and lecture-note examples; tolerance is relative $2\times10^{-4}$ unless the solution prints fewer digits.
 * Reference values you can sanity-check against (Course table): Earth→Pluto Hohmann $\Delta v_1=11.8138$, $\Delta v_2=3.6864$ km/s, TOF $=45.5412$ yr, phase $113.9276^\circ$, synodic $1.0041$ yr;
   Venus hyperbola ($r_p=10R$, $|a|=50R$): $v_\infty=1.0361349$ km/s, $\theta^*_\infty=146.44269^\circ$, $\delta=112.88538^\circ$; Earth→Mars minimum-energy Lambert (TA $=130^\circ$): $e=0.31037$, TOF $=240.64357$ d, $v_D=32.22270$ km/s, $v_\infty=8.58217$ km/s;
