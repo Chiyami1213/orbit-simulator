@@ -145,7 +145,8 @@ and *Settings → Local Files* opens the folders. Uninstalling keeps this folder
 * The JPL **DE440s** ephemeris kernel comes from NASA/JPL NAIF (<https://naif.jpl.nasa.gov/naif/rules.html>); it is downloaded only on request. Kernel files are read with **jplephem** (MIT, Brandon Rhodes,
   [`LICENSES/jplephem-MIT.txt`](LICENSES/jplephem-MIT.txt)). The built-in ephemeris uses E. M. Standish's approximate Keplerian elements (JPL) and a truncated lunar theory after J. Meeus.
 * Equations follow Bate, Mueller & White, *Fundamentals of Astrodynamics*, and the course notes the homework was set from.
-* **No licence has been chosen for this project yet**, so by default all rights are reserved. Add a `LICENSE` file before accepting contributions or redistributing.
+* **OrbSim's own code is released under the MIT licence** (see [`LICENSE`](LICENSE), Copyright (c) 2026 Ethan Lee). Third-party code and assets keep their own licences, listed in [`NOTICE`](NOTICE) with the full texts in [`LICENSES/`](LICENSES/):
+  NASA GMAT-derived integrator tables (Apache-2.0), jplephem (MIT), three.js (MIT), KaTeX (MIT) and Lucide icons (ISC). The planet texture maps (Solar System Scope, CC BY 4.0) and the NASA Milky Way sky map are **not** covered by the MIT licence; they keep the terms stated above.
 
 ## Gallery
 
