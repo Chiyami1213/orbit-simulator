@@ -68,7 +68,7 @@ The automated tests are run with `python -m pytest`: the last full run gave **62
 * The expected values are copied from the published solutions: HW 3–10, the Fall 2024 exam problems that use the JPL constants, and lecture-note examples. The tolerance is a relative 2×10⁻⁴ unless the solution prints fewer digits.
 * Exam problems that were worked with the exam's own rounded constants are not included, because the app uses only the JPL / GMAT constants.
 * Known errors in the printed solutions are not silently matched: each affected preset carries an *Erratum* note (shown in the app) that explains the corrected value.
-* `tests/test_mission.py` and `tests/test_sandbox.py` check the mission and sandbox code (numerical propagation, GMAT script round trips, N-body energy conservation, scene editing); `tests/data/` holds a GMAT tutorial script used by the importer tests.
+* `tests/test_mission.py` and `tests/test_sandbox.py` check the mission and sandbox code (numerical propagation, GMAT script export and import, N-body energy conservation, scene editing); `tests/data/` holds a GMAT tutorial script used by the importer tests.
 
 ## How it was built
 
