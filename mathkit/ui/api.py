@@ -105,7 +105,7 @@ def solve(p: dict) -> dict:
     C = ConstantSet('Course table')                                                       # JPL / GMAT constants only
     problems: list[str] = []
     with LOCK:
-        apply_palette((p.get('opts') or {}).get('palette', 'prussian'))
+        apply_palette((p.get('opts') or {}).get('palette', 'dark'))
         _prog('solving the equations', 0.08)
         try:
             res: Result = spec.run(vals, C)
@@ -134,7 +134,7 @@ def solve(p: dict) -> dict:
             problems.append(f'the figures could not be drawn ({type(ex).__name__}: {ex}); the numbers and steps are still available')
             scenes = [dict(name='main', svg='', html3d='', overlaps=0, has_anim=False, notes=[], is3d=False)]; extra_figs = []
         _prog('done', 1.0)
-        LAST.clear(); LAST.update(vals=dict(vals), consts_mode=C.mode, palette=(p.get('opts') or {}).get('palette', 'prussian'), res=res, name=user, label=vals['_label'], mid=mid, body=(p.get('opts') or {}).get('body', 'symbol'))
+        LAST.clear(); LAST.update(vals=dict(vals), consts_mode=C.mode, palette=(p.get('opts') or {}).get('palette', 'dark'), res=res, name=user, label=vals['_label'], mid=mid, body=(p.get('opts') or {}).get('body', 'symbol'))
     conv = Convention.of((p.get('opts') or {}).get('convention', 'course'))
     groups = []
     for g in dict.fromkeys(s.group for s in res.steps):
@@ -151,7 +151,7 @@ def solve(p: dict) -> dict:
 def export(idx: int, fmt: str, theme: str = 'light'):
     """Render the idx-th scene of the last result for download. Returns (bytes, mimetype, filename)."""
     if not LAST: raise ValueError('nothing solved yet')
-    apply_palette(LAST.get('palette', 'prussian'))
+    apply_palette(LAST.get('palette', 'dark'))
     res: Result = LAST['res']; scenes = [('main', res.scene)] + list(res.scenes.items()); name, sc = scenes[idx]
     stem = ((LAST['name'] + '_') if LAST['name'] else '') + LAST['label'].replace(' ', '_') + ('' if name == 'main' else '_' + name.split()[0])
     with LOCK:
@@ -203,7 +203,7 @@ def mission_run(p: dict) -> dict:
     from ..mission import service as MS
     opts = dict(p.get('opts') or {}); opts['theme'] = p.get('theme', 'dark')
     with LOCK:
-        apply_palette(opts.get('palette', 'prussian'))
+        apply_palette(opts.get('palette', 'dark'))
         MPROG.update(stage='starting', frac=0.0)
         out = MS.run_mission(p['mission'], opts, lambda n, sc, th, u, w3, o: _scene_payload(n, sc, th, u, w3, o), _eph(), lambda s, f: MPROG.update(stage=s, frac=f), p.get('refs') or [])
         MPROG.update(stage='done', frac=1.0)
@@ -478,7 +478,7 @@ def mission_porkchop(p: dict) -> dict:
     try:
         o, t = p.get('origin', 'Earth'), p.get('target', 'Mars'); d0, a0 = jd_of(p['dep_start']), jd_of(p['arr_start']); n = int(min(60, max(8, p.get('n', 30))))
         with LOCK:
-            apply_palette(p.get('palette', 'prussian')); MPROG.update(stage='porkchop', frac=0.0)
+            apply_palette(p.get('palette', 'dark')); MPROG.update(stage='porkchop', frac=0.0)
             g = PK.grid(_eph(), o, t, d0, float(p['dep_days']), a0, float(p['arr_days']), n, ConstantSet('Course table'), lambda s_, f: MPROG.update(stage=s_, frac=f))
             svg = PK.render_svg(g, o, t, p.get('theme', 'dark')); MPROG.update(stage='done', frac=1.0)
         b = g['best']

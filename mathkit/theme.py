@@ -30,12 +30,11 @@ def color(theme: str, role: str) -> str:
 # ---- UI colour themes (dark mode surfaces; the light figures keep their neutral paper colours) ----
 import copy as _copy
 _BASE = _copy.deepcopy(THEMES)
-PALETTES = {
-    'prussian': {},
-    'forest': dict(surface='#152a21', page='#0e1a15', grid='#234235', axis='#2f5a47', body='#2f7a58'),
-    'graphite': dict(surface='#202126', page='#151618', grid='#34363d', axis='#4a4e5a', body='#4a6fa5'),
-    'obsidian': dict(surface='#1a1a1b', page='#0a0a0a', grid='#2b2b2d', axis='#4a4a4d', body='#5a5a60'),
-    'plum': dict(surface='#251a3b', page='#1a1226', grid='#3a2c58', axis='#4d3a78', body='#6a4fb8'),
+PALETTES = {  # keys match the UI themes (dark = Graphite); the figure surfaces follow each theme's panel and edge tokens
+    'dark': dict(surface='#1c2027', page='#14171c', grid='#2c323c', axis='#3a414d', body='#4a6fa5'),
+    'ocean': dict(surface='#112233', page='#0c1824', grid='#1f3b57', axis='#2e4d6c', body='#2c6aa8'),
+    'forest': dict(surface='#13231c', page='#0d1813', grid='#224236', axis='#2f5242', body='#2f7a58'),
+    'plum': dict(surface='#1d1728', page='#15111d', grid='#392d4e', axis='#46395f', body='#6a4fb8'),
 }
 
 

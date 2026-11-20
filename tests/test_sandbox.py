@@ -234,11 +234,11 @@ def test_shared_main_menu_is_wired():
 
 def test_stylesheet_keeps_every_theme_and_sandbox_block():
     css = (ROOT / 'mathkit' / 'ui' / 'web' / 'style.css').read_text(encoding='utf-8')
-    for k in ('body[data-palette=obsidian][data-theme=dark]', 'body[data-palette=obsidian][data-theme=light]', 'body[data-palette=graphite][data-theme=dark]', 'body[data-palette=forest][data-theme=dark]', 'body[data-palette=plum][data-theme=dark]',
+    for k in ('body[data-palette=dark]', 'body[data-palette=ocean]', 'body[data-palette=forest]', 'body[data-palette=plum]', 'body[data-palette=light]',
               '.xobj{', '.xitem.have', '.objpop', '.xmenu{', '.mtile{', '.logobtn{', '.mrow1{', 'UNIVERSAL PANEL HEADER', '.xside{background:color-mix'):
         assert k in css, k
-    js = (ROOT / 'mathkit' / 'ui' / 'web' / 'app.js').read_text(encoding='utf-8'); assert "['obsidian'" in js
-    from mathkit import theme; assert 'obsidian' in theme.PALETTES
+    js = (ROOT / 'mathkit' / 'ui' / 'web' / 'app.js').read_text(encoding='utf-8'); assert "['dark', 'Graphite'" in js and "THEME_KEYS = ['dark', 'ocean', 'forest', 'plum', 'light']" in js
+    from mathkit import theme; assert set(theme.PALETTES) == {'dark', 'ocean', 'forest', 'plum'}
 
 
 def test_solve_3d_view_spins_the_textured_body():

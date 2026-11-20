@@ -1,6 +1,11 @@
 :root{--orange:#ff6b4a;--green:#3ecf8e;--amber:#f5b73b;--red:#ff6161;--blue:#4c8df6;--navw:250px;--subw:0px;--panelw:384px}
-body[data-theme=dark]{--bg:#0f1628;--nav:#111a2e;--panel:#121b30;--card:#162039;--line:#223152;--text:#e8ecf5;--text2:#b4bdd2;--muted:#8391ad;--chip-on:#1c2d56;--chip-on-line:#2c4380;--chip-on-text:#d4e3ff;--inset:#0f1729;--seg-on:#20315a;--track:#26355a;--nav-on:#18253f;--shadow:none}
-body[data-theme=light]{--bg:#f3f5fa;--nav:#ffffff;--panel:#fafbfe;--card:#fcfcfb;--line:#dde3ef;--text:#16203a;--text2:#46526e;--muted:#7a869f;--chip-on:#e3ecff;--chip-on-line:#b6ccf7;--chip-on-text:#1b3f8f;--inset:#eef1f8;--seg-on:#ffffff;--track:#d8deec;--nav-on:#eaf0ff;--shadow:0 1px 2px rgba(20,30,60,.06)}
+/* ----- the five themes (PropSim token table, ORBSIM_UI_STYLE.md section 2): stored key then display name: dark Graphite, ocean Ocean, forest Forest, plum Plum, light Light ----- */
+body[data-palette=dark]{--bg:#14171c;--nav:#1c2027;--panel:#1c2027;--card:#151a22;--line:#2c323c;--text:#e6e9ee;--muted:#8b94a3;--text2:color-mix(in srgb,#e6e9ee 55%,#8b94a3);--faint:#5d6676;--chip-on:#22324a;--chip-on-line:color-mix(in srgb,#4ea1ff 45%,#2c323c);--chip-on-text:#4ea1ff;--inset:#232833;--seg-on:#22324a;--track:#343b47;--nav-on:#1d2633;--orange:#4ea1ff;--run:#2a6fd6;--green:#5cc97a;--shadow:none}
+body[data-palette=ocean]{--bg:#0c1824;--nav:#112233;--panel:#112233;--card:#0f1e2d;--line:#1f3b57;--text:#e6eff8;--muted:#8fa9c2;--text2:color-mix(in srgb,#e6eff8 55%,#8fa9c2);--faint:#58728c;--chip-on:#1c3f63;--chip-on-line:color-mix(in srgb,#38a8ff 45%,#1f3b57);--chip-on-text:#38a8ff;--inset:#15293d;--seg-on:#1c3f63;--track:#2c4b6c;--nav-on:#142a3f;--orange:#38a8ff;--run:#2a7fe0;--green:#4cd0a4;--shadow:none}
+body[data-palette=forest]{--bg:#0d1813;--nav:#13231c;--panel:#13231c;--card:#101e17;--line:#224236;--text:#e5f1ea;--muted:#8fb0a0;--text2:color-mix(in srgb,#e5f1ea 55%,#8fb0a0);--faint:#587566;--chip-on:#1f4535;--chip-on-line:color-mix(in srgb,#3ec48a 45%,#224236);--chip-on-text:#3ec48a;--inset:#16281f;--seg-on:#1f4535;--track:#2f5442;--nav-on:#142a21;--orange:#3ec48a;--run:#23885a;--green:#5cc97a;--shadow:none}
+body[data-palette=plum]{--bg:#15111d;--nav:#1d1728;--panel:#1d1728;--card:#181223;--line:#392d4e;--text:#eee9f6;--muted:#a496bb;--text2:color-mix(in srgb,#eee9f6 55%,#a496bb);--faint:#6d6088;--chip-on:#3a2d5e;--chip-on-line:color-mix(in srgb,#a97bff 45%,#392d4e);--chip-on-text:#a97bff;--inset:#241c33;--seg-on:#3a2d5e;--track:#473a63;--nav-on:#271e3a;--orange:#a97bff;--run:#8b52e6;--green:#6fcf97;--shadow:none}
+body[data-palette=light]{--bg:#f3f5f8;--nav:#ffffff;--panel:#ffffff;--card:#f7f9fc;--line:#d6dce5;--text:#132033;--muted:#5b6779;--text2:color-mix(in srgb,#132033 55%,#5b6779);--faint:#9aa5b5;--chip-on:#dbe9f8;--chip-on-line:color-mix(in srgb,#1d6cb0 45%,#d6dce5);--chip-on-text:#1d6cb0;--inset:#e6ebf2;--seg-on:#dbe9f8;--track:#c9d2de;--nav-on:#eaf1fa;--orange:#1d6cb0;--run:#2a6fd6;--green:#2e8b57;--shadow:0 1px 2px rgba(20,30,60,.06)}
+body[data-theme=dark] button.solve,body[data-theme=light] button.solve{background:var(--run)}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--text);font:15px/1.35 Inter,"Segoe UI",system-ui,-apple-system,sans-serif;overflow:hidden}
@@ -222,12 +227,6 @@ body.plotfocus #tabhost,body.plotfocus #scenehost{display:none}
 .modal .btnrow{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
 
 /* ----- colour themes (independent of light / dark mode) ----- */
-body[data-palette=forest][data-theme=dark]{--orange:#f5b73b;--bg:#0e1a15;--nav:#101f19;--panel:#11211a;--card:#152a21;--line:#234235;--chip-on:#1d4a38;--chip-on-line:#2c6b52;--chip-on-text:#d4ffe9;--inset:#0e1812;--seg-on:#1f4a38;--track:#264638;--nav-on:#17291f;--muted:#86a596}
-body[data-palette=forest][data-theme=light]{--orange:#d98a00;--bg:#f1f7f3;--nav:#ffffff;--panel:#f8fcf9;--line:#d5e5db;--chip-on:#dcf3e6;--chip-on-line:#a9d9bd;--chip-on-text:#14583a;--inset:#e9f2ec;--track:#d3e3d9;--nav-on:#e6f5ec}
-body[data-palette=graphite][data-theme=dark]{--orange:#2ec4b6;--bg:#151618;--nav:#1a1b1e;--panel:#1b1c20;--card:#202126;--line:#34363d;--chip-on:#2d3a3a;--chip-on-line:#3f6b66;--chip-on-text:#c9fff7;--inset:#131416;--seg-on:#2c3b3a;--track:#3a3d45;--nav-on:#23252a;--muted:#8d92a0}
-body[data-palette=graphite][data-theme=light]{--orange:#0f9d8f;--bg:#f3f4f6;--nav:#ffffff;--panel:#fafafb;--line:#dcdee3;--chip-on:#d9f4f0;--chip-on-line:#9fd8d1;--chip-on-text:#0b5c54;--inset:#eceef1;--track:#d6d9df;--nav-on:#e6f4f2}
-body[data-palette=plum][data-theme=dark]{--orange:#ff5d73;--bg:#1a1226;--nav:#1e1530;--panel:#1f1633;--card:#251a3b;--line:#3a2c58;--chip-on:#3b2a63;--chip-on-line:#5a43a0;--chip-on-text:#e9ddff;--inset:#150e20;--seg-on:#3a2a60;--track:#403061;--nav-on:#281d42;--muted:#a592c4}
-body[data-palette=plum][data-theme=light]{--orange:#e0405a;--bg:#f6f3fa;--nav:#ffffff;--panel:#fbf9fe;--line:#e3dcef;--chip-on:#ece3ff;--chip-on-line:#c8b4f0;--chip-on-text:#442488;--inset:#efeaf6;--track:#ddd3ec;--nav-on:#f0e9ff}
 .pcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:20px}
 .pcard{display:flex;flex-direction:column;gap:10px;align-items:flex-start;padding:14px;border-radius:12px;border:1.5px solid var(--line);background:var(--inset);cursor:pointer;text-align:left}
 .pcard:hover{border-color:var(--orange)}.pcard.on{border-color:var(--orange);box-shadow:0 0 0 1px var(--orange) inset}
@@ -559,9 +558,6 @@ input[type=number]:hover::-webkit-inner-spin-button,input[type=number]:focus::-w
 .pkitem:hover{background:var(--inset);border-color:var(--line)}.pkitem b{font-weight:600;font-size:14.5px}.pkitem span{color:var(--muted);font-size:12.5px}
 
 /* ----- colour theme: Obsidian & White (black and dark grey with a white accent) ----- */
-body[data-palette=obsidian][data-theme=dark]{--orange:#dcdcdc;--bg:#0a0a0a;--nav:#0f0f10;--panel:#131313;--card:#1a1a1b;--line:#2b2b2d;--chip-on:#262628;--chip-on-line:#4a4a4d;--chip-on-text:#ffffff;--inset:#0e0e0f;--seg-on:#2a2a2c;--track:#333336;--nav-on:#1d1d1f;--muted:#8a8a90}
-body[data-palette=obsidian][data-theme=light]{--orange:#2b2b2d;--bg:#f2f2f2;--nav:#ffffff;--panel:#fafafa;--line:#dcdcdc;--chip-on:#e6e6e6;--chip-on-line:#bdbdbd;--chip-on-text:#111111;--inset:#ececec;--track:#d4d4d4;--nav-on:#e8e8e8}
-body[data-palette=obsidian][data-theme=dark] :is(button.solve,.btn.pri,.fbtns button.pri,.xcat.on,.msolve,.nv.on .n){color:#0a0a0a}
 
 /* ----- the Add library only adds; objects already in the scene are dimmed, and selecting them is the job of the object search ----- */
 .xitem.have{opacity:.42;cursor:default}.xitem.have:hover{background:transparent}.xitem.have:hover .xthumb{box-shadow:none}
@@ -569,3 +565,23 @@ body[data-palette=obsidian][data-theme=dark] :is(button.solve,.btn.pri,.fbtns bu
 .xobjlist{overflow:auto;display:flex;flex-direction:column;gap:2px;margin-top:6px}
 .xobj{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:var(--text);text-align:left;padding:8px 10px;border-radius:9px;cursor:pointer;font-size:14px}
 .xobj:hover,.xobj.on{background:var(--inset)}.xobj b{font-weight:600;flex:1}.xobj span:last-child{color:var(--muted);font-size:12.5px}.xobj .xdot{width:12px;height:12px;border-radius:50%;flex:none}
+
+/* ----- flat widget look (PropSim, ORBSIM_UI_STYLE.md section 3): no relief, 1 px edge borders, 5 px radius, accent on hover ----- */
+a.btn,button.btn,.chip,select,input[type=text],input[type=number]{border-radius:5px}
+a.btn:hover,button.btn:hover,.chip:hover{border-color:var(--orange)}
+select:focus,input:focus{border-color:var(--orange)}
+.seg{border-radius:6px}.seg button{border-radius:4px}
+.fld .val input.num{border-radius:4px}
+/* sliders: 4 px groove, accent-filled left part, round white handle with an accent ring */
+input[type=range]{height:4px;margin:8px 0 6px;background:linear-gradient(90deg,var(--orange) 0,var(--orange) calc(8px + (100% - 16px) * var(--f,.5)),var(--track) calc(8px + (100% - 16px) * var(--f,.5)),var(--track) 100%)}
+input[type=range]::-webkit-slider-thumb{width:16px;height:16px;border:2px solid var(--orange);box-shadow:none}
+/* tabs: rounded pills, selected one on the selection color */
+.tab{border-radius:999px}.tab.on{background:var(--chip-on)}
+/* menu bar items slightly tight; the selected item uses the selection color */
+#menubar{gap:0}#menubar>button{padding:4px 8px;margin:0 1px;border-radius:4px}
+#menubar>button:hover,#menubar>button.open{background:var(--chip-on)}
+/* scroll bars: 10 px, rounded groove handle, no arrow buttons */
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-button{display:none}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--track);border-radius:5px;border:2px solid transparent;background-clip:content-box}
+/* progress bars: 8 px, rounded, success-colored chunk */
+.sp-bar i{background:var(--green)}

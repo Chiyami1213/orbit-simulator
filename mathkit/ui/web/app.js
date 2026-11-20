@@ -62,13 +62,14 @@ const BODY_SYM = { Sun: '☉', Moon: '☽', Mercury: '☿', Venus: '♀', Earth:
 const UTIL = [['jd', 'Julian Date', 'cal'], ['const', 'Body Constants', 'orbit'], ['tests', 'Test Cases', 'check']];
 const OPT = { tof: 'TOF', radec: 'RA / Dec', ths: 'θ*', xy: 'x, y', polar: 'r, v_r, v_θ', h_eps: 'h, ε', rp_ra: 'r_p, r_a', a_e: 'a, e', p_e: 'p, e', ccw: 'counter-clockwise', cw: 'clockwise' };
 const optText = o => OPT[o] || o;
-const KEYS_DEFAULT = { refresh: 'F5', screenshot: 'F2', fullscreen: 'F11', settings: 'S', menu: 'M', focus: 'F12', reset: 'F8', tour: 'F1' };
+const KEYS_DEFAULT = { refresh: 'F5', screenshot: 'F2', fullscreen: 'F11', settings: 'S', menu: 'M', focus: 'F12', reset: 'F8', tour: 'F1', theme: 'F10' };
 const KEY_INFO = {
   refresh: ['Refresh Screen', 're-renders the current page and solves it again, keeping your inputs'],
   screenshot: ['Screenshot', 'saves a png of the app window to the screenshots folder in the app data folder'],
   fullscreen: ['Full Screen', 'switches between full screen and the normal window'],
   settings: ['Settings Page', 'opens the settings page, or goes back to where you were'],
   menu: ['Menu Bar', 'hides or shows the whole left menu bar'],
+  theme: ['Color Theme', 'opens the color theme picker (Graphite, Ocean, Forest, Plum, Light)'],
   tour: ['Tutorial', 'starts the guided tour of the window; you can run it again whenever you need it'],
   reset: ['Reset Panels', 'puts every panel back in the default arrangement and brings back closed panels'],
   focus: ['Maximize Plot', 'hides every panel except the 3d or 2d view; esc leaves. bring panels back with the buttons in the plot header']
@@ -78,7 +79,7 @@ const FRAME_PRESETS = [[240, 'Low'], [480, 'Medium'], [1200, 'High'], [3000, 'Ul
 const fresh = o => JSON.parse(JSON.stringify(o));
 let META = null;
 let SET = { const: 'Course table', unit: 'km', appearance: 'dark', name: '', label: '', sliders: true, layout: {}, keys: {},
-  view: 'both', palette: 'prussian', repeat: true, convention: 'course', tourDone: false, ephemMode: 'auto', ephemPath: '', gmatPath: '', bodyNotation: 'symbol', frames: 480, textures: false, model: 'marker', fps: false, texq: '2k' };
+  view: 'both', palette: 'dark', repeat: true, convention: 'course', tourDone: false, ephemMode: 'auto', ephemPath: '', gmatPath: '', bodyNotation: 'symbol', frames: 480, textures: false, model: 'marker', fps: false, texq: '2k' };
 const LAY = fresh(LAY_DEFAULT);
 const S = { mode: 'solve', page: '12', prev: '12', canon: {}, tab: 'Plots', scene: 0, res: null, seq: 0, tests: null, rebind: null, cache: new Map(), last: {}, setTab: 'Appearance', backups: null, gpu: '', focus: null, fshow: { menu: false, inputs: false, results: false } };
 const mod = () => META.modules.find(m => m.id === S.page);
@@ -88,8 +89,9 @@ const isMod = () => !!mod();
 const saveSet = debounce(() => { SET.layout = LAY; api('settings_set', { settings: SET }); }, 300);
 const keys = () => ({ ...KEYS_DEFAULT, ...(SET.keys || {}) });
 const dark = matchMedia('(prefers-color-scheme: dark)');
-const effTheme = () => SET.appearance === 'device' ? (dark.matches ? 'dark' : 'light') : (SET.appearance === 'light' ? 'light' : 'dark');
-dark.addEventListener('change', () => { if (SET.appearance === 'device') { syncChrome(); retheme3d(); S.cache.clear(); if (isMod()) solveNow(); } });
+const THEME_KEYS = ['dark', 'ocean', 'forest', 'plum', 'light'];                     // stored key, shown as Graphite, Ocean, Forest, Plum, Light
+const themeKey = () => THEME_KEYS.includes(SET.palette) ? SET.palette : (SET.appearance === 'light' ? 'light' : 'dark');   // older saved settings (prussian, graphite, obsidian, device) fall back to Graphite or Light
+const effTheme = () => themeKey() === 'light' ? 'light' : 'dark';
 const solveOpts = () => ({ convention: S.conv || SET.convention || 'course', body: SET.bodyNotation, frames: SET.frames, textures: SET.textures, model: SET.model, fps: SET.fps, palette: SET.palette, repeat: SET.repeat !== false });
 
 /* ---------- text style (headers: APA title case, explanations: lower case) ---------- */
@@ -152,7 +154,7 @@ new ResizeObserver(() => { const p = $('.plots'), m = $('#main'); if (p && m) p.
 /* ---------- menu bar (file / edit / view / go / help) ---------- */
 const goto = (page, tab) => { if (tab) S.setTab = tab; if (page === 'settings' && S.page !== 'settings') S.prev = S.page; go(page); };
 const copyText = async txt => { try { await navigator.clipboard.writeText(txt); toast('copied to the clipboard', 'ok'); } catch (e) { toast('could not copy: ' + e, 'err'); } };
-const setPalette = id => { SET.palette = id; saveSet(); syncChrome(); retheme3d(); S.cache.clear(); S.last = {}; if (S.page === 'settings') renderUtil(); else if (isMod()) solveNow(); };
+const setPalette = id => { SET.palette = id; SET.appearance = id === 'light' ? 'light' : 'dark'; saveSet(); syncChrome(); retheme3d(); S.cache.clear(); S.last = {}; if (S.page === 'settings') renderUtil(); else if (isMod()) solveNow(); };
 const retheme3d = () => { try { const t = effTheme(); if (typeof EX !== 'undefined' && EX.space) EX.space.setTheme(t); if (typeof MIS !== 'undefined' && MIS.space) MIS.space.setTheme(t); } catch (e) { } };
 const setAppearance = v => { SET.appearance = v; saveSet(); syncChrome(); retheme3d(); S.cache.clear(); S.last = {}; if (S.page === 'settings') renderUtil(); else if (isMod()) solveNow(); };
 function menuDefs() {
@@ -178,10 +180,8 @@ function menuDefs() {
       { label: 'Full Screen', key: K.fullscreen, run: ACTIONS.fullscreen },
       { sep: 1 }, { head: 'Panels' }, tile('inputs'), tile('v3d'), tile('v2d'), tile('results'),
       { label: 'Reset Panel Layout', key: K.reset, run: resetPanels },
-      { sep: 1 }, { head: 'Mode' },
-      ...[['light', 'Light'], ['dark', 'Dark'], ['device', 'Use Device Settings']].map(([v, l]) => ({ label: l, check: () => SET.appearance === v, run: () => setAppearance(v) })),
       { sep: 1 }, { head: 'Color Theme' },
-      ...PALETTES.map(([id, name]) => ({ label: name, check: () => (SET.palette || 'prussian') === id, run: () => setPalette(id) })),
+      ...PALETTES.map(([id, name]) => ({ label: name, check: () => themeKey() === id, run: () => setPalette(id) })),
       { sep: 1 }, { label: 'Refresh', key: K.refresh, run: ACTIONS.refresh }],
     'Go': [{ label: 'Design (Missions)', check: () => S.page === 'mission', run: () => go('mission') }, { label: 'Sandbox', check: () => S.page === 'explore', run: () => go('explore') }, { sep: 1 }, { head: 'Solve: Modules' }, ...META.modules.map(m => ({ label: m.short, check: () => S.page === m.id, run: () => go(m.id) })),
       { sep: 1 }, { head: 'Solve: Reference' }, ...UTIL.map(([id, name]) => ({ label: name, check: () => S.page === id, run: () => go(id) }))],
@@ -297,9 +297,9 @@ function gpuInfo() {
 }
 
 /* ---------- chrome and navigation ---------- */
-const PALETTES = [['prussian', 'Prussian Blue & Orange', ['#0f1628', '#1c2d56', '#ff6b4a']], ['forest', 'Forest Green & Amber', ['#0e1a15', '#1d4a38', '#f5b73b']], ['graphite', 'Graphite & Teal', ['#151618', '#33363f', '#2ec4b6']], ['plum', 'Plum & Coral', ['#1a1226', '#3b2a63', '#ff5d73']], ['obsidian', 'Obsidian & White', ['#0a0a0a', '#2a2a2c', '#dcdcdc']]];
+const PALETTES = [['dark', 'Graphite', ['#0d1014', '#22324a', '#4ea1ff', '#ff9d3c']], ['ocean', 'Ocean', ['#08121c', '#1c3f63', '#38a8ff', '#2e8bff']], ['forest', 'Forest', ['#091210', '#1f4535', '#3ec48a', '#2fae78']], ['plum', 'Plum', ['#0e0b14', '#3a2d5e', '#a97bff', '#9b5de5']], ['light', 'Light', ['#e9eef5', '#dbe9f8', '#1d6cb0', '#e6761a']]];
 function syncChrome() {
-  const th = effTheme(); document.body.dataset.theme = th; document.body.dataset.palette = SET.palette || 'prussian'; document.documentElement.dataset.boot = th;
+  const th = effTheme(); document.body.dataset.theme = th; document.body.dataset.palette = themeKey(); document.documentElement.dataset.boot = th;
   $('#unitChip').innerHTML = 'Units: ' + String(SET.unit).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/_([A-Za-z0-9]+)/, '<sub>$1</sub>') + ' · s'; showFps();
 }
 function navItem(id, label, iconNode, tip, on) {
@@ -809,13 +809,10 @@ function settingsPage(main) {
   const frames = SET.frames, custom = !FRAME_PRESETS.some(p => p[0] === frames);
   const pages = {
     'Appearance': () => el('div', { class: 'sheet' },
-      el('div', { class: 'sh3' }, 'Mode'),
-      el('div', { class: 'acards' }, ...[['light', 'sun', 'Light'], ['dark', 'moon', 'Dark'], ['device', 'monitor', 'Use Device Settings']].map(([v, ic, label]) =>
-        el('button', { class: 'acard' + (SET.appearance === v ? ' on' : ''), onclick: () => { SET.appearance = v; saveSet(); syncChrome(); S.cache.clear(); S.last = {}; renderUtil(); } }, ico(ic), el('span', { class: 'al' }, label)))),
-      el('div', { class: 'sh3', style: 'margin-top:28px' }, 'Color Theme'),
-      el('div', { class: 'dim', style: 'margin:0 0 12px' }, 'the accent and background tint of the whole app and its dark figures; independent of light or dark mode'),
-      el('div', { class: 'pcards' }, ...PALETTES.map(([id, name, sw]) => el('button', { class: 'pcard' + ((SET.palette || 'prussian') === id ? ' on' : ''), title: name,
-        onclick: () => { SET.palette = id; saveSet(); syncChrome(); S.cache.clear(); S.last = {}; renderUtil(); } },
+      el('div', { class: 'sh3' }, 'Color Theme'),
+      el('div', { class: 'dim', style: 'margin:0 0 12px' }, 'the colors of the whole app and its figures (F10)'),
+      el('div', { class: 'pcards' }, ...PALETTES.map(([id, name, sw]) => el('button', { class: 'pcard' + (themeKey() === id ? ' on' : ''), title: name,
+        onclick: () => setPalette(id) },
         el('div', { class: 'sw' }, ...sw.map(c => el('i', { style: 'background:' + c }))), el('span', { class: 'al' }, name))))),
     'Figures and Animation': () => el('div', { class: 'sheet' },
       setRow('Plot Layout', 'show the 3d view, the 2d figure, or both side by side', seg([['3d', '3D'], ['2d', '2D'], ['both', '3D + 2D']], SET.view, v => { SET.view = v; saveSet(); })),
@@ -883,6 +880,7 @@ const ACTIONS = {
   settings: () => { if (S.page === 'settings') go(S.prev || '12'); else { S.prev = S.page; go('settings'); } },
   menu: () => { LAY.hidden = !LAY.hidden; applyLayout(); saveSet(); },
   reset: () => resetPanels(),
+  theme: () => goto('settings', 'Appearance'),
   tour: () => startTour(),
   focus: () => { if (S.focus) setFocus(null); else if (isMod() && S.res && !S.res.error) { S.tab = 'Plots'; setFocus(SET.view === '2d' ? 'v2d' : 'v3d'); } }
 };
