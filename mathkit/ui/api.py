@@ -551,6 +551,13 @@ def fullscreen(_: dict | None = None) -> dict:
     except Exception as ex: return dict(ok=False, error=str(ex))
 
 
+def quit_app(_: dict | None = None) -> dict:
+    """Close the window (confirmation is the page's job); in the browser the page closes itself."""
+    if shell.WINDOW is None: return dict(ok=True, mode='browser')
+    shell.QUITTING = True; shell.WINDOW.destroy()
+    return dict(ok=True, mode='window')
+
+
 def open_folder(p: dict) -> dict:
     try: return dict(ok=True, path=shell.open_folder(p.get('which', 'root')))
     except Exception as ex: return dict(ok=False, error=str(ex))
@@ -632,5 +639,5 @@ def report_issue(p: dict) -> dict:
 ROUTES = {'meta': lambda p: meta(), 'visible': visible, 'solve': solve, 'progress': progress, 'mission_meta': mission_meta, 'mission_starter': mission_starter, 'mission_run': mission_run, 'mission_progress': mission_progress, 'mission_convert': mission_convert,
           'mission_compare': mission_compare, 'mission_script': mission_script, 'mission_import': mission_import, 'mission_from_module': mission_from_module, 'mission_save': mission_save,
           'ephem_status': ephem_status, 'mission_porkchop': mission_porkchop, 'mission_cosmographia': mission_cosmographia, 'mission_node_preview': mission_node_preview, 'mission_node_insert': mission_node_insert, 'sandbox_meta': sandbox_meta, 'sandbox_new': sandbox_new, 'sandbox_run': sandbox_run, 'sandbox_edit': sandbox_edit, 'sandbox_panel': sandbox_panel, 'sandbox_to_mission': sandbox_to_mission, 'sandbox_save': sandbox_save, 'save_blob': save_blob, 'mission_import_trajectory': mission_import_trajectory, 'mission_from_porkchop': mission_from_porkchop, 'mission_trajectory': mission_trajectory, 'licenses': licenses, 'ephem_download': ephem_download, 'textures_status': textures_status, 'textures_download': textures_download, 'textures_delete': textures_delete, 'gmat_check': gmat_check, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
-          'fullscreen': fullscreen, 'open_folder': open_folder, 'export_save': export_save, 'report_issue': report_issue,
+          'fullscreen': fullscreen, 'quit': quit_app, 'open_folder': open_folder, 'export_save': export_save, 'report_issue': report_issue,
           'backup_create': _bk(_bk_create), 'backup_list': _bk(_bk_list), 'backup_restore': _bk(_bk_restore), 'backup_import': _bk(_bk_import), 'backup_delete': _bk(_bk_delete)}

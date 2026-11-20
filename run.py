@@ -72,6 +72,13 @@ def main(argv):
         except Exception:
             pass
         shell.WINDOW = webview.create_window(TITLE, url, width=1700, height=1020, min_size=(1240, 760), background_color='#0f1628')
+        def on_closing():                           # the close button: ask in the page first (unless the preference is off), then quit through api.quit
+            import threading
+            if shell.QUITTING or not shell.load_settings().get('confirmQuit', True):
+                return True
+            threading.Thread(target=lambda: shell.WINDOW.evaluate_js('askQuit()'), daemon=True).start()
+            return False
+        shell.WINDOW.events.closing += on_closing
         webview.start(private_mode=False, storage_path=str(HOME / 'webview'))
     else:
         print(f'{TITLE} running at {url}   (Ctrl+C to quit)', flush=True)

@@ -287,3 +287,14 @@ def test_menu_labels_tour_titles_and_tab_names_use_apa_title_case_and_american_s
     assert not bad, bad
     for f in ('app.js', 'appmenu.js', 'tour.js', 'mission.js', 'explore.js', 'index.html'):
         assert not re.search(r'colour|licence|centre', (web / f).read_text(encoding='utf-8'), re.I), f
+
+
+def test_quit_confirmation_busy_bar_and_quit_route():
+    from mathkit.ui import api, shell
+    web = ROOT / 'mathkit' / 'ui' / 'web'
+    js = (web / 'app.js').read_text(encoding='utf-8')
+    assert "quit: 'Ctrl+Q'" in js and 'confirmQuit: true' in js and 'async function askQuit' in js and 'async function busy(' in js
+    assert 'Confirm Before Quitting' in js and "busy('exporting'" in js and "busy('creating backup'" in js
+    assert 'id="busybar"' in (web / 'index.html').read_text(encoding='utf-8') and '.busybar.on' in (web / 'style.css').read_text(encoding='utf-8')
+    assert 'events.closing' in (ROOT / 'run.py').read_text(encoding='utf-8')
+    assert shell.WINDOW is None and api.ROUTES['quit']({}) == dict(ok=True, mode='browser')       # no window in the tests: the page closes itself, nothing is destroyed

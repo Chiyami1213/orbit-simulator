@@ -62,12 +62,13 @@ const BODY_SYM = { Sun: '☉', Moon: '☽', Mercury: '☿', Venus: '♀', Earth:
 const UTIL = [['jd', 'Julian Date', 'cal'], ['const', 'Body Constants', 'orbit'], ['tests', 'Test Cases', 'check']];
 const OPT = { tof: 'TOF', radec: 'RA / Dec', ths: 'θ*', xy: 'x, y', polar: 'r, v_r, v_θ', h_eps: 'h, ε', rp_ra: 'r_p, r_a', a_e: 'a, e', p_e: 'p, e', ccw: 'counter-clockwise', cw: 'clockwise' };
 const optText = o => OPT[o] || o;
-const KEYS_DEFAULT = { refresh: 'F5', screenshot: 'F2', fullscreen: 'F11', settings: 'F9', menu: 'M', focus: 'F8', reset: 'F12', tour: 'F1', theme: 'F10', solve: 'Ctrl+R' };
+const KEYS_DEFAULT = { refresh: 'F5', screenshot: 'F2', fullscreen: 'F11', settings: 'F9', menu: 'M', focus: 'F8', reset: 'F12', tour: 'F1', theme: 'F10', solve: 'Ctrl+R', quit: 'Ctrl+Q' };
 const KEY_INFO = {
   refresh: ['Refresh Screen', 're-renders the current page and solves it again, keeping your inputs'],
   screenshot: ['Screenshot', 'saves a png of the app window to the screenshots folder in the app data folder'],
   fullscreen: ['Full Screen', 'switches between full screen and the normal window'],
   settings: ['Preferences', 'opens the preferences page (appearance, key bindings and more), or goes back to where you were'],
+  quit: ['Quit', 'closes OrbSim; asks first unless confirm before quitting is turned off in the preferences'],
   solve: ['Solve and Draw', 'solves the current module and redraws the 3d and 2d views'],
   menu: ['Menu Bar', 'hides or shows the whole left menu bar'],
   theme: ['Color Theme', 'opens the color theme picker (Graphite, Ocean, Forest, Plum, Light)'],
@@ -79,7 +80,7 @@ const LAY_DEFAULT = { dock: null, navw: 285, subw: 275, panelw: 384, f3d: 0.56, 
 const FRAME_PRESETS = [[240, 'Low'], [480, 'Medium'], [1200, 'High'], [3000, 'Ultra']];
 const fresh = o => JSON.parse(JSON.stringify(o));
 let META = null;
-let SET = { const: 'Course table', unit: 'km', appearance: 'dark', name: '', label: '', sliders: true, layout: {}, keys: {},
+let SET = { const: 'Course table', unit: 'km', appearance: 'dark', name: '', label: '', sliders: true, confirmQuit: true, layout: {}, keys: {},
   view: 'both', palette: 'dark', repeat: true, convention: 'course', tourDone: false, ephemMode: 'auto', ephemPath: '', gmatPath: '', bodyNotation: 'symbol', frames: 480, textures: false, model: 'marker', fps: false, texq: '2k' };
 const LAY = fresh(LAY_DEFAULT);
 const S = { mode: 'solve', page: '12', prev: '12', canon: {}, tab: 'Plots', scene: 0, res: null, seq: 0, tests: null, rebind: null, cache: new Map(), last: {}, setTab: 'Appearance', backups: null, gpu: '', focus: null, fshow: { menu: false, inputs: false, results: false } };
@@ -165,7 +166,7 @@ function menuDefs() {
       { label: 'Save Screenshot', key: K.screenshot, run: ACTIONS.screenshot },
       { label: 'Export Figure', dis: !res, run: () => { S.tab = 'Export Figure'; renderMain(); } },
       { sep: 1 },
-      { label: 'Create Backup', run: async () => { const r = await api('backup_create', {}); toast(r.ok ? 'backup created' : r.error, r.ok ? 'ok' : 'err'); S.backups = null; } },
+      { label: 'Create Backup', run: async () => { const r = await busy('creating backup', () => api('backup_create', {})); toast(r.ok ? 'backup created' : r.error, r.ok ? 'ok' : 'err'); S.backups = null; } },
       { label: 'Open Data Folder', run: async () => { const r = await api('open_folder', {}); if (!r.ok) toast(r.error, 'err'); } },
       ],
     'Edit': [
@@ -684,8 +685,19 @@ function steps(main, r) {
 function extra(main, t) {
   main.append(el('div', { class: 'sheet' }, el('h3', {}, t.name), el('div', { class: 'dim' }, t.note), table(t.columns, t.rows, t.highlight)));
 }
+/** Busy bar: a slim status bar at the bottom of the window plus a busy cursor while a slow action the user started is running (exports, backups). */
+let BUSY = 0;
+async function busy(text, work) {
+  const bar = $('#busybar'); BUSY++; document.body.classList.add('busy'); bar.querySelector('span').textContent = text; bar.classList.add('on');
+  try { return await work(); } finally { if (--BUSY === 0) { bar.classList.remove('on'); document.body.classList.remove('busy'); } }
+}
+/** Quit: asks first (Preferences > Appearance can turn that off); the window host calls this when the window's close button is pressed. */
+async function askQuit() {
+  if (SET.confirmQuit !== false && !await askConfirm('any unsaved inputs in this session are kept in your settings; exports and backups are already on disk.', 'Quit', 'Quit OrbSim')) return;
+  const r = await api('quit', {}); if (r.mode === 'browser') window.close();
+}
 async function saveExport(idx, fmt, theme) {
-  const r = await api('export_save', { idx, fmt, theme }); toast(r.ok ? 'saved to ' + r.path : r.error, r.ok ? 'ok' : 'err');
+  const r = await busy('exporting', () => api('export_save', { idx, fmt, theme })); toast(r.ok ? 'saved to ' + r.path : r.error, r.ok ? 'ok' : 'err');
 }
 function exportTab(main, r) {
   main.append(el('div', { class: 'sheet' }, el('h3', {}, 'Export Figures'),
@@ -780,7 +792,7 @@ function backupPage() {
       el('button', { class: 'btn', onclick: async () => { if (!await askConfirm(`delete "${b.name}"?`, 'Delete', 'Delete Backup')) return; const r = await api('backup_delete', { name: b.name }); if (r.ok) { S.backups = r.backups; renderUtil(); } else toast(r.error, 'err'); } }, 'Delete'))]);
   return el('div', {},
     el('div', { class: 'sheet' },
-      setRow('Create a Backup', 'zips your settings, exports and screenshots into the backups folder', el('button', { class: 'btn pri', onclick: async () => { const r = await api('backup_create', {}); if (r.ok) { S.backups = r.backups; renderUtil(); toast('backup saved to ' + r.path, 'ok'); } else toast(r.error, 'err'); } }, 'Create Backup')),
+      setRow('Create a Backup', 'zips your settings, exports and screenshots into the backups folder', el('button', { class: 'btn pri', onclick: async () => { const r = await busy('creating backup', () => api('backup_create', {})); if (r.ok) { S.backups = r.backups; renderUtil(); toast('backup saved to ' + r.path, 'ok'); } else toast(r.error, 'err'); } }, 'Create Backup')),
       setRow('Import a Backup', 'choose a backup zip from anywhere (for example from another computer). your current data is backed up automatically first', file, el('button', { class: 'btn', onclick: () => file.click() }, 'Import Backup…')),
       setRow('Backups Folder', 'kept in the app data folder; copy files out of it to store them elsewhere', el('button', { class: 'btn', onclick: () => api('open_folder', { which: 'backups' }) }, 'Open'))),
     el('div', { class: 'sheet' }, el('h3', {}, 'Your Backups'), S.backups.length ? table(['File', 'Created', 'Contents', 'Size', ''], rows, -1, 'c1') : el('div', { class: 'dim' }, 'no backups yet')));
@@ -815,7 +827,9 @@ function settingsPage(main) {
       el('div', { class: 'dim', style: 'margin:0 0 12px' }, 'the colors of the whole app and its figures (F10)'),
       el('div', { class: 'pcards' }, ...PALETTES.map(([id, name, sw]) => el('button', { class: 'pcard' + (themeKey() === id ? ' on' : ''), title: name,
         onclick: () => setPalette(id) },
-        el('div', { class: 'sw' }, ...sw.map(c => el('i', { style: 'background:' + c }))), el('span', { class: 'al' }, name))))),
+        el('div', { class: 'sw' }, ...sw.map(c => el('i', { style: 'background:' + c }))), el('span', { class: 'al' }, name)))),
+      el('div', { class: 'sh3', style: 'margin-top:28px' }, 'Quitting'),
+      setRow('Confirm Before Quitting', 'ask before the window closes (Ctrl+Q and the close button)', el('input', { type: 'checkbox', checked: SET.confirmQuit !== false, onchange: e => { SET.confirmQuit = e.target.checked; saveSet(); } }))),
     'Figures and Animation': () => el('div', { class: 'sheet' },
       setRow('Plot Layout', 'show the 3d view, the 2d figure, or both side by side', seg([['3d', '3D'], ['2d', '2D'], ['both', '3D + 2D']], SET.view, v => { SET.view = v; saveSet(); })),
       setRow('Body Notation', 'celestial bodies in labels: astronomical symbols (r⊕) or name subscripts (r_earth)', seg([['symbol', 'Symbols'], ['name', 'Name Subscripts']], SET.bodyNotation, v => { SET.bodyNotation = v; saveSet(); reRender(); })),
@@ -884,6 +898,7 @@ const ACTIONS = {
   reset: () => resetPanels(),
   theme: () => goto('settings', 'Appearance'),
   solve: () => { if (isMod()) solveNow(false, true); },
+  quit: () => askQuit(),
   tour: () => startTour(),
   focus: () => { if (S.focus) setFocus(null); else if (isMod() && S.res && !S.res.error) { S.tab = 'Plots'; setFocus(SET.view === '2d' ? 'v2d' : 'v3d'); } }
 };

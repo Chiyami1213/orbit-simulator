@@ -2,6 +2,10 @@
 
 New changes go above this line, newest first.
 
+## Unreleased
+
+- **Interface style shared with PropSim:** five color themes (Graphite, Ocean, Forest, Plum, Light; F10), flat widgets, menu bar File / Edit / View / Design / Analysis / Help, Preferences (F9), Ctrl+R to solve, F12 to reset the panels, Ctrl+Q to quit with an optional confirmation, a busy bar for exports and backups, American spelling and APA title case in the interface.
+
 ## 1.0.0
 
 - **Solve mode:** twelve course modules (N-body accelerations, two-body constants, state and conic conversions, Kepler propagation with f and g, hyperbolic flyby, elements and 3-D state, single-impulse maneuver, Hohmann and bi-elliptic transfers, plane change, patched conics, gravity assist, Lambert) with step-by-step tables, homework-style 2-D figures and an interactive 3-D animation.

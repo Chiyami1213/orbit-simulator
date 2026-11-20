@@ -18,6 +18,7 @@ import sys
 
 APP_NAME = 'OrbSim'
 LEGACY_NAME = 'Orbit Simulator'                                   # the folder used before the program was renamed; it is moved to APP_NAME on first start
+QUITTING = False       # set when the user confirmed quitting, so the window's close handler lets the window go
 WINDOW = None            # the pywebview window, set by run.py when the app runs in its own window
 _FULLSCREEN = False
 
