@@ -14,7 +14,7 @@ import zipfile
 from . import shell
 
 ALLOWED_FILES = ('settings.json',)
-ALLOWED_DIRS = ('exports/', 'screenshots/')
+ALLOWED_DIRS = ('exports/', 'screenshots/', 'designs/')
 MAX_UNCOMPRESSED = 1_500_000_000                  # refuse archives that expand beyond ~1.5 GB (zip bombs)
 APP = 'OrbSim'
 APP_NAMES = ('OrbSim', 'Orbit Simulator')            # backups made before the rename carry the old name and still restore

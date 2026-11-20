@@ -41,7 +41,7 @@ def folder(name: str) -> pathlib.Path:
 
 
 def paths() -> dict:
-    return dict(root=str(appdata_dir()), screenshots=str(appdata_dir() / 'screenshots'), exports=str(appdata_dir() / 'exports'), settings=str(appdata_dir() / 'settings.json'),
+    return dict(root=str(appdata_dir()), screenshots=str(appdata_dir() / 'screenshots'), exports=str(appdata_dir() / 'exports'), designs=str(appdata_dir() / 'designs'), settings=str(appdata_dir() / 'settings.json'),
                 logs=str(appdata_dir() / 'logs'))
 
 
@@ -151,7 +151,7 @@ def toggle_fullscreen() -> dict:
 
 
 def open_folder(which: str) -> str:
-    target = folder({'screenshots': 'screenshots', 'exports': 'exports', 'logs': 'logs', 'backups': 'backups'}.get(which, '.')) if which != 'root' else appdata_dir()
+    target = folder({'screenshots': 'screenshots', 'exports': 'exports', 'designs': 'designs', 'logs': 'logs', 'backups': 'backups'}.get(which, '.')) if which != 'root' else appdata_dir()
     target.mkdir(parents=True, exist_ok=True)
     if sys.platform == 'win32': os.startfile(str(target))              # noqa: S606 (opening a folder we created)
     else:

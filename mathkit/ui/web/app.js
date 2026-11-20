@@ -7,10 +7,27 @@ const $ = (s, r = document) => r.querySelector(s);
 /* labels like r_p, v_D, TOF_min, Δv_A are shown with real subscripts (not in code, text boxes or option lists) */
 const SUBRE = /(^|[^A-Za-z0-9_.\/\\])((?:[A-Za-z\u0391-\u03c9]\u0304?\*?){1,3})_([A-Za-z0-9\u0391-\u03c9]{1,6})(?![A-Za-z0-9_])/g;
 const NOSUB = new Set(['CODE', 'PRE', 'TEXTAREA', 'OPTION', 'SCRIPT', 'STYLE', 'TITLE', 'INPUT', 'KBD']);
-function subText(str) {
+const PLAIN_TAGS = new Set(['BUTTON', 'A', 'LI', 'OPTION', 'SUMMARY']);                 // short names of buttons, list items and combo entries: normal font, true subscripts
+const TEXC = new Map();
+function texSym(sym, sb) {                                                              // "r_p" -> LaTeX: multi-letter capital names upright, a bar or star kept, long subscripts upright
+  const bar = sym.includes('̄'), star = sym.endsWith('*'); let b = sym.replace(/[̄*]/g, '');
+  if (/[A-Z]{2,}/.test(b)) b = '\\mathrm{' + b + '}'; if (bar) b = '\\bar{' + b + '}'; if (star) b += '^{*}';
+  return b + '_{' + (/^[A-Za-z]{2,}$/.test(sb) ? '\\mathrm{' + sb + '}' : sb) + '}';
+}
+function texNode(tex) {
+  const span = document.createElement('span'); span.className = 'mtex'; let h = TEXC.get(tex);
+  if (h === undefined) { try { h = katex.renderToString(tex, { throwOnError: false, output: 'html' }); } catch (e) { h = null; } TEXC.set(tex, h); }
+  if (h) span.innerHTML = h; else span.textContent = tex; return span;
+}
+function subText(str, plain) {
   if (str.indexOf('_') < 0) return document.createTextNode(str);
+  const useTex = !plain && window.katex;
   const f = document.createDocumentFragment(); let last = 0, m, any = false; SUBRE.lastIndex = 0;
-  while ((m = SUBRE.exec(str))) { any = true; const cut = m.index + m[1].length + m[2].length; f.append(str.slice(last, cut)); const sb = document.createElement('sub'); sb.textContent = m[3]; f.append(sb); last = m.index + m[0].length; }
+  while ((m = SUBRE.exec(str))) {
+    any = true; const cut = m.index + m[1].length + m[2].length; const start = m.index + m[1].length; f.append(str.slice(last, useTex ? start : cut));
+    if (useTex) f.append(texNode(texSym(m[2], m[3]))); else { const sb = document.createElement('sub'); sb.textContent = m[3]; f.append(sb); }
+    last = m.index + m[0].length;
+  }
   if (!any) return document.createTextNode(str); f.append(str.slice(last)); return f;
 }
 const el = (tag, attrs = {}, ...kids) => {
@@ -20,7 +37,7 @@ const el = (tag, attrs = {}, ...kids) => {
     else if (v !== false && v != null) e.setAttribute(k, v === true ? '' : v);
   }
   const subs = !NOSUB.has(tag.toUpperCase());
-  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : (subs && typeof c === 'string' ? subText(c) : document.createTextNode(c)));
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : (subs && typeof c === 'string' ? subText(c, PLAIN_TAGS.has(tag.toUpperCase())) : document.createTextNode(c)));
   return e;
 };
 const api = async (name, payload = {}) => {
@@ -52,7 +69,7 @@ const ICO = {
   layers: '<path d="M12 2.5 2.5 7.2 12 12l9.5-4.8z"/><path d="M2.5 12 12 16.8l9.5-4.8M2.5 16.8 12 21.5l9.5-4.7"/>',
   globe: '<circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19M12 2.5a14 14 0 0 1 0 19M12 2.5a14 14 0 0 0 0 19"/>',
   assist: '<path d="M3 19c6 0 8-12 18-13"/><circle cx="13" cy="13" r="3.2"/>',
-  trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/>', check2: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>', trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/>', check2: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   lambert: '<circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/><path d="M6.5 17.2C9 8 13.5 6 17.2 6.4"/>'
 };
 const MOD_ICO = { 1: 'nbody', 2: 'twobody', 3: 'conic', 4: 'kepler', 5: 'hyper', 6: 'cube', 7: 'zap', 8: 'hohmann', 9: 'layers', 10: 'globe', 11: 'assist', 12: 'lambert' };
@@ -166,6 +183,7 @@ function menuDefs() {
       { label: 'Save Screenshot', key: K.screenshot, run: ACTIONS.screenshot },
       { label: 'Export Figure', dis: !res, run: () => { S.tab = 'Export Figure'; renderMain(); } },
       { sep: 1 },
+      { label: 'Restore Last Session', run: restoreSession },
       { label: 'Create Backup', run: async () => { const r = await busy('creating backup', () => api('backup_create', {})); toast(r.ok ? 'backup created' : r.error, r.ok ? 'ok' : 'err'); S.backups = null; } },
       { label: 'Open Data Folder', run: async () => { const r = await api('open_folder', {}); if (!r.ok) toast(r.error, 'err'); } },
       ],
@@ -442,14 +460,26 @@ function askText(message, { title = 'Enter a Value', placeholder = '', okLabel =
     document.body.append(ov); inp.focus();
   });
 }
+/** Esc cancels a running solve or mission: the page drops the answer and the server stops at its next stage. */
+function cancelSolve() {
+  const mis = typeof MIS !== 'undefined' && MIS.busy; if (!S.solving && !mis) return false;
+  S.seq++; S.solving = false; $('#spin').classList.remove('on'); if (S.endBar) S.endBar(); S.endBar = null; api('cancel', {}); toast(mis ? 'mission run cancelled' : 'solve cancelled'); return true;
+}
+/** The open session (page, inputs, mission) is saved as you work and brought back by File > Restore Last Session. */
+const saveSession = debounce(() => api('session_save', { session: { page: S.page, canon: S.canon, mission: typeof MIS !== 'undefined' ? MIS.m : null } }), 1200);
+async function restoreSession() {
+  const r = await api('session_load', {}); if (!r.ok) { toast(r.error, 'err'); return; }
+  const s = r.session || {}; if (s.canon) S.canon = s.canon; if (s.mission && typeof MIS !== 'undefined') { MIS.m = s.mission; MIS.res = null; misTouch(); }
+  S.cache.clear(); S.last = {}; await go(s.page || S.page); toast('last session restored', 'ok');
+}
 async function solveNow(live = false, explicit = false) {
   const m = mod(); if (!m) return; const id = ++S.seq;
   const payload = { mid: m.id, vals: S.canon[m.id], consts: { mode: 'Course table' }, theme: effTheme(), name: SET.name, label: SET.label, opts: solveOpts() };
   const key = JSON.stringify(payload);
   if (!live && S.cache.has(key)) { const r = S.cache.get(key); S.cache.delete(key); S.cache.set(key, r); S.res = S.last[m.id] = r; showChecks(r); renderMain(); return; }
-  $('#spin').classList.add('on'); const endBar = (!live) ? progressStart() : () => { };
+  $('#spin').classList.add('on'); const endBar = (!live) ? progressStart() : () => { }; if (!live) { S.solving = true; S.endBar = endBar; }
   let r; try { r = await api('solve', live ? { ...payload, opts: { ...payload.opts, skip3d: true } } : payload); } catch (e) { r = { error: String(e), fatal: true }; }
-  endBar(); if (id !== S.seq) return; $('#spin').classList.remove('on');
+  endBar(); if (id !== S.seq) return; S.solving = false; $('#spin').classList.remove('on');
   if (explicit && !live) {                                                                 // the Solve button: tell the user about math problems instead of silently drawing them
     if (r.error) {
       await askDialog({ title: 'Cannot Solve With These Inputs', intro: r.error, lines: ['nothing was drawn, so there is nothing to continue with', 'adjust the inputs (the values, the body, or the root choice) and press solve & draw again'], actions: [{ label: 'Adjust Inputs', value: 'adjust', pri: true }] });
@@ -458,7 +488,7 @@ async function solveNow(live = false, explicit = false) {
       if (go !== 'go') { if (S.last[m.id]) { S.res = S.last[m.id]; showChecks(S.res); renderMain(); } return; }
     }
   }
-  showChecks(r);
+  showChecks(r); saveSession();
   if (live && !r.error && updateLive(r)) return;                                  // in-place 2-D update, 3-D frame untouched
   S.res = r; if (S.scene >= (r.scenes || []).length) S.scene = 0;
   if (!r.error) { S.last[m.id] = r; S.cache.set(key, r); if (S.cache.size > 14) S.cache.delete(S.cache.keys().next().value); }
@@ -575,7 +605,7 @@ function ensureDock(main) {
   if ($('#dock')) return;
   unmountDock(); main.replaceChildren(el('div', { id: 'tabhost' }), el('div', { id: 'scenehost' }), el('div', { id: 'dock' }, el('div', { id: 'dockin' })));
   for (const id of TILE_IDS) $('#dockin').append(el('div', { class: 'tile', id: 'tile-' + id, 'data-id': id }, el('div', { class: 'tbody' }),
-    el('button', { class: 'trash', title: 'close this panel (bring it back with the buttons above the plots, view menu, or f8)', onclick: () => closeTile(id) }, ico('trash')),
+    el('button', { class: 'trash', title: 'close this panel (bring it back with the buttons above the plots, view menu, or f8)', onclick: () => closeTile(id) }, ico('close')),
     el('button', { class: 'grip', title: 'drag to move this panel: drop it on another panel (left, right, top, bottom or center to swap) or on a window edge', onpointerdown: e => startTileDrag(id, e) }, '⠿')));
   $('#tile-inputs .tbody').append($('#panel')); $('#app').classList.add('docked');
   new ResizeObserver(() => layoutDock()).observe($('#dock'));
@@ -693,7 +723,8 @@ async function busy(text, work) {
 }
 /** Quit: asks first (Preferences > Appearance can turn that off); the window host calls this when the window's close button is pressed. */
 async function askQuit() {
-  if (SET.confirmQuit !== false && !await askConfirm('any unsaved inputs in this session are kept in your settings; exports and backups are already on disk.', 'Quit', 'Quit OrbSim')) return;
+  if (SET.confirmQuit !== false && !await askConfirm('your session is saved automatically; File > Restore Last Session brings it back next time.', 'Quit', 'Quit OrbSim')) return;
+  await api('session_save', { session: { page: S.page, canon: S.canon, mission: typeof MIS !== 'undefined' ? MIS.m : null } });
   const r = await api('quit', {}); if (r.mode === 'browser') window.close();
 }
 async function saveExport(idx, fmt, theme) {
@@ -904,6 +935,7 @@ const ACTIONS = {
 };
 function handleKey(name, e) {
   if (name === 'Escape' && openMenu) { closeMenu(); return true; }
+  if (name === 'Escape' && !S.rebind && cancelSolve()) return true;
   if (name === 'Escape' && S.focus && !S.rebind) { setFocus(null); return true; }
   if (S.rebind) {                                                         // capturing a new binding
     if (name === 'Escape') { S.rebind = null; renderUtil(); return true; }

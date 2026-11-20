@@ -85,7 +85,7 @@ function makeDock(cfg) {
       const bodies = {}; inner = el('div', { class: 'dockin' }); host = el('div', { class: 'dock dock2', style: `height:${cfg.height || 'calc(100vh - 260px)'};min-height:${cfg.minHeight || 640}px` }, inner);
       for (const id of ids) {
         const body = el('div', { class: 'tbody' }); bodies[id] = body;
-        inner.append(el('div', { class: 'tile', 'data-dt': id }, body, el('button', { class: 'trash', title: 'close this panel (bring it back with the buttons above, or press f8 to reset the layout)', onclick: () => this.close(id) }, ico('trash')),
+        inner.append(el('div', { class: 'tile', 'data-dt': id }, body, el('button', { class: 'trash', title: 'close this panel (bring it back with the buttons above, or press f8 to reset the layout)', onclick: () => this.close(id) }, ico('close')),
           el('button', { class: 'grip', title: 'drag to move this panel: drop it on another panel (left, right, top, bottom, or the center to swap) or on an edge of the area', onpointerdown: e => startDrag(id, e) }, '⠿')));
       }
       if (ro) ro.disconnect(); ro = new ResizeObserver(() => layout()); ro.observe(host); setTimeout(layout, 0); return { el: host, bodies };

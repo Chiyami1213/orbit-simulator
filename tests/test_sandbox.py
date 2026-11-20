@@ -298,3 +298,28 @@ def test_quit_confirmation_busy_bar_and_quit_route():
     assert 'id="busybar"' in (web / 'index.html').read_text(encoding='utf-8') and '.busybar.on' in (web / 'style.css').read_text(encoding='utf-8')
     assert 'events.closing' in (ROOT / 'run.py').read_text(encoding='utf-8')
     assert shell.WINDOW is None and api.ROUTES['quit']({}) == dict(ok=True, mode='browser')       # no window in the tests: the page closes itself, nothing is destroyed
+
+
+def test_cancel_session_designs_and_latex_symbols(tmp_path, monkeypatch):
+    monkeypatch.setenv('ORBSIM_HOME', str(tmp_path))
+    from mathkit.ui import api, shell
+    # Esc cancel: a cancel request makes the next progress call stop the solve; the wrapper turns that into a dropped answer
+    api.CANCEL.set()
+    try:
+        r = api.ROUTES['cancel']({}); assert r['ok']
+        try: api._prog('drawing', 0.5); raise AssertionError('progress did not stop')
+        except api.Cancelled: pass
+    finally: api.CANCEL.clear()
+    def boom(p): raise api.Cancelled()
+    out = api._cancellable(boom)({}); assert out['cancelled'] and not api.CANCEL.is_set()
+    # last session: saved to the backups folder and read back
+    assert api.ROUTES['session_load']({})['ok'] is False
+    assert api.ROUTES['session_save']({'session': {'page': '12', 'canon': {'12': {'r1': 1.5}}}})['ok']
+    assert api.ROUTES['session_load']({})['session']['canon']['12']['r1'] == 1.5
+    # designs: mission files go to designs/, other exports to exports/
+    assert 'designs' in shell.paths()
+    web = ROOT / 'mathkit' / 'ui' / 'web'
+    js = (web / 'app.js').read_text(encoding='utf-8')
+    assert "ico('close')" in js and "'Restore Last Session'" in js and 'function cancelSolve' in js
+    assert 'katex.renderToString' in js and '/vendor/katex/katex.min.js' in (web / 'index.html').read_text(encoding='utf-8')
+    assert "'\\\\mathrm{'" in js                                                        # a LaTeX backslash must survive as two characters in the JS source

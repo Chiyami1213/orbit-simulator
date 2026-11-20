@@ -16,7 +16,7 @@ import webbrowser
 from mathkit.ui import shell                       # light module: only resolves the data folder
 
 HOME = shell.appdata_dir()
-for sub in ('cache', 'logs', 'webview', 'screenshots', 'exports'):
+for sub in ('cache', 'logs', 'webview', 'screenshots', 'exports', 'designs', 'backups'):
     (HOME / sub).mkdir(parents=True, exist_ok=True)
 sys.pycache_prefix = str(HOME / 'cache' / 'pycache')                          # no __pycache__ folders next to the sources
 os.environ.setdefault('MPLCONFIGDIR', str(HOME / 'cache' / 'matplotlib'))   # must be set before matplotlib is imported

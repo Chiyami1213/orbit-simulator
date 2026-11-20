@@ -241,7 +241,8 @@ async function runMission() {
   (async () => { while (!stop) { try { const g = await api('mission_progress', {}); i.style.width = Math.max(4, g.frac * 100) + '%'; t.textContent = (g.stage || '') + ' · ' + Math.round(g.frac * 100) + '%'; } catch (e) { } await new Promise(r => setTimeout(r, 150)); } })();
   let r; try { r = await api('mission_run', { mission: MIS.m, theme: effTheme(), refs: MIS.refs, opts: { ...solveOpts(), convention: MIS.m.convention || SET.convention || 'course', name: SET.name } }); } catch (e) { r = { error: String(e) }; }
   stop = true; MIS.busy = false; bar.classList.remove('on');
-  if (r.error) { MIS.err = r.error; await askDialog({ title: 'The Mission Could Not Run', intro: r.error, lines: ['nothing was propagated', 'check the command sequence and the propagator, or press undo with the starter missions'], actions: [{ label: 'Adjust Mission', value: 'adjust', pri: true }] }); MIS.res = null; }
+  if (r.cancelled) { }
+  else if (r.error) { MIS.err = r.error; await askDialog({ title: 'The Mission Could Not Run', intro: r.error, lines: ['nothing was propagated', 'check the command sequence and the propagator, or press undo with the starter missions'], actions: [{ label: 'Adjust Mission', value: 'adjust', pri: true }] }); MIS.res = null; }
   else { MIS.res = r; MIS.stale = false; MIS.cmp = null; if (MIS.tab !== 'Plots' && MIS.tab !== 'Reports') MIS.tab = 'Plots'; }
   renderMission();
 }

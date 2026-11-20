@@ -78,8 +78,32 @@ def _scene_payload(name, sc, theme, user, with_3d=True, opts=None):
 PROGRESS = dict(stage='', frac=0.0, seq=0)
 
 
+CANCEL = threading.Event()              # set by the cancel route (Esc); the progress callbacks stop the running solve or mission at the next stage
+
+
+class Cancelled(Exception):
+    pass
+
+
 def _prog(stage: str, frac: float):
     PROGRESS.update(stage=stage, frac=frac)
+    if CANCEL.is_set() and stage: raise Cancelled()
+
+
+def cancel(_: dict | None = None) -> dict:
+    CANCEL.set(); return dict(ok=True)
+
+
+def _cancellable(fn):
+    """Run a solve or mission; a cancel request ends it at the next progress call and the page just drops the answer."""
+    def run(p):
+        CANCEL.clear()
+        try: return fn(p)
+        except Cancelled:
+            return dict(cancelled=True, error='cancelled')
+        finally:
+            CANCEL.clear(); PROGRESS.update(stage='', frac=1.0); MPROG.update(stage='done', frac=1.0)
+    return run
 
 
 def progress(p: dict) -> dict:
@@ -99,7 +123,7 @@ def _nonfinite(res) -> list[str]:
     return bad
 
 
-def solve(p: dict) -> dict:
+def _solve(p: dict) -> dict:
     mid = p['mid']; spec = MODULES[mid]; vals = _vals(mid, p.get('vals')); theme = p.get('theme', 'dark'); user = p.get('name', '')
     vals['_label'] = p.get('label') or f'Module {mid}'
     C = ConstantSet('Course table')                                                       # JPL / GMAT constants only
@@ -199,15 +223,24 @@ def mission_starter(p: dict) -> dict:
     return dict(mission=MS.starter(p['name']).to_dict())
 
 
-def mission_run(p: dict) -> dict:
+def _mprog(stage: str, frac: float):
+    MPROG.update(stage=stage, frac=frac)
+    if CANCEL.is_set() and stage: raise Cancelled()
+
+
+def _mission_run(p: dict) -> dict:
     from ..mission import service as MS
     opts = dict(p.get('opts') or {}); opts['theme'] = p.get('theme', 'dark')
     with LOCK:
         apply_palette(opts.get('palette', 'dark'))
         MPROG.update(stage='starting', frac=0.0)
-        out = MS.run_mission(p['mission'], opts, lambda n, sc, th, u, w3, o: _scene_payload(n, sc, th, u, w3, o), _eph(), lambda s, f: MPROG.update(stage=s, frac=f), p.get('refs') or [])
+        out = MS.run_mission(p['mission'], opts, lambda n, sc, th, u, w3, o: _scene_payload(n, sc, th, u, w3, o), _eph(), _mprog, p.get('refs') or [])
         MPROG.update(stage='done', frac=1.0)
     return out
+
+
+solve = _cancellable(_solve)
+mission_run = _cancellable(_mission_run)
 
 
 def mission_progress(p: dict) -> dict: return dict(MPROG)
@@ -292,7 +325,7 @@ def mission_save(p: dict) -> dict:
             rep = p['report']; data, ext = (MS.report_csv(rep) if kind == 'csv' else MS.report_table(rep)).encode('utf-8'), kind
             stem = ''.join(c if c.isalnum() or c in '-_' else '_' for c in rep.get('filename', 'report').rsplit('.', 1)[0]) or 'report'
         else: return dict(ok=False, error='unknown export type')
-        out = shell.unique_path(shell.folder('exports'), stem, ext); out.write_bytes(data); return dict(ok=True, path=str(out))
+        out = shell.unique_path(shell.folder('designs' if kind == 'orbitmission' else 'exports'), stem, ext); out.write_bytes(data); return dict(ok=True, path=str(out))
     except Exception as ex: return dict(ok=False, error=str(ex))
 
 
@@ -551,6 +584,22 @@ def fullscreen(_: dict | None = None) -> dict:
     except Exception as ex: return dict(ok=False, error=str(ex))
 
 
+def session_save(p: dict) -> dict:
+    """The open session (page, mode, inputs, mission) kept in the backups folder, so File > Restore Last Session can bring it back."""
+    import json
+    try:
+        f = shell.folder('backups') / 'last_session.json'; f.write_text(json.dumps(p.get('session') or {}), encoding='utf-8'); return dict(ok=True)
+    except Exception as ex: return dict(ok=False, error=str(ex))
+
+
+def session_load(_: dict | None = None) -> dict:
+    import json
+    f = shell.folder('backups') / 'last_session.json'
+    if not f.is_file(): return dict(ok=False, error='there is no saved session yet')
+    try: return dict(ok=True, session=json.loads(f.read_text(encoding='utf-8')))
+    except Exception as ex: return dict(ok=False, error=str(ex))
+
+
 def quit_app(_: dict | None = None) -> dict:
     """Close the window (confirmation is the page's job); in the browser the page closes itself."""
     if shell.WINDOW is None: return dict(ok=True, mode='browser')
@@ -639,5 +688,5 @@ def report_issue(p: dict) -> dict:
 ROUTES = {'meta': lambda p: meta(), 'visible': visible, 'solve': solve, 'progress': progress, 'mission_meta': mission_meta, 'mission_starter': mission_starter, 'mission_run': mission_run, 'mission_progress': mission_progress, 'mission_convert': mission_convert,
           'mission_compare': mission_compare, 'mission_script': mission_script, 'mission_import': mission_import, 'mission_from_module': mission_from_module, 'mission_save': mission_save,
           'ephem_status': ephem_status, 'mission_porkchop': mission_porkchop, 'mission_cosmographia': mission_cosmographia, 'mission_node_preview': mission_node_preview, 'mission_node_insert': mission_node_insert, 'sandbox_meta': sandbox_meta, 'sandbox_new': sandbox_new, 'sandbox_run': sandbox_run, 'sandbox_edit': sandbox_edit, 'sandbox_panel': sandbox_panel, 'sandbox_to_mission': sandbox_to_mission, 'sandbox_save': sandbox_save, 'save_blob': save_blob, 'mission_import_trajectory': mission_import_trajectory, 'mission_from_porkchop': mission_from_porkchop, 'mission_trajectory': mission_trajectory, 'licenses': licenses, 'ephem_download': ephem_download, 'textures_status': textures_status, 'textures_download': textures_download, 'textures_delete': textures_delete, 'gmat_check': gmat_check, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
-          'fullscreen': fullscreen, 'quit': quit_app, 'open_folder': open_folder, 'export_save': export_save, 'report_issue': report_issue,
+          'fullscreen': fullscreen, 'quit': quit_app, 'cancel': cancel, 'session_save': session_save, 'session_load': session_load, 'open_folder': open_folder, 'export_save': export_save, 'report_issue': report_issue,
           'backup_create': _bk(_bk_create), 'backup_list': _bk(_bk_list), 'backup_restore': _bk(_bk_restore), 'backup_import': _bk(_bk_import), 'backup_delete': _bk(_bk_delete)}

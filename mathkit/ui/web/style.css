@@ -592,3 +592,7 @@ input[type=range]::-webkit-slider-thumb{width:16px;height:16px;border:2px solid 
 .busybar i::after{content:"";position:absolute;top:0;bottom:0;width:40%;border-radius:4px;background:var(--green);animation:busyslide 1s ease-in-out infinite alternate}
 @keyframes busyslide{from{left:0}to{left:60%}}
 body.busy,body.busy *{cursor:progress!important}
+
+/* ----- LaTeX symbols (KaTeX) inside readouts, tables and parameter labels ----- */
+.mtex .katex{font-size:1.04em;color:inherit}.mtex{white-space:nowrap}
+.trash:hover{color:var(--red)}
