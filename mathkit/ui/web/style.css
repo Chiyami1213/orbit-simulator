@@ -596,3 +596,5 @@ body.busy,body.busy *{cursor:progress!important}
 /* ----- LaTeX symbols (KaTeX) inside readouts, tables and parameter labels ----- */
 .mtex .katex{font-size:1.04em;color:inherit}.mtex{white-space:nowrap}
 .trash:hover{color:var(--red)}
+/* sliders inside labeled form cells (.mf) must not pick up the text-input box: no padding or border, so the fill ends exactly under the handle */
+.mf input[type=range]{flex:none;padding:0;border:0;border-radius:99px;height:4px;margin:8px 0 6px;background:linear-gradient(90deg,var(--orange) 0,var(--orange) calc(8px + (100% - 16px) * var(--f,.5)),var(--track) calc(8px + (100% - 16px) * var(--f,.5)),var(--track) 100%)}
