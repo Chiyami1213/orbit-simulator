@@ -4,6 +4,7 @@ New changes go above this line, newest first.
 
 ## Unreleased
 
+- **Solar System view replaces the Sandbox:** the Sandbox mode (add objects, N-body play) is removed. Design mode has a Solar System tab instead: every ephemeris body at true size and real position, full planet orbits, a start date, a time span from a month to 100 years, time warp, focus and picture tools.
 - **Interface style shared with PropSim:** five color themes (Graphite, Ocean, Forest, Plum, Light; F10), flat widgets, menu bar File / Edit / View / Design / Analysis / Help, Preferences (F9), Ctrl+R to solve, F12 to reset the panels, Ctrl+Q to quit with an optional confirmation, a busy bar for exports and backups, American spelling and APA title case in the interface.
 
 ## 1.0.0

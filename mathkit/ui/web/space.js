@@ -184,7 +184,7 @@ export function createSpace(host, data, opts = {}) {
       o.hStep = 1.5 * (b.path.jd[b.path.jd.length - 1] - b.path.jd[0]) / Math.max(1, b.path.jd.length - 1);
     }
     if (!osc && b.path && b.path.r.length > 1) {
-      const pts = par && par.path ? b.path.r.map((p, i) => new THREE.Vector3(p[0] - par.path.r[i][0], p[1] - par.path.r[i][1], p[2] - par.path.r[i][2])) : b.path.r.map(p => new THREE.Vector3(...p));
+      const pts = b.ring ? b.ring.map(p => new THREE.Vector3(...p)) : par && par.path ? b.path.r.map((p, i) => new THREE.Vector3(p[0] - par.path.r[i][0], p[1] - par.path.r[i][1], p[2] - par.path.r[i][2])) : b.path.r.map(p => new THREE.Vector3(...p));
       if (par && par.path) { let ang = 0; for (let i = 1; i < pts.length; i++) { const a = pts[i - 1], c = pts[i], d = a.dot(c) / Math.max(1e-12, a.length() * c.length()); ang += Math.acos(Math.max(-1, Math.min(1, d))); if (ang >= 2 * Math.PI * 1.005) { pts.length = i + 1; break; } } }       // one revolution is enough: a fast orbit must not fill the screen
       o.line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: b.orbitColor || '#7b8bb0', transparent: true, opacity: 0.55 })); o.rel = !!(par && par.path); world.add(o.line);
     }

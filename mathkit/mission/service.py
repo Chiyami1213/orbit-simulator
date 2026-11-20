@@ -340,6 +340,33 @@ def space_payload(m: Mission, res: RunResult, eph, refs: list | None = None, cap
                 refs=[dict(name=r_['name'], r=[x for x in np.array(r_['r'])[_thin(len(r_['r']), cap)].tolist()]) for r_ in (refs or []) if r_.get('center') == center])
 
 
+PERIOD_DAYS = {'Mercury': 87.97, 'Venus': 224.70, 'Earth': 365.256, 'Mars': 686.98, 'Jupiter': 4332.59, 'Saturn': 10759.2, 'Uranus': 30688.5, 'Neptune': 60182.0, 'Pluto': 90560.0}
+
+
+def solar_payload(eph, jd0: float, days: float, center: str = 'Sun', ring_points: int = 361) -> dict:
+    """The real Solar System for the space view, with no mission: every body of the ephemeris (positions from DE440s or the built-in model, true radii) about ``center`` over
+    [jd0, jd0 + days] (UTC Julian dates). When the center is the Sun each planet also gets a full-orbit ring, so the outer planets show their whole orbit, not just the arc of the time window."""
+    from ..view3d.models import TEXTURES, spacecraft_mesh
+    consts = ConstantSet('Course table'); days = float(max(1.0, min(days, 73050.0)))
+    avail = [b for b in getattr(eph, 'bodies', ()) if b in BODIES]
+    if center not in avail: center = 'Sun' if 'Sun' in avail else avail[0]
+    n = int(min(5000, max(400, days / 0.5))); jds = np.linspace(jd0, jd0 + days, n); tdb = [TU.utc_to_tdb(j) for j in jds]
+    names = [center] + [b for b in avail if b != center]; bodies = []; ext = 1.0
+    for nm in names:
+        b = dict(name=nm, R=consts.R(nm), mu=consts.mu(nm), texture=TEXTURES.get(nm), color=BODY_COLOR.get(nm, '#8aa0c8'), spin=spin_for(nm), kind='star' if nm == 'Sun' else 'moon' if nm == 'Moon' else 'planet')
+        if nm != center:
+            B = np.array([eph.state(nm, t, center)[0] for t in tdb]); b['path'] = dict(jd=jds.tolist(), r=B.tolist()); ext = max(ext, float(np.max(np.linalg.norm(B, axis=1))))
+            if nm == 'Moon' and center != 'Moon' and 'Earth' in avail: b['parent'] = 'Earth'
+            if center == 'Sun' and nm in PERIOD_DAYS:                                           # the whole orbit as a static ring (the window may cover only a small arc of it)
+                try:
+                    pj = np.linspace(jd0, jd0 + PERIOD_DAYS[nm], ring_points); b['ring'] = [eph.state(nm, TU.utc_to_tdb(j), 'Sun')[0].tolist() for j in pj]
+                except Exception: pass
+        bodies.append(b)
+    from .. import sky as SK
+    markers = [dict(name='Galactic Center', ra=SK.GALACTIC_CENTER[0], dec=SK.GALACTIC_CENTER[1]), dict(name='North Galactic Pole', ra=SK.NORTH_GALACTIC_POLE[0], dec=SK.NORTH_GALACTIC_POLE[1])]
+    return dict(models={k: spacecraft_mesh(k) for k in ('comsat', 'probe')}, markers=markers, center=center, jd0=float(jds[0]), jd1=float(jds[-1]), tracks=[], bodies=bodies, events=[], lagrange=[], extent=ext, refs=[])
+
+
 def _lagrange_paths(p: Propagator, consts: ConstantSet, eph, jd0: float, jd1: float, center: str) -> list:
     """L1-L5 of the circular restricted problem as moving points in the display frame (centered on the primary when the display center is the primary)."""
     from ..dyn.models import CR3BP

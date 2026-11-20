@@ -1,6 +1,6 @@
 /* ---------- Mission workspace: GMAT-style resources + command sequence, propagation, comparison, GMAT script import / export ---------- */
 const MIS = { open: new Set(), space: null, refs: [], m: null, tab: 'Resources', res: null, cmp: null, script: null, busy: false, stale: true, meta: null, err: '' };
-const MIS_TABS = ['Resources', 'Sequence', 'Plots', 'Reports', 'Compare', 'Porkchop', 'GMAT Script'];
+const MIS_TABS = ['Resources', 'Sequence', 'Plots', 'Solar System', 'Reports', 'Compare', 'Porkchop', 'GMAT Script'];
 const PK = { origin: 'Earth', target: 'Mars', dep_start: '2026-09-01', dep_days: 200, arr_start: '2027-05-01', arr_days: 250, n: 30, res: null, busy: false };
 const KEP = ['SMA', 'ECC', 'INC', 'RAAN', 'AOP', 'TA'], CART = ['X', 'Y', 'Z', 'VX', 'VY', 'VZ'];
 const KEP_TIP = { SMA: 'semi-major axis (km); negative for a hyperbola, as in GMAT', ECC: 'eccentricity', INC: 'inclination (deg)', RAAN: 'right ascension of the ascending node (deg)', AOP: 'argument of periapsis (deg)', TA: 'true anomaly (deg, 0 to 360 in GMAT)' };
@@ -277,14 +277,35 @@ async function renderMission() {
   main.append(head, el('div', { class: 'mbody', id: 'mbody' }));
   const body = $('#mbody');
   const t = MIS.tab; if (t === 'Resources') body.append(resourcesTab()); else if (t === 'Sequence') body.append(sequenceTab()); else if (t === 'Plots') body.append(plotsTab()); else if (t === 'Reports') body.append(reportsTab());
-  else if (t === 'Compare') body.append(await compareTab()); else if (t === 'Porkchop') body.append(porkchopTab()); else body.append(await scriptTab());
+  else if (t === 'Solar System') body.append(solarTab()); else if (t === 'Compare') body.append(await compareTab()); else if (t === 'Porkchop') body.append(porkchopTab()); else body.append(await scriptTab());
   if (MIS.stale && MIS.res && t !== 'Resources' && t !== 'Sequence') body.prepend(el('div', { class: 'chk warn' }, el('span', { class: 'ic' }, '!'), el('span', {}, 'the mission changed since the last run; press run mission to update these results')));
 }
 
 
+/* ---- the real Solar System, no mission needed: every ephemeris body at its true size about the Sun (or another body), with a date, a span and the same time warp, focus and picture tools as the mission view ---- */
+const SOL = { date: null, days: 365, center: 'Sun', res: null, busy: false };
+const SOL_SPANS = [[30, '1 Month'], [365, '1 Year'], [1826, '5 Years'], [9131, '25 Years'], [36525, '100 Years']];
+function solarTab() {
+  if (!SOL.date) SOL.date = new Date().toISOString().slice(0, 10);
+  const host = el('div', { class: 'solhost' });
+  const load = async () => {
+    if (SOL.busy) return; SOL.busy = true; host.replaceChildren(el('div', { class: 'dim' }, 'computing the positions of the planets…'));
+    const jd0 = Date.parse(SOL.date + 'T00:00:00Z') / 86400000 + 2440587.5, r = await busy('building the solar system', () => api('solar_view', { jd0, days: SOL.days, center: SOL.center })); SOL.busy = false;
+    if (!r.ok) { host.replaceChildren(el('div', { class: 'chk err' }, r.error)); return; }
+    SOL.res = { space: r.space, solar: true }; host.replaceChildren(spaceCard(SOL.res));
+  };
+  const date = el('input', { type: 'date', value: SOL.date, onchange: e => { if (e.target.value) { SOL.date = e.target.value; load(); } } });
+  const span = el('select', { onchange: e => { SOL.days = +e.target.value; load(); } }, ...SOL_SPANS.map(([d, l]) => el('option', { value: d, selected: d === SOL.days }, l)));
+  const cen = el('select', { onchange: e => { SOL.center = e.target.value; load(); } }, ...['Sun', 'Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'].map(n => el('option', { value: n, selected: n === SOL.center }, n)));
+  const bar = el('div', { class: 'srow', style: 'margin-bottom:12px' }, el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Start Date (UTC)'), date), el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Time Span'), span), el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'View Centered On'), cen),
+    el('span', { class: 'dim', style: 'align-self:center' }, 'real positions from the ephemeris at true size (use Body Size to enlarge); a Sun-centered view draws each planet’s full orbit'));
+  setTimeout(load, 0);
+  return el('div', { class: 'sheet' }, bar, host);
+}
+
 /* ---- three.js space view ---- */
 function spaceCard(r) {
-  const sp = r.space; if (!sp || sp.error || !sp.tracks || !sp.tracks.length) return el('div', { class: 'dim' }, sp && sp.error ? 'the space view could not be built: ' + sp.error : '');
+  const sp = r.space; if (!sp || sp.error || !sp.tracks || (!sp.tracks.length && !(r.solar && sp.bodies && sp.bodies.length))) return el('div', { class: 'dim' }, sp && sp.error ? 'the space view could not be built: ' + sp.error : '');
   const host = el('div', { class: 'spaceview' }), bar = el('div', { class: 'spacebar' }), card = el('div', { class: 'cardx spacecard' }, el('h3', {}, el('b', {}, 'Space View'), el('span', { class: 'hint' }, ' · drag to orbit, scroll to zoom, right-drag to pan; time warp up to 10⁷×')), bar, host);
   setTimeout(async () => {
     if (MIS.space) { try { MIS.space.dispose(); } catch (e) { } MIS.space = null; }
@@ -298,7 +319,7 @@ function spaceCard(r) {
     const chk = (k, label, tip) => el('label', { class: 'mcheck', title: tip || '' }, el('input', { type: 'checkbox', checked: !!st[k], onchange: e => S3.set(k, e.target.checked) }), label);
     const skyEls = [], isStarSky = k => k === 'milkyway' || k === 'stars', showSky = k => { skyEls.forEach(x => { x.style.display = isStarSky(k) ? '' : 'none'; }); if (!isStarSky(k)) { S3.set('markers', false); const c = skyEls[0] && skyEls[0].querySelector('input'); if (c) c.checked = false; } };
     const skysel = el('select', { onchange: e => { SET.sky = e.target.value; saveSet(); S3.setSky(e.target.value); showSky(e.target.value); } }, ...[['milkyway', 'Milky Way'], ['stars', 'Stars Only'], ['theme', 'Theme Color'], ['black', 'Black']].map(([v, l]) => el('option', { value: v, selected: (SET.sky || 'milkyway') === v }, l)));
-    const rec = btn('● Record', () => { if (!st.rec) { st.rec = true; rec.textContent = '■ Stop'; S3.record(true); } else { st.rec = false; rec.textContent = '● Record'; S3.record(false, async blob => { const b64 = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); }); const x = await api('save_blob', { kind: 'webm', name: MIS.m.name + '_space', data: b64 }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); }); } }, 'record the view as a webm video while it plays');
+    const rec = btn('● Record', () => { if (!st.rec) { st.rec = true; rec.textContent = '■ Stop'; S3.record(true); } else { st.rec = false; rec.textContent = '● Record'; S3.record(false, async blob => { const b64 = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); }); const x = await api('save_blob', { kind: 'webm', name: (r.solar ? 'solar_system' : MIS.m.name) + '_space', data: b64 }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); }); } }, 'record the view as a webm video while it plays');
     function sync() { play.textContent = st.playing ? '⏸ Pause' : '▶ Play'; wl.textContent = S3.warpLabel() + (st.dir < 0 ? ' (reverse)' : ''); }
     queueMicrotask(() => showSky(SET.sky || 'milkyway'));
     host.addEventListener('space-time', () => { slider.value = 10000 * (S3.jd - S3.t0) / Math.max(1e-9, S3.t1 - S3.t0); date.textContent = S3.fmt(S3.jd); }); host.addEventListener('space-state', sync); date.textContent = S3.fmt(S3.jd); sync();

@@ -1,8 +1,8 @@
-/* ---------- the main menu, shared by all three modes: click the OrbSim icon at the top left. A drawer slides in from the left with big actions on top (tailored to the mode you are in)
+/* ---------- the main menu, shared by both modes: click the OrbSim icon at the top left. A drawer slides in from the left with big actions on top (tailored to the mode you are in)
    and the same small tools below (what's new, shortcuts, credits, feedback, debug tools, a performance test and help). ---------- */
 const WHATS_NEW = [
   'One main menu for every mode: click the OrbSim icon at the top left.',
-  'Sandbox: ready-made scenes, a placement preview (orbit, trajectory or drop), real lighting from the stars, body rotation from JPL data, object search, a date calendar, keyboard control (space, . , + - and Tab).',
+  'Design: a Solar System tab shows the real planets at true size from the ephemeris, with full orbits, a start date, a time span and the same time warp and camera tools as the mission view.',
   'Design: a one-row header, a faster Next Event, trails that stay attached to the spacecraft, and a panel layout shared with Solve.',
   'Solve: constants are always the JPL / GMAT table; the left menu opens when the mouse is over it; the 2D plot zooms and pans; you can rotate the 3D view while it plays.',
   'Sharper 8K planet textures can be downloaded under settings; four color themes plus the new Obsidian theme; light and dark appearance everywhere.'];
@@ -38,14 +38,9 @@ const MODE_TILES = {
     ['newf', 'New', 'an empty mission', () => { MIS.m = misNew(); MIS.res = null; MIS.cmp = null; misTouch(); MIS.tab = 'Resources'; go('mission'); }],
     ['openf', 'Open', 'a mission file or GMAT script', () => appFile('.script,.orbitmission,.txt', f => { go('mission'); misImportFile(f); })],
     ['scene', 'Starters', 'ready-made missions', async () => { if (!MIS.meta) MIS.meta = await api('mission_meta', {}); pickList('Starter Missions', 'start from a ready-made mission', MIS.meta.starters.map(s => ({ label: s })), async i => { const r = await api('mission_starter', { name: MIS.meta.starters[i] }); MIS.m = r.mission; MIS.m.convention = SET.convention || 'course'; MIS.res = null; MIS.cmp = null; misTouch(); MIS.tab = 'Resources'; go('mission'); }); }],
-    ['guide', 'Guides', 'tutorial and tips', () => startTour()]],
-  explore: () => [
-    ['newf', 'New', 'a single star to build on', async () => { if (EX.undo.length && !await askConfirm('start a new scene? your changes will be lost (save the scene first to keep them).', 'New Scene', 'New Scene')) return; exNew('Single Star'); }],
-    ['openf', 'Open', 'a saved scene file', () => appFile('.orbitscene,.json', f => exOpenFile(f))],
-    ['scene', 'Scenes', 'ready-made starting points', () => scenePop($('#logoBtn'))],
     ['guide', 'Guides', 'tutorial and tips', () => startTour()]]
 };
-const otherModes = mode => [['solve', 'Solve', 'orbit', 'the twelve course modules'], ['design', 'Design', 'sat', 'plan and fly a mission'], ['explore', 'Sandbox', 'globe', 'a live 3D sandbox']].filter(m => m[0] !== mode);
+const otherModes = mode => [['solve', 'Solve', 'orbit', 'the twelve course modules'], ['design', 'Design', 'sat', 'plan and fly a mission'],].filter(m => m[0] !== mode);
 function appFile(accept, fn) {
   let inp = $('#appfile'); if (inp) inp.remove();
   inp = el('input', { id: 'appfile', type: 'file', accept, style: 'display:none', onchange: e => { const f = e.target.files[0]; if (f) fn(f); e.target.value = ''; } }); document.body.append(inp); inp.click();
@@ -55,7 +50,7 @@ function appMenu(pin) {
   if ($('#xmenu')) { appMenuClose(); return; } menuPinned = !!pin; const lb = $('#logoBtn'); if (lb) lb.classList.add('open');
   const mode = S.mode || 'solve', tile = (icon, title, sub, fn) => el('button', { class: 'mtile', onclick: () => { appMenuClose(); fn(); } }, ico(icon), el('span', {}, el('b', {}, title), el('i', {}, sub)));
   const item = (icon, title, fn) => el('button', { class: 'mitem', onclick: () => { appMenuClose(); fn(); } }, ico(icon), el('span', {}, title));
-  const modeName = { solve: 'Solve', design: 'Design', explore: 'Sandbox' }[mode];
+  const modeName = { solve: 'Solve', design: 'Design' }[mode];
   const drawer = el('aside', { id: 'xmenu', class: 'xmenu' },
     el('div', { class: 'mhead' }, el('span', { class: 'mlogo' }, ico('orbit')), el('div', {}, el('b', {}, 'OrbSim'), el('span', {}, modeName + ' · version ' + (META.version || ''))), el('button', { class: 'xib', title: 'close the menu (esc)', onclick: appMenuClose }, ico('close'))),
     el('div', { class: 'mtiles' },
@@ -70,13 +65,13 @@ function appMenu(pin) {
       item('debug', 'Debug Tools', () => appDebug(mode)),
       item('perf', 'Performance Test', () => appPerf()),
       item('whatif', 'Help', () => goto('settings', 'Help'))),
-    el('div', { class: 'mfoot' }, 'OrbSim ' + (META.version || '') + ' · ephemeris: ' + ((MIS.meta && MIS.meta.ephemeris && MIS.meta.ephemeris.name) || (typeof EX !== 'undefined' && EX.meta && EX.meta.ephemeris && EX.meta.ephemeris.name) || 'built in or DE440s, see settings')));
+    el('div', { class: 'mfoot' }, 'OrbSim ' + (META.version || '') + ' · ephemeris: ' + ((MIS.meta && MIS.meta.ephemeris && MIS.meta.ephemeris.name) || 'built in or DE440s, see settings')));
   document.body.append(...(pin ? [el('div', { id: 'xmenuov', class: 'xmenuov', onclick: appMenuClose })] : []), drawer); requestAnimationFrame(() => drawer.classList.add('open'));
 }
-const saveHint = mode => mode === 'explore' ? 'scene, picture, video' : mode === 'design' ? 'mission, GMAT script, picture' : 'figure, script, picture';
+const saveHint = mode => mode === 'design' ? 'mission, GMAT script, picture' : 'figure, script, picture';
 
 function appShare(mode) {
-  const rows = { explore: () => exShare(),
+  const rows = {
     design: () => { const m = infoModal('Save and Share', el('div', { class: 'dim' }, 'files go to your OrbSim folder (settings → local files).'), el('div', { class: 'btnrow' },
       el('button', { class: 'btn', onclick: async () => { const x = await api('mission_save', { mission: MIS.m, kind: 'orbitmission' }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); } }, 'Save Mission File'),
       el('button', { class: 'btn', onclick: async () => { const x = await api('mission_save', { mission: MIS.m, kind: 'script' }); toast(x.ok ? 'saved to ' + x.path : x.error, x.ok ? 'ok' : 'err'); } }, 'Save GMAT Script'),
@@ -91,14 +86,12 @@ function appShare(mode) {
 
 function appKeys(mode) {
   const common = Object.entries(keys()).map(([a, k]) => [k, (KEY_INFO[a] || [a])[0]]);
-  const extra = mode === 'explore' ? [['Space', 'play or pause'], ['.  /  ,', 'speed up / slow down (twice or half as fast)'], ['+  /  −', 'zoom in / out'], ['Tab', 'hide or show the interface'], ['Esc', 'cancel placing an object, close menus']]
-    : mode === 'design' ? [['Esc', 'close menus and dialogs']] : [['← / →', 'previous / next step of the tutorial'], ['Esc', 'leave focus mode, close menus']];
+  const extra = mode === 'design' ? [['Esc', 'close menus and dialogs, cancel a running mission']] : [['← / →', 'previous / next step of the tutorial'], ['Esc', 'leave focus mode, close menus']];
   infoModal('Keyboard Shortcuts', el('table', { class: 'mkeys' }, ...[...extra, ...common].map(([k, d]) => el('tr', {}, el('td', {}, el('kbd', {}, k)), el('td', {}, d)))), el('div', { class: 'dim' }, 'every key above can be changed under settings → key bindings.'));
 }
 
 function appDebug(mode) {
-  if (mode === 'explore' && typeof exDebug === 'function') { exDebug(); return; }
-  const rows = [['Version', META.version], ['Mode', mode === 'design' ? 'Design' : 'Solve'], ['Page', S.page], ['Appearance', effTheme() + ' · ' + (SET.palette || 'prussian')], ['Convention', S.conv || SET.convention || 'course'], ['Constants', 'JPL / GMAT table'],
+  const rows = [['Version', META.version], ['Mode', mode === 'design' ? 'Design' : 'Solve'], ['Page', S.page], ['Appearance', effTheme() + ' · ' + themeKey()], ['Convention', S.conv || SET.convention || 'course'], ['Constants', 'JPL / GMAT table'],
     ['Last result', mode === 'design' ? (MIS.res ? 'mission has run' : 'not run yet') : (S.res && !S.res.error ? 'solved' : 'none')], ['Graphics', gpuInfo() || 'unknown']];
   const text = rows.map(([a, b]) => a + ': ' + b).join('\n');
   infoModal('Debug Tools', el('table', { class: 'mkeys' }, ...rows.map(([a, b]) => el('tr', {}, el('td', {}, a), el('td', {}, String(b))))),
@@ -108,7 +101,7 @@ function appDebug(mode) {
 
 function appPerf() {
   const out = el('div', { class: 'dim' }, 'measuring the frame rate for 4 seconds…'), m = infoModal('Performance Test', out); const d = []; let last = performance.now(); const t0 = last;
-  const view = (typeof EX !== 'undefined' && S.mode === 'explore' && EX.space) ? EX.space : (typeof MIS !== 'undefined' && S.mode === 'design' && MIS.space) ? MIS.space : null;
+  const view = (typeof MIS !== 'undefined' && S.mode === 'design' && MIS.space) ? MIS.space : null;
   const step = now => {
     d.push(now - last); last = now; if (now - t0 < 4000) { requestAnimationFrame(step); return; }
     const s = d.slice(2).sort((a, b) => a - b), avg = s.reduce((a, b) => a + b, 0) / s.length, low = s[Math.floor(s.length * 0.99)] || avg, p = view ? view.perf() : null, fps = 1000 / avg;

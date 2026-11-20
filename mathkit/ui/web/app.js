@@ -148,7 +148,7 @@ function toast(msg, kind = '') {
 function applyLayout() {
   const r = document.documentElement.style, a = $('#app'), subOpen = false;
   r.setProperty('--navw', LAY.navw + 'px'); r.setProperty('--panelw', LAY.panelw + 'px'); r.setProperty('--subw', subOpen ? LAY.subw + 'px' : '0px');
-  a.classList.toggle('nonav', S.mode !== 'solve'); a.classList.toggle('explore', S.page === 'explore');
+  a.classList.toggle('nonav', S.mode !== 'solve');
   a.classList.toggle('fold', !!LAY.fold); a.classList.toggle('menuhidden', !!LAY.hidden); 
 }
 function drag(handle, onmove, reset) {
@@ -174,7 +174,7 @@ new ResizeObserver(() => { const p = $('.plots'), m = $('#main'); if (p && m) p.
 const goto = (page, tab) => { if (tab) S.setTab = tab; if (page === 'settings' && S.page !== 'settings') S.prev = S.page; go(page); };
 const copyText = async txt => { try { await navigator.clipboard.writeText(txt); toast('copied to the clipboard', 'ok'); } catch (e) { toast('could not copy: ' + e, 'err'); } };
 const setPalette = id => { SET.palette = id; SET.appearance = id === 'light' ? 'light' : 'dark'; saveSet(); syncChrome(); retheme3d(); S.cache.clear(); S.last = {}; if (S.page === 'settings') renderUtil(); else if (isMod()) solveNow(); };
-const retheme3d = () => { try { const t = effTheme(); if (typeof EX !== 'undefined' && EX.space) EX.space.setTheme(t); if (typeof MIS !== 'undefined' && MIS.space) MIS.space.setTheme(t); } catch (e) { } };
+const retheme3d = () => { try { const t = effTheme(); if (typeof MIS !== 'undefined' && MIS.space) MIS.space.setTheme(t); } catch (e) { } };
 const setAppearance = v => { SET.appearance = v; saveSet(); syncChrome(); retheme3d(); S.cache.clear(); S.last = {}; if (S.page === 'settings') renderUtil(); else if (isMod()) solveNow(); };
 function menuDefs() {
   const K = keys(), res = S.res && !S.res.error ? S.res : null, M = isMod(), tile = id => ({ label: TILE_NAME[id], check: () => !isClosed(id), run: () => (isClosed(id) ? openTile(id) : closeTile(id)), dis: !M });
@@ -203,7 +203,7 @@ function menuDefs() {
       { sep: 1 }, { head: 'Color Theme' },
       ...PALETTES.map(([id, name]) => ({ label: name, check: () => themeKey() === id, run: () => setPalette(id) })),
       { sep: 1 }, { label: 'Refresh', key: K.refresh, run: ACTIONS.refresh }],
-    'Design': [{ label: 'Mission Design', check: () => S.page === 'mission', run: () => go('mission') }, { label: 'Sandbox', check: () => S.page === 'explore', run: () => go('explore') }],
+    'Design': [{ label: 'Mission Design', check: () => S.page === 'mission', run: () => go('mission') }],
     'Analysis': [{ label: 'Solve and Draw', key: K.solve, dis: !M, run: () => solveNow(false, true) }, { sep: 1 }, { head: 'Modules' }, ...META.modules.map(m => ({ label: m.short, check: () => S.page === m.id, run: () => go(m.id) })),
       { sep: 1 }, { head: 'Reference' }, ...UTIL.map(([id, name]) => ({ label: name, check: () => S.page === id, run: () => go(id) }))],
     'Help': [
@@ -236,17 +236,17 @@ function buildMenubar() {
   window.addEventListener('blur', closeMenu);
 }
 
-/* ---------- modes: Solve (the course modules), Design (GMAT-style missions), Sandbox ---------- */
+/* ---------- modes: Solve (the course modules) and Design (GMAT-style missions and the real Solar System) ---------- */
 const MODES = [['solve', 'Solve', 'compute homework and exam problems with the twelve course modules'],
-  ['design', 'Design', 'plan missions: resources, command sequence, numerical propagation, GMAT script import and export'], ['explore', 'Sandbox', 'a live 3d sandbox: add and edit bodies, real Solar System, time warp']];
-const modeOfPage = pg => (META.modules.some(m => m.id === pg) || ['jd', 'const', 'tests'].includes(pg)) ? 'solve' : pg === 'explore' ? 'explore' : pg === 'mission' ? 'design' : S.mode;
+  ['design', 'Design', 'plan missions: resources, command sequence, numerical propagation, GMAT script import and export']];
+const modeOfPage = pg => (META.modules.some(m => m.id === pg) || ['jd', 'const', 'tests'].includes(pg)) ? 'solve' : pg === 'mission' ? 'design' : S.mode;
 function syncMode() {
   S.mode = modeOfPage(S.page); document.querySelectorAll('#modesw button').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode)); applyLayout();
 }
 function setMode(m) {
   if (m === S.mode && S.page !== 'settings') return;
   if (m === 'solve') go(META.modules.some(x => x.id === S.lastSolve) || ['jd', 'const', 'tests'].includes(S.lastSolve) ? S.lastSolve : (META.modules.some(x => x.id === SET.lastPage) ? SET.lastPage : '12'));
-  else go(m === 'explore' ? 'explore' : 'mission');
+  else go('mission');
 }
 function buildModeSwitch() {
   $('#modesw').replaceChildren(...MODES.map(([id, label, tip]) => el('button', { 'data-mode': id, title: tip, class: id === S.mode ? 'on' : '', onclick: () => setMode(id) }, label)));
@@ -750,9 +750,7 @@ function renderUtil() {
   if (S.page === 'const') return constPage(main);
   if (S.page === 'jd') return jdPage(main);
   if (S.page === 'settings') return settingsPage(main);
-  if (S.page !== 'explore') exDispose();
   if (S.page === 'mission') return renderMission();
-  if (S.page === 'explore') return renderExplore();
   return testsPage(main);
 }
 function constPage(main) {
@@ -955,7 +953,7 @@ window.addEventListener('message', e => { if (e.data && e.data.orbitKey) handleK
 /* ---------- boot ---------- */
 /* ---------- planet texture quality: 2K maps are built in; sharper (8K) maps are downloaded on request and used only for the body that fills the view ---------- */
 const texHires = () => (SET.texq === '8k' && S.tex && S.tex.map && Object.keys(S.tex.map).length ? S.tex.map : null);
-function applyTexQuality() { try { if (typeof EX !== 'undefined' && EX.space) EX.space.setHires(texHires()); if (typeof MIS !== 'undefined' && MIS.space) MIS.space.setHires(texHires()); } catch (e) { } }
+function applyTexQuality() { try { if (typeof MIS !== 'undefined' && MIS.space) MIS.space.setHires(texHires()); } catch (e) { } }
 function texQualityRows() {
   const host = el('div', {});
   const draw = async () => {

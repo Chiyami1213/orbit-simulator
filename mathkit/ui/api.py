@@ -421,62 +421,6 @@ def save_blob(p: dict) -> dict:
     except Exception as ex: return dict(ok=False, error=str(ex))
 
 
-# ------------------------------------------------------------------------------------------------ Explore (sandbox)
-def sandbox_meta(p: dict) -> dict:
-    from ..sandbox import service as SS
-    out = SS.meta(ConstantSet('Course table')); e = _eph(); out['ephemeris'] = dict(name=e.name, accuracy=e.accuracy); return out
-
-
-def sandbox_new(p: dict) -> dict:
-    from ..sandbox import service as SS
-    try:
-        with LOCK:
-            scene = SS.default_scene(_eph(), p.get('jd'), p.get('preset'), ConstantSet('Course table')); return dict(ok=True, scene=scene, sim=SS.run(scene, p.get('horizon', '1 year')))
-    except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
-
-
-def sandbox_run(p: dict) -> dict:
-    from ..sandbox import service as SS
-    try:
-        with LOCK: return dict(ok=True, sim=SS.run(p['scene'], p.get('horizon', '1 year')))
-    except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
-
-
-def sandbox_edit(p: dict) -> dict:
-    """Apply edit operations at the current simulation time and re-simulate. A bad edit leaves the scene untouched and returns a message."""
-    from ..sandbox import service as SS
-    try:
-        with LOCK:
-            scene = SS.edit(p['scene'], float(p['jd']), p['edits'], _eph(), ConstantSet('Course table'))
-            return dict(ok=True, scene=scene, sim=SS.run(scene, p.get('horizon', '1 year')))
-    except (KeyError, ValueError) as ex: return dict(ok=False, error=str(ex.args[0]) if ex.args else str(ex))
-    except Exception as ex: return dict(ok=False, error=f'{type(ex).__name__}: {ex}')
-
-
-def sandbox_panel(p: dict) -> dict:
-    from ..sandbox import service as SS
-    try:
-        from ..sandbox import sim as SIM
-        sc = SIM.state_at(p['scene'], float(p['jd'])) if p.get('jd') else p['scene']
-        return dict(ok=True, panel=SS.panel(sc, p['id']))
-    except Exception as ex: return dict(ok=False, error=str(ex))
-
-
-def sandbox_to_mission(p: dict) -> dict:
-    from ..sandbox import service as SS
-    try: return dict(ok=True, mission=SS.to_mission(p['scene'], p['id'], p.get('name'), ConstantSet('Course table')).to_dict())
-    except Exception as ex: return dict(ok=False, error=str(ex))
-
-
-def sandbox_save(p: dict) -> dict:
-    """Save a scene as an .orbitscene file in the exports folder."""
-    import json
-    try:
-        stem = ''.join(c if c.isalnum() or c in '-_' else '_' for c in p['scene'].get('name', 'scene'))[:60] or 'scene'
-        out = shell.unique_path(shell.folder('exports'), stem, 'orbitscene'); out.write_text(json.dumps(dict(format='orbitscene', version=1, scene=p['scene']), indent=1), encoding='utf-8'); return dict(ok=True, path=str(out))
-    except Exception as ex: return dict(ok=False, error=str(ex))
-
-
 def mission_node_preview(p: dict) -> dict:
     from ..mission import service as MS
     try:
@@ -600,6 +544,16 @@ def session_load(_: dict | None = None) -> dict:
     except Exception as ex: return dict(ok=False, error=str(ex))
 
 
+def solar_view(p: dict) -> dict:
+    """The mission-free Solar System view: the real positions of every body of the ephemeris over a time window."""
+    import time
+    from ..mission import service as MS
+    try:
+        jd0 = float(p['jd0']) if p.get('jd0') is not None else round(time.time()) / 86400.0 + 2440587.5
+        with LOCK: return dict(ok=True, space=MS.solar_payload(_eph(), jd0, float(p.get('days', 365.0)), str(p.get('center', 'Sun'))))
+    except Exception as ex: return dict(ok=False, error=str(ex))
+
+
 def quit_app(_: dict | None = None) -> dict:
     """Close the window (confirmation is the page's job); in the browser the page closes itself."""
     if shell.WINDOW is None: return dict(ok=True, mode='browser')
@@ -687,6 +641,6 @@ def report_issue(p: dict) -> dict:
 
 ROUTES = {'meta': lambda p: meta(), 'visible': visible, 'solve': solve, 'progress': progress, 'mission_meta': mission_meta, 'mission_starter': mission_starter, 'mission_run': mission_run, 'mission_progress': mission_progress, 'mission_convert': mission_convert,
           'mission_compare': mission_compare, 'mission_script': mission_script, 'mission_import': mission_import, 'mission_from_module': mission_from_module, 'mission_save': mission_save,
-          'ephem_status': ephem_status, 'mission_porkchop': mission_porkchop, 'mission_cosmographia': mission_cosmographia, 'mission_node_preview': mission_node_preview, 'mission_node_insert': mission_node_insert, 'sandbox_meta': sandbox_meta, 'sandbox_new': sandbox_new, 'sandbox_run': sandbox_run, 'sandbox_edit': sandbox_edit, 'sandbox_panel': sandbox_panel, 'sandbox_to_mission': sandbox_to_mission, 'sandbox_save': sandbox_save, 'save_blob': save_blob, 'mission_import_trajectory': mission_import_trajectory, 'mission_from_porkchop': mission_from_porkchop, 'mission_trajectory': mission_trajectory, 'licenses': licenses, 'ephem_download': ephem_download, 'textures_status': textures_status, 'textures_download': textures_download, 'textures_delete': textures_delete, 'gmat_check': gmat_check, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
-          'fullscreen': fullscreen, 'quit': quit_app, 'cancel': cancel, 'session_save': session_save, 'session_load': session_load, 'open_folder': open_folder, 'export_save': export_save, 'report_issue': report_issue,
+          'ephem_status': ephem_status, 'mission_porkchop': mission_porkchop, 'mission_cosmographia': mission_cosmographia, 'mission_node_preview': mission_node_preview, 'mission_node_insert': mission_node_insert,  'save_blob': save_blob, 'mission_import_trajectory': mission_import_trajectory, 'mission_from_porkchop': mission_from_porkchop, 'mission_trajectory': mission_trajectory, 'licenses': licenses, 'ephem_download': ephem_download, 'textures_status': textures_status, 'textures_download': textures_download, 'textures_delete': textures_delete, 'gmat_check': gmat_check, 'tests': run_tests, 'jd': jd, 'settings_set': settings_set, 'screenshot': screenshot,
+          'fullscreen': fullscreen, 'quit': quit_app, 'solar_view': solar_view, 'cancel': cancel, 'session_save': session_save, 'session_load': session_load, 'open_folder': open_folder, 'export_save': export_save, 'report_issue': report_issue,
           'backup_create': _bk(_bk_create), 'backup_list': _bk(_bk_list), 'backup_restore': _bk(_bk_restore), 'backup_import': _bk(_bk_import), 'backup_delete': _bk(_bk_delete)}

@@ -7,15 +7,14 @@ and an interactive 3-D animation, and checks itself against hundreds of publishe
 
 ## What it does
 
-OrbSim has three modes, chosen with the switch at the top left:
+OrbSim has two modes, chosen with the switch at the top left:
 
 | Mode | What you do |
 |---|---|
 | **Solve** | compute homework and exam answers with the twelve course modules, plus the reference tools (Julian date, body constants, test cases) |
-| **Design** | GMAT-style mission planning: resources, a command sequence, numerical propagation, comparison with the course answer, GMAT script import and export |
-| **Sandbox** | a live 3D sandbox in the style of Universe Sandbox: start from the real Solar System or another ready-made scene, a library to add planets, moons, asteroids and spacecraft, a side panel to edit mass, radius, motion and orbit, N-body physics, time warp forwards and backwards |
+| **Design** | GMAT-style mission planning: resources, a command sequence, numerical propagation, comparison with the course answer, GMAT script import and export; and a **Solar System** tab with the real planets at true size from the ephemeris, full orbits, time warp and a focus menu (in the style of Cosmographia) |
 
-**Main menu.** Hover over (or click) the OrbSim icon at the top left of the window to open the main menu; it is the same in every mode and its big actions follow the mode you are in: modules, problems and test cases in Solve; new, open and starter missions in Design; new, open and scenes in Sandbox. It also holds Save and Share, Settings, the other two modes, what's new, keyboard shortcuts, credits, feedback, debug tools, a frame-rate performance test and help.
+**Main menu.** Hover over (or click) the OrbSim icon at the top left of the window to open the main menu; it is the same in every mode and its big actions follow the mode you are in: modules, problems and test cases in Solve; new, open and starter missions in Design. It also holds Save and Share, Preferences, the other mode, what's new, keyboard shortcuts, credits, feedback, debug tools, a frame-rate performance test and help.
 
 ### Solve
 
@@ -39,7 +38,7 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 * **Export** figures as PNG / PDF, a standalone 3-D page, or a **Python (matplotlib)** or **MATLAB** script that redraws the plots.
 * **Homework presets:** every problem with printed answers (HW 3–10, Fall 2024 exam problems that use the JPL constants, lecture-note examples) loads as a preset, and the *Test Cases* page compares
   computed and printed values. Known errors in the printed solutions are corrected and documented.
-* **Sandbox:** a live N-body sandbox. Pick a starting scene from the scenes menu (the real Solar System from the ephemeris is the default; also the inner Solar System, the gas giants, Earth and Moon, Earth with satellites, Jupiter and its moons, Sun and Earth, a binary star, or a single star). Textured bodies float on a Milky Way sky. Click an object in the library and move the mouse over the scene to **preview where it goes**, then place it on a circular orbit, launch it along a trajectory you aim, or drop it at rest and let gravity move it. In the Sandbox the space bar plays and pauses and `.` / `,` speed the simulation up or slow it down, `+` / `-` zoom in and out, Tab hides the interface (the mouse wheel zooms faster the farther you are from the body, and you can always zoom back out). Hover a body to see a circle around it and click it to fly closer and open its panel (mass, radius, motion, orbit, forces, actions). Click the date to open a **calendar** and jump to any year, month, day and time. Stars light the bodies from their real positions (day and night sides, city lights on the night side of the Earth, atmosphere glow, Earth clouds); choose *Realistic*, *Even* or *Fullbright* lighting from the view menu, and pick other surface maps per body (for example Earth day map only, night lights only, Venus surface). Bodies turn at their real rate with the real tilt of their poles (the IAU / JPL rotation constants from NAIF's `pck00011` kernel: Venus and Uranus turn backwards, Uranus lies on its side, the Moon always shows the same face); the rotation period and pole direction can be edited per body, and *Body rotation* can be switched off in the view menu. Time warp runs up to 100 years per second in either direction; undo and redo, saved scenes, and **Send to Design** turns a spacecraft into a mission.
+* **Solar System view (Design mode):** the real Solar System, no mission needed. Every body of the ephemeris (the Sun, the planets, the Moon and Pluto) is drawn at its true size and real position from DE440s or the built-in model; a Sun-centered view draws each planet's full orbit. Pick a start date, a time span (a month to 100 years) and the body to center on, then use the same time warp (up to 10⁷×, forwards or backwards), focus menu, labels, textures and picture tools as the mission view. Missions that use the Solar System dynamics show their trajectory in the Plots tab.
 * **Design (GMAT-style missions):** define spacecraft, coordinate systems, propagators, impulsive burns, report files and a command sequence
   (`Propagate`, `Maneuver`, `Report`, `Toggle`, with several stop conditions and `Synchronized`), then run it. Propagation is numerical (Verner RK 8(9),
   Prince–Dormand 7(8) and 4(5), or the exact Kepler solution) with the central body alone, selected point masses (Moon, Sun, planets), the whole Solar System,
@@ -68,7 +67,7 @@ The automated tests are run with `python -m pytest`: the last full run gave **62
 * The expected values are copied from the published solutions: HW 3–10, the Fall 2024 exam problems that use the JPL constants, and lecture-note examples. The tolerance is a relative 2×10⁻⁴ unless the solution prints fewer digits.
 * Exam problems that were worked with the exam's own rounded constants are not included, because the app uses only the JPL / GMAT constants.
 * Known errors in the printed solutions are not silently matched: each affected preset carries an *Erratum* note (shown in the app) that explains the corrected value.
-* `tests/test_mission.py` and `tests/test_sandbox.py` check the mission and sandbox code (numerical propagation, GMAT script export and import, N-body energy conservation, scene editing); `tests/data/` holds a GMAT tutorial script used by the importer tests.
+* `tests/test_mission.py` and `tests/test_ui.py` check the mission code and the front end (numerical propagation, GMAT script export and import, the Solar System view, menus and shortcuts); `tests/data/` holds a GMAT tutorial script used by the importer tests.
 
 ## How it was built
 

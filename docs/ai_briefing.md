@@ -197,9 +197,9 @@ Constants are always the JPL / GMAT table, so a GMAT script reproduces this prog
 * **Ephemerides:** built-in = Standish approximate Keplerian elements (inner planets within about $10^4$–$7\times10^4$ km, Jupiter to Pluto within a few $10^6$ km of DE440s in 2026) plus a truncated Meeus lunar theory (about 50 km); optional JPL **DE440s** (1849–2150) through `jplephem`. Time scale: UTC → TAI (leap seconds, 37 s since 2017) → TT (+32.184 s) → TDB; GMAT's A1 = TAI + 0.0343817 s.
 * **Checks that must agree:** the exact Kepler solution and the numerical two-body run agree to $10^{-8}$ relative; "Open in Mission" on modules 3–8 and 12 reproduces the module numbers (HW4 problem 3: start $\theta^*=-110^\circ$, $r=225826.422$ km; aim point $\theta^*=-56.4427^\circ$, $r=80045.573$ km, $v=3.03157$ km/s).
 
-### 7.2b The Sandbox
+### 7.2b The Solar System View
 
-The Sandbox integrates every body with $\mu>0$ against every other (pairwise point-mass gravity, barycentric ICRF frame, Verner RK8(9), relative tolerance $10^{-11}$); bodies with $\mu=0$ are test particles. The real Solar System is initialized from the active ephemeris at the chosen epoch; the total-energy drift over a year is about $10^{-14}$ and Earth stays between 0.9833 and 1.0168 AU. A body's "parent" for the orbit panel is the heavier body whose Laplace sphere of influence $|\bar r_j-\bar r_{root}|(\mu_j/\mu_{root})^{2/5}$ contains it, else the heaviest body. An edit is applied at the current simulation time (the scene is first advanced there) and the simulation is re-run both ways. A spacecraft can be sent to the Design mode as a Cartesian state about its parent with the other massive bodies as point masses.
+The Solar System tab of Design mode draws every body of the active ephemeris (Sun, planets, Moon, Pluto) at true radius and real position, ICRF axes, from DE440s when the kernel is installed and otherwise from the built-in model (section 7.2). Positions are sampled over the chosen window (30 to 36525 days; the Moon is drawn about the Earth); with the Sun as the center each planet also carries a one-period orbit ring. No numerical integration is involved, so there is no energy drift: the picture is the ephemeris.
 
 ### 7.3 GMAT compatibility
 

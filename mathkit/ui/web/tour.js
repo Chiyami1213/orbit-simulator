@@ -2,7 +2,7 @@
 const TOUR = { i: 0, steps: [], on: false };
 const TOUR_STEPS = () => [
   { title: 'Welcome to OrbSim', text: 'a one-minute tour of the window. you can leave at any time with esc, and start it again whenever you like from the help menu, from settings → help and feedback, or with F1.' },
-  { sel: '#modesw', title: 'Three Modes', text: 'solve: the twelve course modules and the reference tools. design: GMAT-style mission planning with real propagation and script import / export. sandbox: a live 3d sandbox where you add and edit bodies and run time forward or back.' },
+  { sel: '#modesw', title: 'Two Modes', text: 'solve: the twelve course modules and the reference tools. design: GMAT-style mission planning with real propagation and script import / export, plus the real Solar System at true size.' },
   { sel: '#menubar', title: 'The Menu Bar', text: 'file: screenshot, export, backup. edit: solve, copy results. view: show or close panels, maximize a plot, light / dark mode and the four color themes. go: jump to any module. help: this tutorial, the issue form, licenses.' },
   { sel: '#nav', title: 'Modules and Utilities', text: 'twelve modules for the course problems, the mission workspace, and utilities (julian date, body constants, test cases). press M to hide this menu, or fold it to icons with the arrow at its top.' },
   { sel: '#tile-inputs', title: 'Inputs', text: 'pick a homework or exam problem from the drop-down to load its numbers, or type your own. units can follow the body radius. sliders redraw the 2d figure live while you drag; the 3d view follows when you pause.', before: () => showPlots() },
@@ -12,7 +12,7 @@ const TOUR_STEPS = () => [
   { sel: '.tabtools', title: 'Default or GMAT', text: 'show this result with the default names and angles or with GMAT parameter names (VFPA, TA 0–360 …); the numbers do not change. "Open in Mission" turns the result into a spacecraft, propagator, burns and stop conditions.' },
   { sel: '.tabs', title: 'Steps and Export', text: 'step-by-step lists every intermediate value with its equation and the quadrant checks. export figure saves png, pdf, a 3d page, python or matlab plotting scripts, and a GMAT script.' },
   { sel: '#modesw button[data-mode="design"]', title: 'Design Mode', text: 'build a mission with resources and a command sequence, run it with real numerical propagation (Moon, Sun, planets, three-body, patched conics), compare with the course answer and with GMAT, and import or export GMAT scripts.' },
-  { sel: '#modesw button[data-mode="explore"]', title: 'Sandbox Mode', text: 'the sandbox: the real Solar System from the ephemeris, a library to add bodies and spacecraft, a side panel to edit mass, orbit and motion, and time warp in both directions.' },
+  { sel: '#modesw button[data-mode="design"]', title: 'Solar System View', text: 'in design mode the solar system tab shows every planet at its real position and size from the ephemeris, with full orbits, a start date, a time span, time warp in both directions and a focus menu to fly to any body.', before: async () => { MIS.tab = 'Solar System'; await go('mission'); } },
   { sel: '#setBtn', title: 'Preferences', text: 'appearance and color themes, plot options, key bindings, constants, conventions, ephemeris and GMAT folder, backups, and licenses. the tutorial can be started again from here, from the help menu, or with F1.' },
   { title: 'You Are Ready', text: 'that is the tour. try loading a homework problem from the inputs drop-down and press solve & draw. good luck!' }
 ];
