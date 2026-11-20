@@ -28,11 +28,11 @@ def _epoch(tok: str) -> float:
 
 
 def parse_csv(text: str, name: str = 'Imported') -> dict:
-    """Header names (case-insensitive): an epoch column (UTC / JD_UTC / EPOCH / TIME), X, Y, Z, optional VX, VY, VZ (with or without _km / _kms). A ``# centre: Earth``
-    comment line (or a ``centre`` column) names the origin; the default is Earth."""
+    """Header names (case-insensitive): an epoch column (UTC / JD_UTC / EPOCH / TIME), X, Y, Z, optional VX, VY, VZ (with or without _km / _kms). A ``# center: Earth``
+    comment line (or a ``center`` column) names the origin; the default is Earth."""
     center = 'Earth'; lines = []
     for ln in text.splitlines():
-        m = re.match(r'^\s*#\s*(?:centre|center|origin)\s*[:=]\s*(\w+)', ln, flags=re.I)
+        m = re.match(r'^\s*#\s*(?:center|center|origin)\s*[:=]\s*(\w+)', ln, flags=re.I)
         if m: center = _BODY.get(m.group(1).upper(), m.group(1).title()); continue
         if ln.strip() and not ln.lstrip().startswith('#'): lines.append(ln)
     if len(lines) < 3: raise ValueError('the CSV needs a header row and at least two data rows')
@@ -55,7 +55,7 @@ def parse_csv(text: str, name: str = 'Imported') -> dict:
 
 
 def parse_oem(text: str, name: str = 'Imported') -> dict:
-    """CCSDS OEM 2.0 (KVN). Several segments are joined in time order; all must share one centre."""
+    """CCSDS OEM 2.0 (KVN). Several segments are joined in time order; all must share one center."""
     center = None; jd, r, v = [], [], []; in_meta = False; ref = 'EME2000'; tsys = 'UTC'; obj = name
     for ln in text.splitlines():
         s = ln.strip()
@@ -66,7 +66,7 @@ def parse_oem(text: str, name: str = 'Imported') -> dict:
             k, _, val = s.partition('='); k, val = k.strip(), val.strip()
             if k == 'CENTER_NAME':
                 c = _BODY.get(val.upper(), val.title())
-                if center not in (None, c): raise ValueError('segments with different centres are not supported')
+                if center not in (None, c): raise ValueError('segments with different centers are not supported')
                 center = c
             elif k == 'REF_FRAME': ref = val.upper()
             elif k == 'TIME_SYSTEM': tsys = val.upper()
@@ -91,7 +91,7 @@ def parse_spk(path: str, target: int | None = None, n: int = 600, name: str = 'I
     if not segs: raise ValueError('no segment found in this kernel')
     seg = segs[0]; names = {10: 'Sun', 399: 'Earth', 301: 'Moon', 3: 'Earth', 499: 'Mars', 4: 'Mars', 299: 'Venus', 2: 'Venus', 199: 'Mercury', 1: 'Mercury', 5: 'Jupiter', 6: 'Saturn', 7: 'Uranus', 8: 'Neptune', 9: 'Pluto', 0: 'SSB'}
     center = names.get(int(seg.center))
-    if center is None: raise ValueError(f'centre body NAIF id {int(seg.center)} is not supported')
+    if center is None: raise ValueError(f'center body NAIF id {int(seg.center)} is not supported')
     t0, t1 = seg.start_jd, seg.end_jd; tdb = np.linspace(t0, t1, n); r, v = [], []
     for t in tdb:
         try: p, vv = seg.compute_and_differentiate(t)

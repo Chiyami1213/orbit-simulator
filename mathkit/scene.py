@@ -2,7 +2,7 @@
 
 Modules build a ``Scene`` once; ``plots2d.render`` draws it with matplotlib (Cartesian, equal axes) and
 ``view3d.scene`` draws it with Plotly. All coordinates are inertial 3-vectors in km with the attracting focus at the
-origin (planet-centred insets are separate scenes). Velocity-type vectors carry a display ``scale`` so km/s can share
+origin (planet-centered insets are separate scenes). Velocity-type vectors carry a display ``scale`` so km/s can share
 the km axes.
 """
 from __future__ import annotations
@@ -257,7 +257,7 @@ def asymptotes(sc: Scene, orbit: Orbit, length=None, label='asymptotes'):
 
 def aim_point_b(sc: Scene, orbit: Orbit, label_aim='aim point', label_b='b'):
     """Foot of the perpendicular from the focus onto the incoming asymptote (impact parameter b) and the
-    hyperbola point at theta*_aim = -(theta*_inf - 90 deg). d_aim = |a| is measured from the hyperbola centre."""
+    hyperbola point at theta*_aim = -(theta*_inf - 90 deg). d_aim = |a| is measured from the hyperbola center."""
     e = orbit.e; a_abs = orbit.p / (e * e - 1); b = a_abs * np.sqrt(e * e - 1)
     th = np.arccos(-1 / e); C = orbit.Q @ np.array([a_abs * e, 0, 0])
     d_in = orbit.Q @ np.array([np.cos(th), -np.sin(th), 0])            # direction of the incoming asymptote (to far side)

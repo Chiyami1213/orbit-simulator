@@ -575,7 +575,7 @@ function ensureDock(main) {
   unmountDock(); main.replaceChildren(el('div', { id: 'tabhost' }), el('div', { id: 'scenehost' }), el('div', { id: 'dock' }, el('div', { id: 'dockin' })));
   for (const id of TILE_IDS) $('#dockin').append(el('div', { class: 'tile', id: 'tile-' + id, 'data-id': id }, el('div', { class: 'tbody' }),
     el('button', { class: 'trash', title: 'close this panel (bring it back with the buttons above the plots, view menu, or f8)', onclick: () => closeTile(id) }, ico('trash')),
-    el('button', { class: 'grip', title: 'drag to move this panel: drop it on another panel (left, right, top, bottom or centre to swap) or on a window edge', onpointerdown: e => startTileDrag(id, e) }, '⠿')));
+    el('button', { class: 'grip', title: 'drag to move this panel: drop it on another panel (left, right, top, bottom or center to swap) or on a window edge', onpointerdown: e => startTileDrag(id, e) }, '⠿')));
   $('#tile-inputs .tbody').append($('#panel')); $('#app').classList.add('docked');
   new ResizeObserver(() => layoutDock()).observe($('#dock'));
 }
@@ -936,7 +936,7 @@ async function boot() {
 boot();
 
 
-/* ---------- settings: ephemeris + GMAT, About with the licences ---------- */
+/* ---------- settings: ephemeris + GMAT, About with the licenses ---------- */
 function ephemPage() {
   const host = el('div', { class: 'sheet' }); const draw = async () => {
     const r = await api('ephem_status', {}); const k = r.kernel, g = r.progress; host.replaceChildren(

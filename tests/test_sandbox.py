@@ -260,3 +260,30 @@ def test_menu_order_and_unique_default_shortcuts():
     assert len(vals) == len(set(vals)) and {'F9', 'F10', 'F12', 'Ctrl+R'} <= set(vals), vals
     for a in re.findall(r"(\w+):", keys): assert re.search(r"\n  %s: \[" % a, js), a            # every binding has a description row
     assert '…' not in re.search(r"function menuDefs\(\).*?\nlet openMenu", js, re.S).group(0)    # no trailing ellipsis on menu items
+
+
+MINOR = {'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'of', 'on', 'or', 'the', 'to', 'vs', 'with', 'from', 'into', 'per', 'about', 'than'}
+
+
+def _apa_ok(s: str) -> bool:
+    """APA title case: major words capitalized, minor words (a, of, and, to ...) lower case except first and last. Words with digits, symbols or inner capitals pass."""
+    ws = s.split()
+    for i, w in enumerate(ws):
+        core = w.strip('()[]:,.;')
+        if not core.isalpha() or core.upper() == core or any(c.isupper() for c in core[1:]): continue
+        if (i in (0, len(ws) - 1) or core.lower() not in MINOR) and core[0].islower(): return False
+        if 0 < i < len(ws) - 1 and core.lower() in MINOR and core[0].isupper(): return False
+    return True
+
+
+def test_menu_labels_tour_titles_and_tab_names_use_apa_title_case_and_american_spelling():
+    import re
+    web = ROOT / 'mathkit' / 'ui' / 'web'
+    app = (web / 'app.js').read_text(encoding='utf-8')
+    menus = re.search(r"function menuDefs\(\).*?\nlet openMenu", app, re.S).group(0)
+    labels = re.findall(r"\blabel: '([^']+)'", menus) + re.findall(r"\bhead: '([^']+)'", menus)
+    tour = re.findall(r"title: '([^']+)'", (web / 'tour.js').read_text(encoding='utf-8'))
+    bad = [s for s in labels + tour if not _apa_ok(s)]
+    assert not bad, bad
+    for f in ('app.js', 'appmenu.js', 'tour.js', 'mission.js', 'explore.js', 'index.html'):
+        assert not re.search(r'colour|licence|centre', (web / f).read_text(encoding='utf-8'), re.I), f

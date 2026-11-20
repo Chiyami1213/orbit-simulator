@@ -1,6 +1,6 @@
 """Procedural 3-D bodies for the plots: textured spheres (real planet maps) and two spacecraft models.
 
-Everything is plain Plotly Mesh3d geometry with per-vertex colours, so it works offline and needs no WebGL texture support.
+Everything is plain Plotly Mesh3d geometry with per-vertex colors, so it works offline and needs no WebGL texture support.
 Spacecraft models are built in a local frame (+x forward, +y right, +z up) with a length of about 1; the animation page scales and
 orients them along the velocity vector every frame.
 """
@@ -32,7 +32,7 @@ def _image(name: str) -> np.ndarray:
 
 @functools.lru_cache(maxsize=32)
 def sphere_mesh(body: str, nlon: int = 112, nlat: int = 56):
-    """Unit-sphere vertices (x, y, z), triangle indices (i, j, k) and per-vertex colours sampled from the body's texture map."""
+    """Unit-sphere vertices (x, y, z), triangle indices (i, j, k) and per-vertex colors sampled from the body's texture map."""
     img = _image(TEXTURES[body]); H, W, _ = img.shape
     lon = np.linspace(0, 2 * np.pi, nlon, endpoint=True); lat = np.linspace(np.pi / 2, -np.pi / 2, nlat)
     LON, LAT = np.meshgrid(lon, lat)

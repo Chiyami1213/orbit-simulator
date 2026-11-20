@@ -33,7 +33,7 @@ TABLE = {
 
 
 def spin_for(name: str) -> dict | None:
-    """The rotation constants of a known body as a plain dict (JSON friendly), or None for a body without catalogued rotation."""
+    """The rotation constants of a known body as a plain dict (JSON friendly), or None for a body without cataloged rotation."""
     r = TABLE.get(name)
     if r is None: return None
     _, ra0, ra1, dec0, dec1, w0, rate = r

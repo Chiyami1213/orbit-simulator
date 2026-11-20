@@ -1,5 +1,5 @@
 """Dynamics models for the Mission workspace. State vector y = [x, y, z, vx, vy, vz] in km and km/s, inertial axes (ICRF ~ EarthMJ2000Eq),
-centred on the model's central body. Time is seconds past the model epoch (TDB for ephemeris-driven models).
+centered on the model's central body. Time is seconds past the model epoch (TDB for ephemeris-driven models).
 
 1  two-body       central body only (the analytic course model; numerically integrated here, or solved exactly by ``kepler_propagate``)
 2  CR3BP          circular restricted three-body problem in the rotating frame (see ``CR3BP``)
@@ -105,7 +105,7 @@ class NBodyModel:
 
 
 # ---------------------------------------------------------------------------------------------------------------------------
-# Circular restricted three-body problem (non-dimensional rotating frame, barycentre at the origin)
+# Circular restricted three-body problem (non-dimensional rotating frame, barycenter at the origin)
 # ---------------------------------------------------------------------------------------------------------------------------
 @dataclass
 class CR3BP:
@@ -146,7 +146,7 @@ class CR3BP:
                 'L4': np.array([0.5 - mu, np.sqrt(3) / 2, 0]), 'L5': np.array([0.5 - mu, -np.sqrt(3) / 2, 0])}
 
     def to_inertial(self, y, t):
-        """Rotating non-dimensional state -> inertial dimensional (km, km/s), barycentre at the origin, frame aligned at t = 0."""
+        """Rotating non-dimensional state -> inertial dimensional (km, km/s), barycenter at the origin, frame aligned at t = 0."""
         c, s = np.cos(t), np.sin(t); x, yy, z, vx, vy, vz = y
         R = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
         r = R @ np.array([x, yy, z]); v = R @ np.array([vx - yy, vy + x, vz])

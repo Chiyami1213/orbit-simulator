@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 import numpy as np
 
-# Unit strings (centre dot, superscripts) used everywhere
+# Unit strings (center dot, superscripts) used everywhere
 KM = 'km'; KMS = 'km·s⁻¹'; MU = 'km³·s⁻²'; EPS = 'km²·s⁻²'; HU = 'km²·s⁻¹'; DEG = '°'; SEC = 's'; HR = 'h'
 DAY = 'd'; YR = 'yr'; NONE = '—'; RAD = 'rad'; ACC = 'km·s⁻²'
 
@@ -58,7 +58,7 @@ class Result:
     warnings: list[str] = field(default_factory=list)
     scene: Any = None                    # mathkit.scene.Scene (2D figure + 3D view)
     data: dict = field(default_factory=dict)              # raw numeric outputs for tests / presets
-    scenes: dict = field(default_factory=dict)            # extra named Scenes (e.g. planet-centred inset)
+    scenes: dict = field(default_factory=dict)            # extra named Scenes (e.g. planet-centered inset)
     figs: dict = field(default_factory=dict)              # name -> callable(theme, user_name) -> matplotlib Figure
 
     def add(self, name, symbol, value, units='', equation='', note='', group='') -> Any:

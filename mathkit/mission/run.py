@@ -1,6 +1,6 @@
 """Run a Mission: convert resources to propagator states, execute the command sequence, collect trajectories, events, burns and reports.
 
-Internal frame while running: centred on each propagator's central body, MJ2000Eq axes, km and km/s. Epochs are UTC Julian dates;
+Internal frame while running: centered on each propagator's central body, MJ2000Eq axes, km and km/s. Epochs are UTC Julian dates;
 ephemeris-driven models convert to TDB through ``core.timeutil``.
 """
 from __future__ import annotations
@@ -65,7 +65,7 @@ def initial_state(m: Mission, sc: Spacecraft, consts: ConstantSet, eph=None) -> 
 def recentre(st: SatState, central: str, eph) -> SatState:
     """Express a state about another body (needs an ephemeris)."""
     if st.central == central: return st
-    if eph is None: raise MissionError(f'{st.name} is defined about {st.central} but its propagator is centred on {central}; an ephemeris is needed to convert')
+    if eph is None: raise MissionError(f'{st.name} is defined about {st.central} but its propagator is centered on {central}; an ephemeris is needed to convert')
     jd_tdb = TU.utc_to_tdb(st.jd); rc, vc = eph.state(st.central, jd_tdb, central)
     return SatState(st.name, central, st.r + rc, st.v + vc, st.jd, st.jd_start, st.color)
 
@@ -234,7 +234,7 @@ def _propagate_command(m, cmd, states, res, consts, eph, record, report_row, seg
     if not stops: raise MissionError(f'"{cmd.text()}" has no stop condition')
     if not dts: raise MissionError(f'none of the stop conditions in "{cmd.text()}" was reached')
     dt_stop, why, who = min(dts, key=lambda x: x[0])
-    # 2. propagate everything to that moment (synchronised or not, spacecraft do not act on each other)
+    # 2. propagate everything to that moment (synchronized or not, spacecraft do not act on each other)
     for prop, sats in items:
         for sat in sats:
             st = states[sat]
@@ -300,7 +300,7 @@ def _cr3bp(prop, st, events, dt_max, consts, eph):
         return np.concatenate([x, [vn[0] + x[1], vn[1] - x[0], vn[2]]])
     def to_in(y, t):
         r, v = sys.to_inertial(y, t); c, s_ = np.cos(t), np.sin(t)
-        r = r - mu * L * np.array([c, s_, 0]); v = v - mu * L / T * np.array([-s_, c, 0])        # primary-centred, still in the rotating-aligned (t = 0) axes
+        r = r - mu * L * np.array([c, s_, 0]); v = v - mu * L / T * np.array([-s_, c, 0])        # primary-centered, still in the rotating-aligned (t = 0) axes
         return Rm.T @ r, Rm.T @ v
     evs = [Event((lambda t, y, ev=ev: ev.fn(t * T, np.concatenate(to_in(y, t)))), ev.name, ev.direction, ev.terminal, (None if ev.accept is None else (lambda t, y, ev=ev: ev.accept(t * T, np.concatenate(to_in(y, t)))))) for ev in events]
     y0 = to_rot(st.r, st.v)

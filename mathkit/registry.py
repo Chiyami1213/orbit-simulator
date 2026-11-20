@@ -264,7 +264,7 @@ M09 = [BODY('Moon'), C('o_mode', 'Initial orbit', 'circular r', ['circular r', '
 
 M10 = [C('central', 'Central body', 'Sun', BODY_NAMES), C('dep', 'Departure planet', 'Earth', BODY_NAMES), C('arr', 'Arrival planet', 'Pluto', BODY_NAMES),
        D('r_dep', 'Departure planet orbit radius', BODIES['Earth']['a']), D('r_arr', 'Arrival planet orbit radius', BODIES['Pluto']['a']),
-       D('r_park', 'Parking-orbit radius (from the planet centre)', 6628.1363), D('r_cap', 'Capture periapsis radius', 12782.0), F('e_cap', 'Capture-orbit eccentricity', 0.0),
+       D('r_park', 'Parking-orbit radius (from the planet center)', 6628.1363), D('r_cap', 'Capture periapsis radius', 12782.0), F('e_cap', 'Capture-orbit eccentricity', 0.0),
        C('tkind', 'Transfer', 'Hohmann', ['Hohmann', 'given states']), V('vdep', 'v̄ at departure (v_r, v_θ)', [0.0, 40.0], 'km·s⁻¹', show_if=mode_is('tkind', 'given states')),
        V('varr', 'v̄ at arrival (v_r, v_θ)', [0.0, 2.0], 'km·s⁻¹', show_if=mode_is('tkind', 'given states'))]
 
@@ -298,7 +298,7 @@ _SHORT = {'1': 'N-body accelerations', '2': 'Two-body constants', '3': 'State �
 
 MODULES: dict[str, ModuleSpec] = {
     '1': ModuleSpec('1', '1 · N-body accelerations', M01, run01, body_key=None, blurb='Dominant, direct, indirect and net perturbing accelerations of a target relative to a central body.'),
-    '2': ModuleSpec('2', '2 · Two-body constants', M02, run02, body_key=None, blurb='C̄₃, C₄, h, ε, areal velocity, centre-of-mass motion.'),
+    '2': ModuleSpec('2', '2 · Two-body constants', M02, run02, body_key=None, blurb='C̄₃, C₄, h, ε, areal velocity, center-of-mass motion.'),
     '3': ModuleSpec('3', '3 · State ⇄ planar conic', M03, run03, blurb='Position/velocity (or h, ε, r_p/r_a…) to a conic with every standard quantity.'),
     '4': ModuleSpec('4', '4 · Kepler propagation', M04, run04, blurb='Propagate with Kepler’s equation; f and g in both Δθ* and ΔE forms.'),
     '5': ModuleSpec('5', '5 · Hyperbolic flyby geometry', M05, run05, blurb='Asymptotes, aim point, b, δ, time to periapsis, capture Δv.'),

@@ -290,7 +290,7 @@ async function exPanel() {
   else if (EX.tab === 'Motion') body = [row('Distance to ' + (pd.parent || 'origin'), el('span', { class: 'xv' }, el('b', { id: 'lv-dist' }, '–'), ' km')), row('Total Velocity', el('span', { class: 'xv' }, el('b', { id: 'lv-speed' }, fmtNum(pd.speed)), ' km/s')),
     ...['x', 'y', 'z'].map((a, i) => row('Position ' + a.toUpperCase(), num(+pd.r[i].toPrecision(10), v => { const r2 = pd.r.slice(); r2[i] = v; apply({ r: r2 }); }, 150), el('span', { class: 'xu' }, 'km'))),
     ...['x', 'y', 'z'].map((a, i) => row('Velocity ' + a.toUpperCase(), num(+pd.v[i].toPrecision(9), v => { const v2 = pd.v.slice(); v2[i] = v; apply({ v: v2 }); }, 150), el('span', { class: 'xu' }, 'km/s'))),
-    el('div', { class: 'xnote' }, 'positions and velocities are at the current simulation time, about the system barycentre (ICRF axes). editing them re-runs the simulation from now.')];
+    el('div', { class: 'xnote' }, 'positions and velocities are at the current simulation time, about the system barycenter (ICRF axes). editing them re-runs the simulation from now.')];
   else if (EX.tab === 'Orbit') {
     const o = pd.orbit, par = el('select', {}, ...EX.scene.bodies.filter(b => b.mu > 0 && b.id !== sel.id).map(b => el('option', { value: b.id, selected: b.id === pd.parent }, b.name)));
     const ins = {}; body = [row('Orbits', par)];

@@ -1,8 +1,8 @@
 """Module 2 - two-body constants (HW2 P3, HW3 P3, Exam 1 P3).
 
 Given masses (or gravitational parameters with G = 1) and the inertial states of two bodies: relative orbit constants
-C3 = r x v, energy C4 = eps = v^2/2 - mu/r, h, areal velocity h/2, barycentre position/velocity. eps = 0 -> parabola case.
-Paths are drawn about the centre of mass (CM frame): body i follows the relative conic scaled by m_j/(m_1+m_2).
+C3 = r x v, energy C4 = eps = v^2/2 - mu/r, h, areal velocity h/2, barycenter position/velocity. eps = 0 -> parabola case.
+Paths are drawn about the center of mass (CM frame): body i follows the relative conic scaled by m_j/(m_1+m_2).
 """
 from __future__ import annotations
 import numpy as np
@@ -25,7 +25,7 @@ def solve(m1: float, m2: float, r1, r2, v1, v2, G: float = 1.0, names=('body 1',
     res.add('Energy constant C₄ = ε', 'C₄', T['C4'], EPS, 'ε = v²/2 − μ/r', group=g)
     res.add('Orbit type', '', 'parabola (ε = 0)' if T['parabola'] else ('ellipse (ε < 0)' if T['eps'] < 0 else 'hyperbola (ε > 0)'), NONE, group=g)
     if T['parabola']: res.warn('ε = 0: parabola — a = ∞, no period')
-    g = 'Barycentre'
+    g = 'Barycenter'
     res.add('Center-of-mass position', 'r̄_cm', T['r_cm'], KM, '(m₁r̄₁ + m₂r̄₂)/(m₁+m₂)', group=g); res.add('Center-of-mass velocity', 'v̄_cm', T['v_cm'], KMS, 'constant (no external force)', group=g)
     r = np.linalg.norm(T['r_rel']); r_hat = T['r_rel'] / r; h_hat = unit(T['C3']); planar = abs(T['C3'][0]) < 1e-12 and abs(T['C3'][1]) < 1e-12
     if planar and T['h'] > 0:

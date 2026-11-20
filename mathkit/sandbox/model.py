@@ -1,6 +1,6 @@
-"""Explore (sandbox) scene model: bodies with mass and state, a catalogue to add from, and the editing operations the side panel performs.
+"""Explore (sandbox) scene model: bodies with mass and state, a catalog to add from, and the editing operations the side panel performs.
 
-Frame: ICRF axes, origin at the system barycentre of the scene's massive bodies at the scene epoch (fixed in space). Units: km, km/s, s, km^3/s^2 (mu = G m).
+Frame: ICRF axes, origin at the system barycenter of the scene's massive bodies at the scene epoch (fixed in space). Units: km, km/s, s, km^3/s^2 (mu = G m).
 A body with mu = 0 is a test particle (a spacecraft): it feels gravity and attracts nothing.
 """
 from __future__ import annotations
@@ -70,7 +70,7 @@ def solar_system(eph, jd_utc: float, consts: ConstantSet | None = None, names=No
 
 
 def recenter(scene: dict) -> dict:
-    """Move the origin to the barycentre of the massive bodies and remove the drift (so the Sun does not wander off while the planets orbit)."""
+    """Move the origin to the barycenter of the massive bodies and remove the drift (so the Sun does not wander off while the planets orbit)."""
     mus = np.array([b['mu'] for b in scene['bodies']])
     if mus.sum() <= 0: return scene
     R = np.array([b['r'] for b in scene['bodies']]); V = np.array([b['v'] for b in scene['bodies']])
@@ -118,7 +118,7 @@ def dominant_parent(scene: dict, bid: str) -> str | None:
     return best
 
 
-# ---------------------------------------------------------------------------------------------------- catalogue
+# ---------------------------------------------------------------------------------------------------- catalog
 def catalog(consts: ConstantSet | None = None) -> list[dict]:
     consts = consts or ConstantSet(); items = []
     for n, k in REAL.items():
@@ -186,12 +186,12 @@ CATEGORIES = ['All', 'Solar System', 'Planets', 'Moons', 'Small Bodies', 'Spacec
 
 
 def add_item(scene: dict, item: dict, eph=None, consts: ConstantSet | None = None, parent: str | None = None, orbit: dict | None = None, place: dict | None = None) -> dict:
-    """Add a catalogue item (``place`` = {r, v} gives its exact starting state, which the placement tool in Explore uses). Real bodies come from the ephemeris at the scene epoch; others are put on an orbit about ``parent`` (default: the Sun / heaviest body)."""
+    """Add a catalog item (``place`` = {r, v} gives its exact starting state, which the placement tool in Explore uses). Real bodies come from the ephemeris at the scene epoch; others are put on an orbit about ``parent`` (default: the Sun / heaviest body)."""
     consts = consts or ConstantSet(); name = item['name']
     if item.get('real') and eph is not None and name in getattr(eph, 'bodies', ()):
         if any(b['name'] == name for b in scene['bodies']): raise ValueError(f'{name} is already in the scene')
         r, v = eph.state(name, TU.utc_to_tdb(scene['epoch_jd']), 'SSB'); cur = dict(scene); bd = new_body(name, item['kind'], item['mu'], item['radius'], r, v)
-        # express relative to the scene's own frame: the scene origin was the barycentre of its bodies; add relative to the Sun's position in the scene
+        # express relative to the scene's own frame: the scene origin was the barycenter of its bodies; add relative to the Sun's position in the scene
         sun_s = next((b for b in scene['bodies'] if b['name'] == 'Sun'), None)
         if sun_s is not None:
             rs, vs = eph.state('Sun', TU.utc_to_tdb(scene['epoch_jd']), 'SSB'); bd['r'] = (np.array(sun_s['r']) + (np.array(r) - rs)).tolist(); bd['v'] = (np.array(sun_s['v']) + (np.array(v) - vs)).tolist()
@@ -217,7 +217,7 @@ def add_item(scene: dict, item: dict, eph=None, consts: ConstantSet | None = Non
 
 
 def apply_edits(scene: dict, edits: list[dict], eph=None, consts: ConstantSet | None = None) -> dict:
-    """Apply a list of edit operations and return the (re-centred) scene. Unknown ids raise KeyError, bad orbits ValueError."""
+    """Apply a list of edit operations and return the (re-centered) scene. Unknown ids raise KeyError, bad orbits ValueError."""
     sc = copy.deepcopy(scene); consts = consts or ConstantSet()
     for e in edits:
         op = e['op']

@@ -83,7 +83,7 @@ def to_mission(scene: dict, bid: str, name: str | None = None, consts: ConstantS
     consts = consts or ConstantSet(); b = SM.get(scene, bid); par_id = SM.dominant_parent(scene, bid)
     if par_id is None: raise ValueError('this body has no attracting body to build a mission around')
     par = SM.get(scene, par_id); central = par['name']
-    if central not in BODIES: raise ValueError(f'{central} is a custom body; missions can only be centred on a Solar System body')
+    if central not in BODIES: raise ValueError(f'{central} is a custom body; missions can only be centered on a Solar System body')
     grav = [central] + [o['name'] for o in scene['bodies'] if o['name'] in BODIES and o['name'] != central and o['mu'] > 0 and o['gravity']]
     r = np.array(b['r']) - np.array(par['r']); v = np.array(b['v']) - np.array(par['v'])
     cs = 'EarthMJ2000Eq' if central == 'Earth' else f'{"Luna" if central == "Moon" else central}MJ2000Eq'

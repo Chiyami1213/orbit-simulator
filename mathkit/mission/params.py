@@ -72,7 +72,7 @@ def keplerian(mu: float, r, v) -> dict:
 
 @dataclass
 class ParamContext:
-    """What a parameter needs: the spacecraft state about its propagator's central body (MJ2000Eq), the epoch, and how to re-centre it."""
+    """What a parameter needs: the spacecraft state about its propagator's central body (MJ2000Eq), the epoch, and how to re-center it."""
     central: str
     r: np.ndarray
     v: np.ndarray
@@ -87,7 +87,7 @@ class ParamContext:
     def state_about(self, body: str, axes: str = 'MJ2000Eq'):
         r, v = self.r, self.v
         if body != self.central:
-            if self.eph is None: raise ValueError(f'a state about {body} needs an ephemeris (the propagator is centred on {self.central})')
+            if self.eph is None: raise ValueError(f'a state about {body} needs an ephemeris (the propagator is centered on {self.central})')
             jd_tdb = TU.utc_to_tdb(self.jd_utc); rc, vc = self.eph.state(self.central, jd_tdb, body)       # central body relative to ``body``
             r = r + rc; v = v + vc
         M = axes_matrix(axes, body); return M @ r, M @ v

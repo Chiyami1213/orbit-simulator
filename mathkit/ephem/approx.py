@@ -3,7 +3,7 @@
 Planets: E. M. Standish, "Keplerian Elements for Approximate Positions of the Major Planets" (JPL Solar System Dynamics, Table 1,
 valid 1800-2050 AD): a, e, I, L, long.peri, long.node and their rates per Julian century, referred to the J2000 ecliptic and equinox.
 Moon: truncated lunar theory after J. Meeus, Astronomical Algorithms, ch. 47 (the largest periodic terms only).
-Frame: heliocentric, equatorial J2000 (ICRF to better than 0.02 arcsec); the Sun is taken at the origin (the true Sun-barycentre offset,
+Frame: heliocentric, equatorial J2000 (ICRF to better than 0.02 arcsec); the Sun is taken at the origin (the true Sun-barycenter offset,
 up to about 1.4e6 km, is ignored). Measured against DE440s (2026): Mercury..Mars within 7e4 km, Jupiter..Pluto within 4e6 km, Moon within 50 km.
 """
 from __future__ import annotations

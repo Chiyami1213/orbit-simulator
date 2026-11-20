@@ -1,5 +1,5 @@
 /* Space view for the Mission workspace (three.js, vendored under /vendor, MIT). Bodies, trajectories, a physically oriented Milky Way sky, time warp, overlays, recording.
-   Axes are ICRF (z up). Positions are kilometres about the display centre; the camera orbits a focus point, with a logarithmic depth buffer so a 100 km orbit
+   Axes are ICRF (z up). Positions are kilometers about the display center; the camera orbits a focus point, with a logarithmic depth buffer so a 100 km orbit
    and the whole Solar System can share one scene. */
 import * as THREE from 'three';
 import { OrbitControls } from '/vendor/OrbitControls.js';
@@ -117,13 +117,13 @@ export function createSpace(host, data, opts = {}) {
   };
   const loadSky = (name, legacy) => { if (skyTex[name]) skyMat.uniforms.map.value = skyTex[name]; else getSky(name, legacy).then(tx => { if (skyName(state.sky === 'stars') === name && state.sky !== 'black' && state.sky !== 'theme') skyMat.uniforms.map.value = tx; }); };
   const setSky = k => { state.sky = k; skyMat.uniforms.mode.value = k === 'black' ? 2 : k === 'theme' ? 1 : 0; const legacy = k === 'stars'; skyMat.uniforms.flip.value = legacy ? -1 : 1; skyScale = legacy ? 3 : 1;
-    if (k === 'theme') { const hex = (getComputedStyle(document.body).getPropertyValue('--bg') || '#0f1628').trim().replace('#', ''); const n = parseInt(hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex, 16); skyMat.uniforms.themeColor.value.set(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); }       // the app's background colour, flat: no stars, no galaxy
+    if (k === 'theme') { const hex = (getComputedStyle(document.body).getPropertyValue('--bg') || '#0f1628').trim().replace('#', ''); const n = parseInt(hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex, 16); skyMat.uniforms.themeColor.value.set(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); }       // the app's background color, flat: no stars, no galaxy
     if (k !== 'black' && k !== 'theme') loadSky(legacy ? '2k_stars.jpg' : (big ? 'sky_milkyway_8k.jpg' : 'sky_milkyway_4k.jpg'), legacy); };
   setTimeout(() => { if (!disposed) getSky(skyName(false), false); }, 1500); setTimeout(() => { if (!disposed) getSky(skyName(true), true); }, 3200);        // preload both star backgrounds
   let lightUI = opts.theme === 'light';
   function refreshTheme() {
     const lb = lightUI && state.sky === 'theme'; host.classList.toggle('lightbg', lb);
-    const css = (getComputedStyle(document.body).getPropertyValue('--bg') || '').trim(), hx = /^#([0-9a-f]{6})$/i.exec(css);                   // the Theme Color background is the page colour of the chosen colour theme
+    const css = (getComputedStyle(document.body).getPropertyValue('--bg') || '').trim(), hx = /^#([0-9a-f]{6})$/i.exec(css);                   // the Theme Color background is the page color of the chosen color theme
     if (hx) skyMat.uniforms.themeColor.value.set(parseInt(hx[1].slice(0, 2), 16) / 255, parseInt(hx[1].slice(2, 4), 16) / 255, parseInt(hx[1].slice(4, 6), 16) / 255); else skyMat.uniforms.themeColor.value.set(lightUI ? 0.93 : 0.06, lightUI ? 0.95 : 0.09, lightUI ? 0.98 : 0.16);
     if (typeof ring !== 'undefined') { ring.material.color.set(lb ? '#16203a' : '#ffffff'); hring.material.color.set(lb ? '#b86a00' : '#ffd27a'); }
   }
@@ -209,7 +209,7 @@ export function createSpace(host, data, opts = {}) {
   const equ = new THREE.GridHelper(2, 24, '#3ec9b0', '#2a6f66'); equ.visible = false; equ.material.transparent = true; equ.material.opacity = 0.55; world.add(equ);                        // equatorial plane of the focus body
   const evMarks = (data.events || []).map(e => { const m = new THREE.Mesh(new THREE.OctahedronGeometry(1), new THREE.MeshBasicMaterial({ color: e.kind === 'burn' ? '#ff6161' : '#ffffff' })); m.position.set(...e.r); world.add(m); return { def: e, m }; });
 
-  // ---- sky markers (debug aid for the sky orientation): bright stars, the galactic centre and Polaris, drawn on the sky sphere
+  // ---- sky markers (debug aid for the sky orientation): bright stars, the galactic center and Polaris, drawn on the sky sphere
   const dirOf = (ra, dec) => { const a = ra * Math.PI / 180, d = dec * Math.PI / 180; return new THREE.Vector3(Math.cos(d) * Math.cos(a), Math.cos(d) * Math.sin(a), Math.sin(d)); };
   const markers = (data.markers || []).map(m => ({ def: m, dir: dirOf(m.ra, m.dec), label: mkLabel(m.name, '#9dffb0'), mk: new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 24), new THREE.MeshBasicMaterial({ color: '#9dffb0', side: THREE.DoubleSide, depthTest: false })) }));
   markers.forEach(m => { m.mk.renderOrder = 5; scene.add(m.mk); });
@@ -228,7 +228,7 @@ export function createSpace(host, data, opts = {}) {
     el_.style.display = 'block'; el_.style.transform = `translate(${(p.x * 0.5 + 0.5) * W() + 8}px, ${(-p.y * 0.5 + 0.5) * H() - 8}px)`; return el_;
   };
   const sl0pos = () => posOf(starLights[0].def.name);
-  // Body rotation: the IAU / JPL pole and prime meridian (def.spin). The body-fixed frame is Rz(ra+90) Rx(90-dec) Rz(W); the sphere's poles lie along z and its texture centre (longitude 0) along +x.
+  // Body rotation: the IAU / JPL pole and prime meridian (def.spin). The body-fixed frame is Rz(ra+90) Rx(90-dec) Rz(W); the sphere's poles lie along z and its texture center (longitude 0) along +x.
   const DEG = Math.PI / 180, qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), AX = new THREE.Vector3(1, 0, 0), AZ = new THREE.Vector3(0, 0, 1), BASEQ = new THREE.Quaternion().setFromAxisAngle(AX, Math.PI / 2);
   function spinBody(o) {
     const sp = o.def.spin, d = jd - 2451545.0, T = d / 36525, ra = (sp.ra + (sp.ra_rate || 0) * T) * DEG, dec = (sp.dec + (sp.dec_rate || 0) * T) * DEG; let W = sp.w0 + sp.rate * d;
@@ -352,9 +352,9 @@ export function createSpace(host, data, opts = {}) {
       if (pts && pts.length > 1) { const g = new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(...p))); preview = new THREE.Line(g, new THREE.LineDashedMaterial({ color: '#ffffff', dashSize: ext * 0.01, gapSize: ext * 0.006 })); preview.computeLineDistances(); world.add(preview); }
       if (node) { nodeMk = new THREE.Mesh(new THREE.OctahedronGeometry(1), new THREE.MeshBasicMaterial({ color: '#ff6161' })); nodeMk.position.set(...node); world.add(nodeMk); }
     },
-    planePoint(cx, cy, centre, incDeg) {                                              // where the mouse ray meets the plane through a body (tilted by inc about the x axis): the spot a placed object would go
+    planePoint(cx, cy, center, incDeg) {                                              // where the mouse ray meets the plane through a body (tilted by inc about the x axis): the spot a placed object would go
       const rect = renderer.domElement.getBoundingClientRect(), ndc = new THREE.Vector2(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1);
-      const rc = new THREE.Raycaster(); rc.setFromCamera(ndc, camera); const o = rc.ray.origin.clone().sub(world.position), d = rc.ray.direction, c = posOf(centre), i = (incDeg || 0) * Math.PI / 180;
+      const rc = new THREE.Raycaster(); rc.setFromCamera(ndc, camera); const o = rc.ray.origin.clone().sub(world.position), d = rc.ray.direction, c = posOf(center), i = (incDeg || 0) * Math.PI / 180;
       const n = new THREE.Vector3(0, -Math.sin(i), Math.cos(i)), dn = n.dot(d); if (Math.abs(dn) < 1e-6) return null; const t = n.dot(new THREE.Vector3(c[0] - o.x, c[1] - o.y, c[2] - o.z)) / dn; if (t < 0) return null;
       return [o.x + d.x * t, o.y + d.y * t, o.z + d.z * t];
     },

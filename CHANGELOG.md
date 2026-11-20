@@ -11,6 +11,6 @@ New changes go above this line, newest first.
 - **GMAT compatibility:** export of module results and missions as GMAT R2022a scripts, import of a subset of scripts, and an optional comparison run in an installed GMAT.
 - **Sandbox mode:** a live N-body sandbox with ready-made scenes, an Add library with placement preview, an object panel, undo and redo, saved scenes, time warp in both directions and Send to Design.
 - **Ephemerides and textures:** a built-in offline ephemeris or the JPL DE440s kernel (downloaded on request); built-in 2K planet textures and optional 8K downloads.
-- **Interface:** light, dark and device appearance, five colour themes, rebindable keys, movable and closable panels, a menu bar, a shared main menu, a guided tutorial, backup and restore of user data, and built-in issue reporting.
+- **Interface:** light, dark and device appearance, five color themes, rebindable keys, movable and closable panels, a menu bar, a shared main menu, a guided tutorial, backup and restore of user data, and built-in issue reporting.
 - **Conventions:** results can be shown in the default way or the GMAT way; the numbers and presets do not change.
 - **Packaging:** a Windows installer and a macOS disk image build.

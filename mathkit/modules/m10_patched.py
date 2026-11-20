@@ -1,6 +1,6 @@
 """Module 10 - patched conics (HW8 P4, HW9 P2a, HW10 P3d).
 
-Heliocentric (or planet-centred) transfer between two bodies on circular orbits of radius r_dep, r_arr.
+Heliocentric (or planet-centered) transfer between two bodies on circular orbits of radius r_dep, r_arr.
 v_inf vector = v_transfer - v_planet, INCLUDING the non-tangential case (gamma != 0 at the planet).
 Departure from a circular parking orbit of radius r_pk:  dv = sqrt(v_inf^2 + 2 mu/r_pk) - sqrt(mu/r_pk).
 Capture into an orbit (r_cap periapsis, eccentricity e_cap):  dv = sqrt(v_inf^2 + 2 mu/r_cap) - sqrt(mu(1 + e_cap)/r_cap).
@@ -23,7 +23,7 @@ def solve(mu_c: float, dep: dict, arr: dict, transfer: dict, r_park: float, r_ca
           label: str = 'Module 10') -> Result:
     """dep/arr: dict(mu, R, r (orbit radius about the central body), name).
     transfer: {'kind': 'hohmann'} or {'kind': 'state', 'v_dep': (v_r, v_theta), 'v_arr': (v_r, v_theta)} in each end's r̂θ̂ frame (km/s).
-    r_park, r_cap: radii (km from each planet's centre) of the parking orbit and of the capture periapsis."""
+    r_park, r_cap: radii (km from each planet's center) of the parking orbit and of the capture periapsis."""
     res = Result('Patched conics', label, inputs=dict(mu_c=mu_c, dep=dep, arr=arr, transfer=transfer, r_park=r_park, r_cap=r_cap, e_cap=e_cap))
     r1, r2 = dep['r'], arr['r']; vc1, vc2 = np.sqrt(mu_c / r1), np.sqrt(mu_c / r2)
     if transfer['kind'] == 'hohmann':
@@ -83,11 +83,11 @@ def solve(mu_c: float, dep: dict, arr: dict, transfer: dict, r_park: float, r_ca
     if c['e'] < 1 and tof:
         trk, _ = orbit_track(mu_c, T, th_d, None, 'spacecraft', 'transfer'); sc.tracks.append(trk); sc.duration_s = tof     # animate departure -> arrival only
     res.scene = sc
-    # ---------------- planet-centred insets ----------------
+    # ---------------- planet-centered insets ----------------
     d_dir = np.arctan2(to_xy(vinf_d, Pd)[1], to_xy(vinf_d, Pd)[0]) * R2D
-    res.scenes['departure hyperbola (planet-centred)'] = hyp_scene(f'departure: v∞ = {vd:.4f} km/s, e = {hd["e"]:.4f}, δ = {hd["delta"]:.2f}°', label, dep['mu'], hd['a'] * -1, hd['e'], dep.get('R'), dep.get('name', ''),
+    res.scenes['departure hyperbola (planet-centered)'] = hyp_scene(f'departure: v∞ = {vd:.4f} km/s, e = {hd["e"]:.4f}, δ = {hd["delta"]:.2f}°', label, dep['mu'], hd['a'] * -1, hd['e'], dep.get('R'), dep.get('name', ''),
                                                                       omega=d_dir - hd['th_inf'], ths_mark=None)
     a_dir = np.arctan2(to_xy(vinf_a, Pa)[1], to_xy(vinf_a, Pa)[0]) * R2D
-    res.scenes['arrival hyperbola (planet-centred)'] = hyp_scene(f'arrival: v∞ = {va:.4f} km/s, e = {ha["e"]:.4f}, δ = {ha["delta"]:.2f}°', label, arr['mu'], ha['a'] * -1, ha['e'], arr.get('R'), arr.get('name', ''),
+    res.scenes['arrival hyperbola (planet-centered)'] = hyp_scene(f'arrival: v∞ = {va:.4f} km/s, e = {ha["e"]:.4f}, δ = {ha["delta"]:.2f}°', label, arr['mu'], ha['a'] * -1, ha['e'], arr.get('R'), arr.get('name', ''),
                                                                     omega=a_dir + 180 + ha['th_inf'], ths_mark=None)
     return res

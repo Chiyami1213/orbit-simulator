@@ -1,6 +1,6 @@
 # OrbSim — briefing for an AI assistant (math focus)
 
-You are being briefed on a desktop program, **OrbSim** (v1.0.0), that a student uses to solve and visualise orbit-mechanics problems
+You are being briefed on a desktop program, **OrbSim** (v1.0.0), that a student uses to solve and visualize orbit-mechanics problems
 (Bate–Mueller–White conventions, as taught in a university orbit-mechanics course). The student will paste or describe the program's output and ask you
 to check, interpret or extend it. This file tells you **what the program computes, which equations and sign conventions it uses, what it verified itself
 against, and where it stops being valid.** Treat every convention below as binding: several differ from common textbooks.
@@ -92,8 +92,8 @@ Position inputs may be 2-D radii + TA, 3-D vectors (plane normal chosen with $\h
 
 **N-body relative acceleration.** For body $i$ relative to central body $c$ ($\mu_j=Gm_j$, $\bar d_{ij}=\bar r_j-\bar r_i$):
 $\ddot{\bar r}_{ic}=\underbrace{-\tfrac{(\mu_c+\mu_i)\bar r_{ic}}{r_{ic}^3}}_{\text{dominant}}+\underbrace{\sum_j\mu_j\tfrac{\bar d_{ij}}{d_{ij}^3}}_{\text{direct}}\ \underbrace{-\sum_j\mu_j\tfrac{\bar d_{cj}}{d_{cj}^3}}_{\text{indirect}}$ ($j\ne i,c$; set $\mu_i=0$ for a spacecraft).
-Output: each term, net perturbing, total, magnitudes, ranking, perturbing/dominant ratio, barycentre.
-**Two-body constants:** $\bar C_3=\bar r\times\bar v$, $C_4=\varepsilon=v^2/2-\mu/r$ (*the identification of $C_4$ with $\varepsilon$ is an assumption — check against the course notes*), $h=|\bar C_3|$, areal velocity $h/2$, barycentre velocity $\dfrac{m_1\bar v_1+m_2\bar v_2}{m_1+m_2}$; $\varepsilon=0\Rightarrow$ parabola.
+Output: each term, net perturbing, total, magnitudes, ranking, perturbing/dominant ratio, barycenter.
+**Two-body constants:** $\bar C_3=\bar r\times\bar v$, $C_4=\varepsilon=v^2/2-\mu/r$ (*the identification of $C_4$ with $\varepsilon$ is an assumption — check against the course notes*), $h=|\bar C_3|$, areal velocity $h/2$, barycenter velocity $\dfrac{m_1\bar v_1+m_2\bar v_2}{m_1+m_2}$; $\varepsilon=0\Rightarrow$ parabola.
 
 ---
 
@@ -102,7 +102,7 @@ Output: each term, net perturbing, total, magnitudes, ranking, perturbing/domina
 | # | Module | Inputs | Key outputs |
 |---|---|---|---|
 | 1 | N-body accelerations | $\mu_j$, positions, central + target body | dominant / direct / indirect / net / total vectors, ranking |
-| 2 | Two-body constants | $m_1,m_2$ (or $\mu$ with $G=1$), $\bar r_i,\bar v_i$ | $\bar C_3$, $C_4$, $h$, areal velocity, barycentre, relative conic |
+| 2 | Two-body constants | $m_1,m_2$ (or $\mu$ with $G=1$), $\bar r_i,\bar v_i$ | $\bar C_3$, $C_4$, $h$, areal velocity, barycenter, relative conic |
 | 3 | State ⇄ planar conic | polar $(r,v_r,v_\theta)$, $xy$ state, $(h,\varepsilon)$, $(r_p,r_a)$, $(a,e)$ or $(p,e)$ | $p,e,a,P,\varepsilon,h,\gamma,\theta^*,E/H,r_p,r_a$, $\bar r,\bar v$ in $\hat r\hat\theta$ and $\hat e\hat p$ |
 | 4 | Kepler propagation | $a,e$ (or $r_p,r_a$), start as $\theta^*$, $M$ or $E$, $\Delta t$ or "until $\theta^*_1$" | new $\theta^*,E,M,r,v,\gamma,t-t_p$; $f,g,\dot f,\dot g$ in both forms |
 | 5 | Hyperbolic flyby geometry | two of $r_p,|a|,e,v_\infty$ | $p,e,h,\varepsilon,v_\infty,\theta^*_\infty,\delta,b,d_{\text{aim}}$, $H$, time to periapsis, capture $\Delta v$ |
@@ -199,7 +199,7 @@ Constants are always the JPL / GMAT table, so a GMAT script reproduces this prog
 
 ### 7.2b The Sandbox
 
-The Sandbox integrates every body with $\mu>0$ against every other (pairwise point-mass gravity, barycentric ICRF frame, Verner RK8(9), relative tolerance $10^{-11}$); bodies with $\mu=0$ are test particles. The real Solar System is initialised from the active ephemeris at the chosen epoch; the total-energy drift over a year is about $10^{-14}$ and Earth stays between 0.9833 and 1.0168 AU. A body's "parent" for the orbit panel is the heavier body whose Laplace sphere of influence $|\bar r_j-\bar r_{root}|(\mu_j/\mu_{root})^{2/5}$ contains it, else the heaviest body. An edit is applied at the current simulation time (the scene is first advanced there) and the simulation is re-run both ways. A spacecraft can be sent to the Design mode as a Cartesian state about its parent with the other massive bodies as point masses.
+The Sandbox integrates every body with $\mu>0$ against every other (pairwise point-mass gravity, barycentric ICRF frame, Verner RK8(9), relative tolerance $10^{-11}$); bodies with $\mu=0$ are test particles. The real Solar System is initialized from the active ephemeris at the chosen epoch; the total-energy drift over a year is about $10^{-14}$ and Earth stays between 0.9833 and 1.0168 AU. A body's "parent" for the orbit panel is the heavier body whose Laplace sphere of influence $|\bar r_j-\bar r_{root}|(\mu_j/\mu_{root})^{2/5}$ contains it, else the heaviest body. An edit is applied at the current simulation time (the scene is first advanced there) and the simulation is re-run both ways. A spacecraft can be sent to the Design mode as a Cartesian state about its parent with the other massive bodies as point masses.
 
 ### 7.3 GMAT compatibility
 
@@ -207,4 +207,4 @@ The Sandbox integrates every body with $\mu>0$ against every other (pairwise poi
 * GMAT's `MarsMJ2000Eq` keeps **Earth's** J2000 equator axes; the course's "Mars equatorial" frame is `BodyInertial` (Mars pole RA 317.68°, Dec 52.89°).
 * Import: a subset parsed by a small tokenizer; `Target`/`Vary`/`Achieve`, GMAT functions, spherical-harmonic fields and drag models are listed as skipped. The tutorial script `Tut_SimulatingAnOrbit.script` loads and runs.
 * Models GMAT does not have (analytic Kepler, restricted three-body) are exported as the closest GMAT force model with a comment.
-* Not modelled: spherical-harmonic gravity, finite-burn attitude, targeting. Licence: portions derived from NASA GMAT (Apache 2.0), see `NOTICE`.
+* Not modelled: spherical-harmonic gravity, finite-burn attitude, targeting. License: portions derived from NASA GMAT (Apache 2.0), see `NOTICE`.

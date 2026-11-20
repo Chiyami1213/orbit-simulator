@@ -86,7 +86,7 @@ function makeDock(cfg) {
       for (const id of ids) {
         const body = el('div', { class: 'tbody' }); bodies[id] = body;
         inner.append(el('div', { class: 'tile', 'data-dt': id }, body, el('button', { class: 'trash', title: 'close this panel (bring it back with the buttons above, or press f8 to reset the layout)', onclick: () => this.close(id) }, ico('trash')),
-          el('button', { class: 'grip', title: 'drag to move this panel: drop it on another panel (left, right, top, bottom, or the centre to swap) or on an edge of the area', onpointerdown: e => startDrag(id, e) }, '⠿')));
+          el('button', { class: 'grip', title: 'drag to move this panel: drop it on another panel (left, right, top, bottom, or the center to swap) or on an edge of the area', onpointerdown: e => startDrag(id, e) }, '⠿')));
       }
       if (ro) ro.disconnect(); ro = new ResizeObserver(() => layout()); ro.observe(host); setTimeout(layout, 0); return { el: host, bodies };
     },

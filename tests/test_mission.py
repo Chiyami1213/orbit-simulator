@@ -1,4 +1,4 @@
-"""Conventions, time systems, integrators, events, dynamics models, the mission model, GMAT script export / import and the licence files."""
+"""Conventions, time systems, integrators, events, dynamics models, the mission model, GMAT script export / import and the license files."""
 import json
 import os
 import pathlib
@@ -277,7 +277,7 @@ def test_failed_run_returns_a_clear_error():
     out = api.mission_run(dict(mission=m, opts={'skip3d': True}, theme='dark')); assert 'error' in out and 'SMA' in out['error']
 
 
-# ------------------------------------------------------------------------------------------------------- licences
+# ------------------------------------------------------------------------------------------------------- licenses
 def test_licence_files_and_about_data():
     assert 'Apache License' in (ROOT / 'LICENSES' / 'GMAT-Apache-2.0.txt').read_text(encoding='utf-8') and 'MIT' in (ROOT / 'LICENSES' / 'jplephem-MIT.txt').read_text(encoding='utf-8')
     notice = (ROOT / 'NOTICE').read_text(encoding='utf-8'); assert 'GMAT' in notice and 'Apache' in notice and 'MODIFIED' in notice

@@ -132,7 +132,7 @@ add('12', Preset('HW10 P3 — Earth → Mars, minimum energy, TA = 130°', dict(
 add('12', Preset('Lecture notes LLex 1 — general Lambert (type 1B), TOF = 15 h', dict(body='Earth', pos_kind='radii', r1=1.25 * RE, r2=4 * RE, TA=120.0, t_mode='tof', tof_h=15.0, root='small'),
     [X('a', lambda r: dd(r, 'sel')['a'], 32815.67), X('p (smaller root)', lambda r: dd(r, 'sel')['p'], 7258.09), X('|Δv_D|', lambda r: dd(r, 'sel')['dvD_mag'], 6.514, 5e-4)],
     note='Erratum (lecture notes LLex 1): the printed e = 0.8225 and ΔV_D,y = −3.24 should be 0.8825 and −0.324.'))
-add('12', Preset('Lecture notes LLex 2 — Mars-centred, TA = 240° (type 2B), larger p root', dict(body='Mars', pos_kind='radii', r1=9376.0, r2=23458.0, TA=240.0, t_mode='tof', tof_h=25.419, root='large'),
+add('12', Preset('Lecture notes LLex 2 — Mars-centered, TA = 240° (type 2B), larger p root', dict(body='Mars', pos_kind='radii', r1=9376.0, r2=23458.0, TA=240.0, t_mode='tof', tof_h=25.419, root='large'),
     [X('a', lambda r: dd(r, 'sel')['a'], 23298.0, 5e-4), X('p (larger root)', lambda r: dd(r, 'sel')['p'], 14944.6, 5e-4), X('total Δv', lambda r: dd(r, 'sel')['dv_total'], 1.4268, 5e-4)],
     note='Erratum (lecture notes LLex 2): TOF_min(Phobos → Deimos) is 8.210 h, not 5.705 h.'))
 add('12', Preset('Lecture notes LLex 2 — Earth → Mars heliocentric, TOF = 90 d (type 1H)', dict(body='Sun', pos_kind='radii', r1=1.496e8, r2=2.2795e8, TA=140.0, t_mode='tof', tof_h=90 * 24.0, root='large'),

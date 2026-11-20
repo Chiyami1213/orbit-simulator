@@ -52,11 +52,11 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 * **Space view planes:** the space view of a mission can draw the ecliptic and the equatorial plane of the body in focus (using the body's real pole direction).
 * **Maneuver planner:** place a burn anywhere on a trajectory, shape it with Prograde / Normal / Radial sliders, watch the predicted path in the 3D space view and the new orbit elements, then insert it into the command sequence.
 * **Texture quality:** the space views use the built-in 2K planet maps. Under *Settings → Figures and Animation* you can download sharper 8K maps (about 100 MB, only when you press the button); they are loaded just for the body that fills the view, so memory stays low. The frame rate is watched and the render resolution lowers itself a little on slow graphics cards.
-* **Cosmographia export:** with the optional `spiceypy` package installed, a trajectory can be written as an SPK kernel plus a catalogue for NAIF's Cosmographia.
+* **Cosmographia export:** with the optional `spiceypy` package installed, a trajectory can be written as an SPK kernel plus a catalog for NAIF's Cosmographia.
 * **Patched conics and imports:** a patched-conic model with sphere-of-influence hand-offs; reference trajectories (CSV, CCSDS OEM, SPK kernels) can be imported, drawn next to a mission and compared with it; porkchop plots for transfer windows.
 * **Conventions:** show results the default way or the GMAT way (`VFPA = 90° − γ`, anomalies in 0–360°, `Luna`, VNB burn elements); the numbers and presets never change.
 * **Ephemerides:** a built-in offline model, or the JPL **DE440s** kernel (about 32 MB, downloaded only when you press the button).
-* Light / dark / device appearance and five colour themes (including a black and dark-grey Obsidian theme), rebindable keys (`F12` maximizes a plot, `F8` resets the panel arrangement), movable and closable panels,
+* Light / dark / device appearance and five color themes (including a black and dark-grey Obsidian theme), rebindable keys (`F12` maximizes a plot, `F8` resets the panel arrangement), movable and closable panels,
   a File / Edit / View / Go / Help menu bar, backup & restore of your data, built-in issue reporting.
 
 ## Validation
@@ -150,19 +150,19 @@ and *Settings → Local Files* opens the folders. Uninstalling keeps this folder
 * 3-D labels use real sub/superscripts but not full LaTeX (WebGL text cannot typeset it).
 * On macOS the app is unsigned and not notarised (see the installation steps above).
 
-## Credits and licence
+## Credits and license
 
 * The Milky Way sky is NASA/Goddard SVS **Deep Star Maps 2020** (<https://svs.gsfc.nasa.gov/4851>; built from ESA Gaia, Hipparcos and Tycho-2 data), shown in galactic orientation. Credit is given in `NOTICE` and under *Settings → About*; the terms for redistributing the Gaia-derived data should be confirmed.
-* Planet texture maps (the built-in 2K maps in `assets/textures` and the optional 8K downloads) are from **Solar System Scope** (CC BY 4.0, <https://www.solarsystemscope.com/textures/>); attribution is required and the licence should be confirmed by the project owner before redistribution.
+* Planet texture maps (the built-in 2K maps in `assets/textures` and the optional 8K downloads) are from **Solar System Scope** (CC BY 4.0, <https://www.solarsystemscope.com/textures/>); attribution is required and the license should be confirmed by the project owner before redistribution.
 * **NASA GMAT** (General Mission Analysis Tool) is licensed under the **Apache License 2.0**. This program contains portions derived from GMAT: the Runge–Kutta coefficient tables of its
   RungeKutta89, PrinceDormand78 and PrinceDormand45 integrators, translated to Python and modified. Copyright (c) 2002–2026 United States Government as represented by the Administrator of
-  the National Aeronautics and Space Administration. The full licence text is in [`LICENSES/GMAT-Apache-2.0.txt`](LICENSES/GMAT-Apache-2.0.txt), the notice in [`NOTICE`](NOTICE), and both are shown in the
+  the National Aeronautics and Space Administration. The full license text is in [`LICENSES/GMAT-Apache-2.0.txt`](LICENSES/GMAT-Apache-2.0.txt), the notice in [`NOTICE`](NOTICE), and both are shown in the
   app under *Settings → About*. This program is not affiliated with or endorsed by NASA; "compatible with GMAT R2022a" describes the script syntax only, and no GMAT binaries are included.
 * The JPL **DE440s** ephemeris kernel comes from NASA/JPL NAIF (<https://naif.jpl.nasa.gov/naif/rules.html>); it is downloaded only on request. Kernel files are read with **jplephem** (MIT, Brandon Rhodes,
   [`LICENSES/jplephem-MIT.txt`](LICENSES/jplephem-MIT.txt)). The built-in ephemeris uses E. M. Standish's approximate Keplerian elements (JPL) and a truncated lunar theory after J. Meeus.
 * Equations follow Bate, Mueller & White, *Fundamentals of Astrodynamics*, and the course notes the homework was set from.
-* **OrbSim's own code is released under the MIT licence** (see [`LICENSE`](LICENSE), Copyright (c) 2026 Ethan Lee). Third-party code and assets keep their own licences, listed in [`NOTICE`](NOTICE) with the full texts in [`LICENSES/`](LICENSES/):
-  NASA GMAT-derived integrator tables (Apache-2.0), jplephem (MIT), three.js (MIT), KaTeX (MIT) and Lucide icons (ISC). The planet texture maps (Solar System Scope, CC BY 4.0) and the NASA Milky Way sky map are **not** covered by the MIT licence; they keep the terms stated above.
+* **OrbSim's own code is released under the MIT license** (see [`LICENSE`](LICENSE), Copyright (c) 2026 Ethan Lee). Third-party code and assets keep their own licenses, listed in [`NOTICE`](NOTICE) with the full texts in [`LICENSES/`](LICENSES/):
+  NASA GMAT-derived integrator tables (Apache-2.0), jplephem (MIT), three.js (MIT), KaTeX (MIT) and Lucide icons (ISC). The planet texture maps (Solar System Scope, CC BY 4.0) and the NASA Milky Way sky map are **not** covered by the MIT license; they keep the terms stated above.
 
 ## Gallery
 

@@ -1,4 +1,4 @@
-"""Figure themes. Categorical series colours are the documented validated palette (fixed order, never cycled);
+"""Figure themes. Categorical series colors are the documented validated palette (fixed order, never cycled);
 chrome/ink values follow the same reference. Every mark is direct-labelled, so the sub-3:1 light slots are covered
 by the relief rule."""
 from __future__ import annotations
@@ -13,7 +13,7 @@ THEMES = {
                  grid='#243452', axis='#34466b', series=SERIES_DARK, body='#2c57b8'),
 }
 
-# Semantic colour roles -> fixed categorical slot (so colour follows the entity, never its rank)
+# Semantic color roles -> fixed categorical slot (so color follows the entity, never its rank)
 ROLE_SLOT = {'orbit': 0, 'orbit2': 1, 'orbit3': 2, 'transfer': 2, 'target': 3, 'vel': 6, 'dv': 7, 'vector': 0,
              'accent': 6, 'warn': 7, 'extra': 4, 'good': 5}
 
@@ -24,10 +24,10 @@ def color(theme: str, role: str) -> str:
         return t['series'][ROLE_SLOT[role]]
     if role in t:
         return t[role]
-    return role  # already a hex colour
+    return role  # already a hex color
 
 
-# ---- UI colour themes (dark mode surfaces; the light figures keep their neutral paper colours) ----
+# ---- UI color themes (dark mode surfaces; the light figures keep their neutral paper colors) ----
 import copy as _copy
 _BASE = _copy.deepcopy(THEMES)
 PALETTES = {  # keys match the UI themes (dark = Graphite); the figure surfaces follow each theme's panel and edge tokens
@@ -39,5 +39,5 @@ PALETTES = {  # keys match the UI themes (dark = Graphite); the figure surfaces 
 
 
 def apply_palette(name: str) -> None:
-    """Re-skin the dark figure surfaces to match the chosen UI colour theme (series colours never change)."""
+    """Re-skin the dark figure surfaces to match the chosen UI color theme (series colors never change)."""
     THEMES['dark'] = {**_copy.deepcopy(_BASE['dark']), **PALETTES.get(name, {})}

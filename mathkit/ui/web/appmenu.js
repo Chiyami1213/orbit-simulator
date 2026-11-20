@@ -5,7 +5,7 @@ const WHATS_NEW = [
   'Sandbox: ready-made scenes, a placement preview (orbit, trajectory or drop), real lighting from the stars, body rotation from JPL data, object search, a date calendar, keyboard control (space, . , + - and Tab).',
   'Design: a one-row header, a faster Next Event, trails that stay attached to the spacecraft, and a panel layout shared with Solve.',
   'Solve: constants are always the JPL / GMAT table; the left menu opens when the mouse is over it; the 2D plot zooms and pans; you can rotate the 3D view while it plays.',
-  'Sharper 8K planet textures can be downloaded under settings; four colour themes plus the new Obsidian theme; light and dark appearance everywhere.'];
+  'Sharper 8K planet textures can be downloaded under settings; four color themes plus the new Obsidian theme; light and dark appearance everywhere.'];
 
 function infoModal(title, ...kids) {
   const done = () => { document.removeEventListener('keydown', esc, true); ov.remove(); };

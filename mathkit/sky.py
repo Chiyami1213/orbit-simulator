@@ -1,6 +1,6 @@
 """Orientation of the Milky Way / star sky maps (assets/textures/2k_stars*.jpg) in ICRF.
 
-The maps are equirectangular in **galactic** coordinates with the galactic centre in the middle of the image and longitude l increasing to the LEFT:
+The maps are equirectangular in **galactic** coordinates with the galactic center in the middle of the image and longitude l increasing to the LEFT:
     pixel x = (0.5 - l'/360) * W,   with l' = l wrapped to (-180, 180].
 Two latitude conventions occur, found by locating the eight brightest stars (Sirius, Arcturus, Canopus, Vega, Capella, Procyon, Betelgeuse, Rigel):
     * NASA SVS "Deep Star Maps 2020" (assets/textures/sky_milkyway_8k.jpg and _4k.jpg): b increases UPWARD,    pixel y (from the top) = (0.5 - b/180) * H.

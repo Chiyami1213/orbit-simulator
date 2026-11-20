@@ -68,9 +68,9 @@ def html_label(text: str, body: str = 'symbol') -> str:
 
 
 def stagger_labels(labels, thr):
-    """labels: [(pos(3), text, colour)]. Anchors closer than ``thr`` form a cluster; each member of a cluster gets a different Plotly
+    """labels: [(pos(3), text, color)]. Anchors closer than ``thr`` form a cluster; each member of a cluster gets a different Plotly
     ``textposition`` (top, bottom, right, left, diagonals), so labels on (almost) coincident points never print on top of each other
-    whatever the camera angle. Returns [(pos, text, colour, textposition)]."""
+    whatever the camera angle. Returns [(pos, text, color, textposition)]."""
     clusters = []
     for pos, text, c in labels:
         pos = np.asarray(pos, float)

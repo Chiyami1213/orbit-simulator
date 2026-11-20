@@ -44,12 +44,12 @@ def side(w, h):
     s = int(W * 0.46); logo(d, (W - s) // 2, int(H * 0.09), s)
     d.text((W / 2, H * 0.36), 'Orbit', font=font(int(W * 0.17), True), fill=(255, 255, 255), anchor='mm')
     d.text((W / 2, H * 0.36 + W * 0.17), 'Simulator', font=font(int(W * 0.17), True), fill=(255, 255, 255), anchor='mm')
-    d.text((W / 2, H * 0.36 + W * 0.36), 'orbit mechanics, visualised', font=font(int(W * 0.075)), fill=(190, 212, 255), anchor='mm')
+    d.text((W / 2, H * 0.36 + W * 0.36), 'orbit mechanics, visualized', font=font(int(W * 0.075)), fill=(190, 212, 255), anchor='mm')
     return im.convert('RGB').resize((w, h), Image.LANCZOS)
 
 
 def small(w, h):
-    # the wizard draws this image flush against the top-right corner of the header, so the logo is smaller and sits left of centre: that leaves even white space on every side
+    # the wizard draws this image flush against the top-right corner of the header, so the logo is smaller and sits left of center: that leaves even white space on every side
     W, H = w * SS, h * SS; im = Image.new('RGB', (W, H), (255, 255, 255)); d = ImageDraw.Draw(im); s = int(min(W, H) * 0.66)
     logo(d, int((W - s) * 0.40), (H - s) // 2, s); return im.resize((w, h), Image.LANCZOS)
 

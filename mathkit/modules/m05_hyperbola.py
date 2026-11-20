@@ -1,4 +1,4 @@
-"""Module 5 - hyperbolic flyby geometry (HW4 P3, HW5 P2, HW6 P1; also the planet-centred inset of Modules 10-11).
+"""Module 5 - hyperbolic flyby geometry (HW4 P3, HW5 P2, HW6 P1; also the planet-centered inset of Modules 10-11).
 
 Give any two of r_p, |a|, e, v_inf. Aim point: theta*_aim = -(theta*_inf - 90 deg) on approach; d_aim = sqrt((r_p + |a|)^2 - b^2) = |a|.
 """

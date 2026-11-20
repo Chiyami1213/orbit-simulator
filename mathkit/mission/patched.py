@@ -2,7 +2,7 @@
 
 Hierarchy: the Sun attracts everything outside the planets' spheres; each planet's sphere has r_SOI = a (m/M)^(2/5) about the Sun, and the
 Moon's has the same form about the Earth. The crossing epochs are found with a bracketed Illinois root finder on the analytic arc; at a hand-off
-the state is re-centred with the ephemeris, so the trajectory is continuous in the propagator's central-body frame (to rounding).
+the state is re-centered with the ephemeris, so the trajectory is continuous in the propagator's central-body frame (to rounding).
 Everything is returned relative to ``frame_body`` (the propagator's central body) in ICRF axes.
 """
 from __future__ import annotations

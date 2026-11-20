@@ -356,7 +356,7 @@ def textures_delete(p: dict) -> dict:
 
 
 def licenses(p: dict) -> dict:
-    """Third-party notices shown in Settings > About (the NOTICE file and the licence texts shipped with the program)."""
+    """Third-party notices shown in Settings > About (the NOTICE file and the license texts shipped with the program)."""
     import sys
     base = pathlib.Path(getattr(sys, '_MEIPASS', pathlib.Path(__file__).resolve().parents[2])) if getattr(sys, 'frozen', False) else pathlib.Path(__file__).resolve().parents[2]
     out = []
@@ -459,7 +459,7 @@ def mission_node_insert(p: dict) -> dict:
 
 
 def mission_cosmographia(p: dict) -> dict:
-    """Write an SPK kernel and a Cosmographia catalogue for one spacecraft into the exports folder (needs the optional spiceypy)."""
+    """Write an SPK kernel and a Cosmographia catalog for one spacecraft into the exports folder (needs the optional spiceypy)."""
     from ..mission.model import Mission
     from ..mission.run import run
     from ..mission import cosmographia as CG

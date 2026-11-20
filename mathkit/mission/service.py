@@ -271,7 +271,7 @@ def trajectory_oem(res: RunResult, sat: str) -> str:
 
 
 def _ref_diffs(res: RunResult, refs: list, eph, m: Mission) -> list:
-    """Position difference between each imported trajectory and the first spacecraft, at the reference epochs (both about the reference's own centre)."""
+    """Position difference between each imported trajectory and the first spacecraft, at the reference epochs (both about the reference's own center)."""
     from .trajectory_io import compare_with
     out = []
     if not res.samples or not refs: return out
@@ -299,7 +299,7 @@ def _thin(n: int, cap: int) -> np.ndarray:
 
 
 def space_payload(m: Mission, res: RunResult, eph, refs: list | None = None, cap: int = 1500) -> dict:
-    """Everything the three.js space view needs: tracks and bodies about the display centre (km, ICRF axes), times as UTC Julian dates."""
+    """Everything the three.js space view needs: tracks and bodies about the display center (km, ICRF axes), times as UTC Julian dates."""
     from ..view3d.models import TEXTURES
     from .patched import soi as soi_of, PARENT
     consts = ConstantSet(m.constants); center = next((p.central for p in m.propagators), 'Earth')
@@ -309,7 +309,7 @@ def space_payload(m: Mission, res: RunResult, eph, refs: list | None = None, cap
         k = _thin(len(jd), cap); col = next((s.color for s in m.spacecraft if s.name == name), PALETTE[i % len(PALETTE)])
         sm_ = res.samples[name]; tracks.append(dict(name=name, color=col, jd=jd[k].tolist(), r=R[k].tolist(), idx=k.tolist(), cmd=[sm_['cmd'][i] for i in k], tc=[round(sm_['tc'][i], 3) for i in k])); jd0 = min(jd0, jd[0]); jd1 = max(jd1, jd[-1]); ext = max(ext, float(np.max(np.abs(R))))
     if not tracks: return dict(markers=[], tracks=[], bodies=[], jd0=0, jd1=1, center=center, extent=1, events=[], lagrange=[], refs=[])
-    names = []                                                                                      # bodies worth drawing: the centre, whatever the propagators or views mention, and the Sun
+    names = []                                                                                      # bodies worth drawing: the center, whatever the propagators or views mention, and the Sun
     for p in m.propagators:
         names += [p.central] + list(p.gravity) + ([p.cr3bp_primary, p.cr3bp_secondary] if p.dynamics == 'cr3bp' else [])
     for v in m.views: names += [o for o in (c if c != 'Luna' else 'Moon' for c in v.objects) if o in BODIES]
@@ -341,7 +341,7 @@ def space_payload(m: Mission, res: RunResult, eph, refs: list | None = None, cap
 
 
 def _lagrange_paths(p: Propagator, consts: ConstantSet, eph, jd0: float, jd1: float, center: str) -> list:
-    """L1-L5 of the circular restricted problem as moving points in the display frame (centred on the primary when the display centre is the primary)."""
+    """L1-L5 of the circular restricted problem as moving points in the display frame (centered on the primary when the display center is the primary)."""
     from ..dyn.models import CR3BP
     mu1, mu2 = consts.mu(p.cr3bp_primary), consts.mu(p.cr3bp_secondary)
     rs, vs = eph.state(p.cr3bp_secondary, TU.utc_to_tdb(jd0), p.cr3bp_primary); L = float(np.linalg.norm(rs)); sys_ = CR3BP.from_bodies(mu1, mu2, L); T = sys_.T

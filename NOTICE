@@ -12,7 +12,7 @@ Portions of this software are derived from NASA GMAT (General Mission Analysis T
 
 The sample script tests/data/Tut_SimulatingAnOrbit.script is copied unmodified from NASA GMAT (Apache License 2.0) and is used only to check the script importer.
 
-jplephem (MIT licence, Brandon Rhodes) reads JPL SPK ephemeris kernels.   Full text: LICENSES/jplephem-MIT.txt
+jplephem (MIT license, Brandon Rhodes) reads JPL SPK ephemeris kernels.   Full text: LICENSES/jplephem-MIT.txt
 
 JPL planetary and lunar ephemerides (DE440s) are produced by NASA/JPL and distributed by NAIF (https://naif.jpl.nasa.gov/). The kernel is not bundled;
 it is downloaded only when you press the download button in Settings. NAIF rules for the use of SPICE data and software:
@@ -23,14 +23,14 @@ lunar theory after J. Meeus, Astronomical Algorithms (truncated).
 
 Milky Way sky map (assets/textures/sky_milkyway_8k.jpg and sky_milkyway_4k.jpg): NASA/Goddard Space Flight Center Scientific Visualization Studio,
 "Deep Star Maps 2020" (https://svs.gsfc.nasa.gov/4851), starmap_2020_8k_gal.exr tone-mapped to JPEG (asinh stretch) and, for the 4k file, resampled. The map is built from ESA Gaia,
-Hipparcos and Tycho-2 star catalogues. NASA-produced material is generally free to use with credit; the terms of the underlying Gaia data still have to be confirmed for redistribution.
+Hipparcos and Tycho-2 star catalogs. NASA-produced material is generally free to use with credit; the terms of the underlying Gaia data still have to be confirmed for redistribution.
 
 Planet textures: Solar System Scope (2k maps built in, 8k maps downloaded on request), CC BY 4.0, https://www.solarsystemscope.com/textures/
 
-Icons: Lucide (ISC licence, https://lucide.dev, partly derived from Feather, MIT); full text in LICENSES/lucide-ISC.txt. They are embedded in mathkit/ui/web/icons.js.
+Icons: Lucide (ISC license, https://lucide.dev, partly derived from Feather, MIT); full text in LICENSES/lucide-ISC.txt. They are embedded in mathkit/ui/web/icons.js.
 
 three.js r160 (MIT, mathkit/ui/web/vendor/, full text LICENSES/three-MIT.txt) draws the Sandbox and Design space views.
 
-Plotly (MIT), pywebview (BSD-3-Clause), NumPy (BSD-3-Clause) and Matplotlib (PSF-based licence) are used under their own licences.
+Plotly (MIT), pywebview (BSD-3-Clause), NumPy (BSD-3-Clause) and Matplotlib (PSF-based license) are used under their own licenses.
 
 Body rotation (pole and prime-meridian constants): NASA/JPL NAIF SPICE kernel pck00011.tpc (IAU 2009 WGCCRE report, Archinal et al. 2011), https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc
