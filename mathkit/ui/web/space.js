@@ -63,21 +63,6 @@ export function buildShape(shape, color, models, loader) {
 }
 const isStar = d => d.kind === 'star' || d.shape === 'star' || d.name === 'Sun';
 const ATMO = { 'Earth': ['#6bb3ff', 1.0], 'Venus': ['#ffd9a0', 0.9], 'Mars': ['#e0a27c', 0.35], 'Jupiter': ['#d8c0a0', 0.45], 'Saturn': ['#e8d8a8', 0.45], 'Uranus': ['#a8e8f0', 0.6], 'Neptune': ['#6a8cff', 0.6], 'Earth-like Planet': ['#7fd8ff', 0.9], 'Gas Giant': ['#d8c0a0', 0.45] };
-let DUST_TEX = null;
-function dustTexture() {                                    // a stylized dust haze: patchy storms (more of them in the southern and middle latitudes), made once from seeded noise; not measured storm data
-  if (DUST_TEX) return DUST_TEX;
-  const W = 512, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'), im = g.createImageData(W, H);
-  const hash = (x, y, o) => { let h = (x * 374761393 + y * 668265263 + o * 2246822519) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-  const sm = t => t * t * (3 - 2 * t);
-  const vnoise = (u, v, cells, o) => { const x = u * cells, y = v * (cells / 2), x0 = Math.floor(x), y0 = Math.floor(y), fx = sm(x - x0), fy = sm(y - y0), w = (i) => ((i % cells) + cells) % cells;
-    const a = hash(w(x0), y0, o), b = hash(w(x0 + 1), y0, o), c2 = hash(w(x0), y0 + 1, o), d = hash(w(x0 + 1), y0 + 1, o); return a + (b - a) * fx + (c2 - a) * fy + (a - b - c2 + d) * fx * fy; };
-  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
-    const u = i / W, v = j / H; let f = 0, amp = 0.5, cells = 4; for (let o = 0; o < 5; o++) { f += amp * vnoise(u, v, cells, o); amp *= 0.5; cells *= 2; }
-    const lat = (v - 0.5) * 2, belt = Math.exp(-Math.pow((lat + 0.25) / 0.75, 2));            // storms favor the south and the middle latitudes
-    const a = Math.max(0, Math.min(1, (f * belt - 0.36) / 0.14)), k = (j * W + i) * 4; const q = Math.round(a * 255); im.data[k] = q; im.data[k + 1] = q; im.data[k + 2] = q; im.data[k + 3] = 255;
-  }
-  g.putImageData(im, 0, 0); DUST_TEX = new THREE.CanvasTexture(c); DUST_TEX.wrapS = THREE.RepeatWrapping; return DUST_TEX;
-}
 function atmoMat(hex, k) {                                                           // a thin glow around the limb, brighter on the lit side; one extra sphere, very cheap
   return new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uColor: { value: new THREE.Color(hex) }, uSun: { value: new THREE.Vector3(1, 0, 0) }, uLit: { value: 1 }, uK: { value: k } },
     vertexShader: '#include <common>\n#include <logdepthbuf_pars_vertex>\nvarying vec3 vN; varying vec3 vP; void main(){ vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vP = mv.xyz; gl_Position = projectionMatrix * mv;\n#include <logdepthbuf_vertex>\n}',
@@ -107,7 +92,7 @@ export function createSpace(host, data, opts = {}) {
   const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.zoomSpeed = 1.2;
   const world = new THREE.Group(); scene.add(world);
   controls.addEventListener('start', () => { flyTo = null; });                        // the moment you drag or scroll, the fly-to stops and the mouse is in charge again (zoom in and out freely)
-  const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 1.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1, light: 'even', atmo: true, clouds: true, dust: false, spin: true, equ: false };
+  const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 1.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1, light: 'even', atmo: true, clouds: true, spin: true, equ: false };
   const loader = new THREE.TextureLoader(), t0 = data.jd0, t1 = data.jd1, span = Math.max(1e-9, t1 - t0);
   let jd = t0, raf = 0, last = 0, flyTo = null; let disposed = false;
   let ghostGrp = null, ghostMk = null;                                                  // the placement preview of the sandbox (marker, orbit ring, aim arrow)
@@ -185,7 +170,6 @@ export function createSpace(host, data, opts = {}) {
     const shells = [];
     if (shape === 'sphere') {
       if (b.clouds) { const opq = b.cloud_kind === 'opaque', cm = new THREE.MeshStandardMaterial(opq ? { color: '#ffffff', roughness: 1, metalness: 0 } : { color: '#ffffff', transparent: true, depthWrite: false, roughness: 1, metalness: 0 }); loadSlot(slots, cm, opq ? 'map' : 'alphaMap', b.clouds, null, opq); const cl = new THREE.Mesh(new THREE.SphereGeometry(1.012, 48, 32), cm); cl.visible = state.clouds !== false; mesh.userData.cloud = cl; mesh.add(cl); }
-      if (b.dust) { const dm = new THREE.MeshStandardMaterial({ color: '#c98a55', transparent: true, opacity: 0.72, depthWrite: false, roughness: 1, metalness: 0 }); dm.alphaMap = dustTexture(); const ds = new THREE.Mesh(new THREE.SphereGeometry(1.01, 48, 32), dm); ds.visible = !!state.dust; mesh.userData.dust = ds; mesh.add(ds); }
       const am = ATMO[b.name]; if (am) { const sh = new THREE.Mesh(new THREE.SphereGeometry(1.045, 48, 32), atmoMat(am[0], am[1])); mesh.add(sh); shells.push(sh); }
       if (isStar(b)) mesh.add(glowSprite('#ffd27a', 4.5));
     }
@@ -396,7 +380,7 @@ export function createSpace(host, data, opts = {}) {
     orbitPoints(name) { const o = bodies[name]; if (!o || !o.orb) return null; const a = o.orb.geometry.attributes.position, c = o.orb.position, out = []; for (let k = 0; k < a.count; k++) out.push([a.getX(k) + c.x, a.getY(k) + c.y, a.getZ(k) + c.z]); return out; },
     perf() { return { pixelRatio: pr, baseRatio: prBase, fps: Math.round(1000 / emaMs), bodies: Object.keys(bodies).length, width: renderer.domElement.width, height: renderer.domElement.height }; },
     zoomBy(f) { flyTo = null; const t = controls.target, v = camera.position.clone().sub(t), d = v.length(); if (d <= 0) return; camera.position.copy(t).addScaledVector(v.normalize(), Math.max(controls.minDistance || d * 1e-6, d * f)); controls.update(); },
-    setSky(k) { setSky(k); refreshTheme(); }, setTheme(t) { lightUI = t === 'light'; refreshTheme(); }, set(k, v) { state[k] = v; if (k === 'dust') for (const n in bodies) { const c = bodies[n].mesh.userData.dust; if (c) c.visible = !!v; } if (k === 'clouds') for (const n in bodies) { const c = bodies[n].mesh.userData.cloud; if (c) c.visible = !!v; } }, nextEvent() { const ts = (data.events || []).map(e => e.jd).filter(t => t > jd + 1e-9).sort((a, b) => a - b); if (ts.length) { jd = ts[0]; host.dispatchEvent(new CustomEvent('space-time')); return true; } return false; },
+    setSky(k) { setSky(k); refreshTheme(); }, setTheme(t) { lightUI = t === 'light'; refreshTheme(); }, set(k, v) { state[k] = v; if (k === 'clouds') for (const n in bodies) { const c = bodies[n].mesh.userData.cloud; if (c) c.visible = !!v; } }, nextEvent() { const ts = (data.events || []).map(e => e.jd).filter(t => t > jd + 1e-9).sort((a, b) => a - b); if (ts.length) { jd = ts[0]; host.dispatchEvent(new CustomEvent('space-time')); return true; } return false; },
     png() { return renderer.domElement.toDataURL('image/png'); },
     record(on, done) {
       if (on) { const stream = renderer.domElement.captureStream(30); const chunks = []; const rec = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm', videoBitsPerSecond: 8e6 });
