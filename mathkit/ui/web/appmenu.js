@@ -64,7 +64,8 @@ function appMenu(pin) {
       item('feedback', 'Send Feedback', () => goto('settings', 'Help')),
       item('debug', 'Debug Tools', () => appDebug(mode)),
       item('perf', 'Performance Test', () => appPerf()),
-      item('whatif', 'Help', () => goto('settings', 'Help'))),
+      item('whatif', 'Help', () => goto('settings', 'Help')),
+      item('exit', 'Quit', () => askQuit())),
     el('div', { class: 'mfoot' }, 'OrbSim ' + (META.version || '') + ' · ephemeris: ' + ((MIS.meta && MIS.meta.ephemeris && MIS.meta.ephemeris.name) || 'built in or DE440s, see settings')));
   document.body.append(...(pin ? [el('div', { id: 'xmenuov', class: 'xmenuov', onclick: appMenuClose })] : []), drawer); requestAnimationFrame(() => drawer.classList.add('open'));
 }

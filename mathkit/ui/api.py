@@ -550,7 +550,7 @@ def solar_view(p: dict) -> dict:
     from ..mission import service as MS
     try:
         jd0 = float(p['jd0']) if p.get('jd0') is not None else round(time.time()) / 86400.0 + 2440587.5
-        with LOCK: return dict(ok=True, space=MS.solar_payload(_eph(), jd0, float(p.get('days', 365.0)), str(p.get('center', 'Sun'))))
+        with LOCK: return dict(ok=True, space=MS.solar_payload(_eph(), jd0, float(p.get('days', 365.0)), str(p.get('center', 'Sun')), tracks=p.get('tracks'), track_center=p.get('track_center'), events=p.get('events')))
     except Exception as ex: return dict(ok=False, error=str(ex))
 
 

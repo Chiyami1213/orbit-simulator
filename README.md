@@ -60,7 +60,7 @@ Twelve modules (Bate–Mueller–White conventions; all equations and sign conve
 
 ## Validation
 
-The automated tests are run with `python -m pytest`: the last full run gave **612 passed, 2 skipped**.
+The automated tests are run with `python -m pytest`: the last full run gave **614 passed, 2 skipped**.
 
 * `tests/test_hw.py` holds **173 regression checks** of the physics core (`mathkit/core/`); the file itself asserts that count, and pytest reports 174 tests there (the 173 checks plus that count guard).
 * The *Test Cases* page in the app runs every homework / exam / lecture preset through the same code path as the module pages and compares the result with the printed answer: **152 comparisons**, all passing (`tests/test_ui_api.py` asserts the total).

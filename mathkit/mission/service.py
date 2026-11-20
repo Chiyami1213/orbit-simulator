@@ -343,9 +343,9 @@ def space_payload(m: Mission, res: RunResult, eph, refs: list | None = None, cap
 PERIOD_DAYS = {'Mercury': 87.97, 'Venus': 224.70, 'Earth': 365.256, 'Mars': 686.98, 'Jupiter': 4332.59, 'Saturn': 10759.2, 'Uranus': 30688.5, 'Neptune': 60182.0, 'Pluto': 90560.0}
 
 
-def solar_payload(eph, jd0: float, days: float, center: str = 'Sun', ring_points: int = 361) -> dict:
+def solar_payload(eph, jd0: float, days: float, center: str = 'Sun', ring_points: int = 361, tracks: list | None = None, track_center: str | None = None, events: list | None = None) -> dict:
     """The real Solar System for the space view, with no mission: every body of the ephemeris (positions from DE440s or the built-in model, true radii) about ``center`` over
-    [jd0, jd0 + days] (UTC Julian dates). When the center is the Sun each planet also gets a full-orbit ring, so the outer planets show their whole orbit, not just the arc of the time window."""
+    [jd0, jd0 + days] (UTC Julian dates). A mission's tracks (positions about ``track_center``) can be laid over it: each sample is shifted by the position of that body about ``center`` at the sample time. When the center is the Sun each planet also gets a full-orbit ring, so the outer planets show their whole orbit, not just the arc of the time window."""
     from ..view3d.models import TEXTURES, spacecraft_mesh
     consts = ConstantSet('Course table'); days = float(max(1.0, min(days, 73050.0)))
     avail = [b for b in getattr(eph, 'bodies', ()) if b in BODIES]
@@ -362,9 +362,18 @@ def solar_payload(eph, jd0: float, days: float, center: str = 'Sun', ring_points
                     pj = np.linspace(jd0, jd0 + PERIOD_DAYS[nm], ring_points); b['ring'] = [eph.state(nm, TU.utc_to_tdb(j), 'Sun')[0].tolist() for j in pj]
                 except Exception: pass
         bodies.append(b)
+    def shift(jd_list, R):                                  # mission-center-relative positions -> positions about the view center
+        if not track_center or track_center == center or track_center not in avail: return np.asarray(R, float)
+        off = np.array([eph.state(track_center, TU.utc_to_tdb(j), center)[0] for j in jd_list]); return np.asarray(R, float) + off
+    out_tracks = []
+    for t in tracks or []:
+        R = shift(t['jd'], t['r']); out_tracks.append({**t, 'r': R.tolist()}); ext = max(ext, float(np.max(np.linalg.norm(R, axis=1))))
+    out_events = []
+    for e in events or []:
+        out_events.append({**e, 'r': shift([e['jd']], [e['r']])[0].tolist()})
     from .. import sky as SK
     markers = [dict(name='Galactic Center', ra=SK.GALACTIC_CENTER[0], dec=SK.GALACTIC_CENTER[1]), dict(name='North Galactic Pole', ra=SK.NORTH_GALACTIC_POLE[0], dec=SK.NORTH_GALACTIC_POLE[1])]
-    return dict(models={k: spacecraft_mesh(k) for k in ('comsat', 'probe')}, markers=markers, center=center, jd0=float(jds[0]), jd1=float(jds[-1]), tracks=[], bodies=bodies, events=[], lagrange=[], extent=ext, refs=[])
+    return dict(models={k: spacecraft_mesh(k) for k in ('comsat', 'probe')}, markers=markers, center=center, jd0=float(jds[0]), jd1=float(jds[-1]), tracks=out_tracks, bodies=bodies, events=out_events, lagrange=[], extent=ext, refs=[])
 
 
 def _lagrange_paths(p: Propagator, consts: ConstantSet, eph, jd0: float, jd1: float, center: str) -> list:

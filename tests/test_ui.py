@@ -181,3 +181,22 @@ def test_cancel_session_designs_and_latex_symbols(tmp_path, monkeypatch):
     assert 'katex.renderToString' in js and '/vendor/katex/katex.min.js' in (web / 'index.html').read_text(encoding='utf-8')
     assert "'\\\\mathrm{'" in js                                                        # a LaTeX backslash must survive as two characters in the JS source
 
+
+
+def test_mission_tracks_are_laid_over_the_solar_system_about_the_view_center():
+    m = api.ROUTES['mission_starter']({'name': 'LEO to GEO Hohmann transfer'})['mission']
+    sp = api.ROUTES['mission_run']({'mission': m, 'theme': 'dark', 'opts': {'skip3d': True}})['space']; assert sp['center'] == 'Earth' and sp['tracks']
+    span = sp['jd1'] - sp['jd0'] + 1
+    sun = api.ROUTES['solar_view']({'jd0': sp['jd0'], 'days': span, 'center': 'Sun', 'tracks': sp['tracks'], 'track_center': 'Earth', 'events': sp['events']})['space']
+    r_sun = np.array(sun['tracks'][0]['r']); r_earth = np.array(sp['tracks'][0]['r'])
+    assert np.linalg.norm(r_sun[0]) == pytest.approx(149597870.7, rel=0.03)                                  # the spacecraft sits at about 1 AU from the Sun, where the Earth is
+    assert np.linalg.norm(r_sun[0] - r_earth[0]) == pytest.approx(np.linalg.norm(r_sun[0]), rel=0.03)         # shifted by the Earth's position, not left about the Earth
+    same = api.ROUTES['solar_view']({'jd0': sp['jd0'], 'days': span, 'center': 'Earth', 'tracks': sp['tracks'], 'track_center': 'Earth'})['space']
+    assert np.allclose(same['tracks'][0]['r'], sp['tracks'][0]['r'])                                         # already about the view center: unchanged
+    assert 'Show Last Mission Run' in (ROOT / 'mathkit' / 'ui' / 'web' / 'mission.js').read_text(encoding='utf-8')
+
+
+def test_design_header_stays_on_one_row_space_view_has_full_window_and_menu_has_quit():
+    web = ROOT / 'mathkit' / 'ui' / 'web'; css = (web / 'style.css').read_text(encoding='utf-8'); mis = (web / 'mission.js').read_text(encoding='utf-8'); am = (web / 'appmenu.js').read_text(encoding='utf-8')
+    assert '.mrow1{flex-wrap:nowrap}' in css and '.spacecard.full{position:fixed;inset:0' in css                # no second header row holding the Run button; the full-window card covers the page
+    assert 'Leave Full Window' in mis and "e.key === 'Tab'" in mis and "item('exit', 'Quit'" in am

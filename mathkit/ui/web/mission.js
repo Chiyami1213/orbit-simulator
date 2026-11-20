@@ -283,22 +283,28 @@ async function renderMission() {
 
 
 /* ---- the real Solar System, no mission needed: every ephemeris body at its true size about the Sun (or another body), with a date, a span and the same time warp, focus and picture tools as the mission view ---- */
-const SOL = { date: null, days: 365, center: 'Sun', res: null, busy: false };
+const SOL = { date: null, days: 365, center: 'Sun', res: null, busy: false, mission: true };
 const SOL_SPANS = [[30, '1 Month'], [365, '1 Year'], [1826, '5 Years'], [9131, '25 Years'], [36525, '100 Years']];
 function solarTab() {
   if (!SOL.date) SOL.date = new Date().toISOString().slice(0, 10);
   const host = el('div', { class: 'solhost' });
   const load = async () => {
     if (SOL.busy) return; SOL.busy = true; host.replaceChildren(el('div', { class: 'dim' }, 'computing the positions of the planets…'));
-    const jd0 = Date.parse(SOL.date + 'T00:00:00Z') / 86400000 + 2440587.5, r = await busy('building the solar system', () => api('solar_view', { jd0, days: SOL.days, center: SOL.center })); SOL.busy = false;
+    const ms = SOL.mission && MIS.res && MIS.res.space && MIS.res.space.tracks && MIS.res.space.tracks.length ? MIS.res.space : null;     // the last mission run, laid over the Solar System
+    let jd0 = Date.parse(SOL.date + 'T00:00:00Z') / 86400000 + 2440587.5, days = SOL.days;
+    if (ms) { jd0 = ms.jd0 - 0.02 * Math.max(1, ms.jd1 - ms.jd0); days = Math.max(1, (ms.jd1 - ms.jd0) * 1.04); }                       // the window follows the mission
+    const r = await busy('building the solar system', () => api('solar_view', { jd0, days, center: SOL.center, ...(ms ? { tracks: ms.tracks, track_center: ms.center, events: ms.events } : {}) })); SOL.busy = false;
     if (!r.ok) { host.replaceChildren(el('div', { class: 'chk err' }, r.error)); return; }
     SOL.res = { space: r.space, solar: true }; host.replaceChildren(spaceCard(SOL.res));
   };
   const date = el('input', { type: 'date', value: SOL.date, onchange: e => { if (e.target.value) { SOL.date = e.target.value; load(); } } });
   const span = el('select', { onchange: e => { SOL.days = +e.target.value; load(); } }, ...SOL_SPANS.map(([d, l]) => el('option', { value: d, selected: d === SOL.days }, l)));
   const cen = el('select', { onchange: e => { SOL.center = e.target.value; load(); } }, ...['Sun', 'Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'].map(n => el('option', { value: n, selected: n === SOL.center }, n)));
-  const bar = el('div', { class: 'srow', style: 'margin-bottom:12px' }, el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Start Date (UTC)'), date), el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Time Span'), span), el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'View Centered On'), cen),
-    el('span', { class: 'dim', style: 'align-self:center' }, 'real positions from the ephemeris at true size (use Body Size to enlarge); a Sun-centered view draws each planet’s full orbit'));
+  const hasMis = !!(MIS.res && MIS.res.space && MIS.res.space.tracks && MIS.res.space.tracks.length);
+  const mis = hasMis ? el('label', { class: 'mcheck', title: 'draw the trajectories of the last mission run over the Solar System; the time window then follows the mission' }, el('input', { type: 'checkbox', checked: SOL.mission, onchange: e => { SOL.mission = e.target.checked; date.disabled = span.disabled = SOL.mission; load(); } }), 'Show Last Mission Run') : '';
+  const bar = el('div', { class: 'srow', style: 'margin-bottom:12px' }, mis, el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Start Date (UTC)'), date), el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Time Span'), span), el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'View Centered On'), cen),
+    el('span', { class: 'dim', style: 'align-self:center' }, 'real positions from the ephemeris at true size (use Body Size to enlarge); a Sun-centered view draws each planet’s full orbit; run a mission to see its trajectory here'));
+  if (hasMis && SOL.mission) date.disabled = span.disabled = true;
   setTimeout(load, 0);
   return el('div', { class: 'sheet' }, bar, host);
 }
@@ -307,6 +313,19 @@ function solarTab() {
 function spaceCard(r) {
   const sp = r.space; if (!sp || sp.error || !sp.tracks || (!sp.tracks.length && !(r.solar && sp.bodies && sp.bodies.length))) return el('div', { class: 'dim' }, sp && sp.error ? 'the space view could not be built: ' + sp.error : '');
   const host = el('div', { class: 'spaceview' }), bar = el('div', { class: 'spacebar' }), card = el('div', { class: 'cardx spacecard' }, el('h3', {}, el('b', {}, 'Space View'), el('span', { class: 'hint' }, ' · drag to orbit, scroll to zoom, right-drag to pan; time warp up to 10⁷×')), bar, host);
+  /* full window: the card moves to the page body and fills the whole window (Tab hides or shows the controls, Esc or the button leaves) */
+  let home = null, onKey = null;
+  const goFull = on => {
+    if (on === card.classList.contains('full')) return;
+    if (on) {
+      home = { p: card.parentNode, n: card.nextSibling }; document.body.append(card); card.classList.add('full'); fullBtn.textContent = '⤡ Leave Full Window';
+      onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); goFull(false); } else if (e.key === 'Tab') { e.stopPropagation(); e.preventDefault(); card.classList.toggle('nobar'); } }; document.addEventListener('keydown', onKey, true);
+    } else {
+      card.classList.remove('full', 'nobar'); fullBtn.textContent = '⤢ Full Window'; document.removeEventListener('keydown', onKey, true); if (home && home.p && home.p.isConnected) home.p.insertBefore(card, home.n && home.n.parentNode === home.p ? home.n : null);
+    }
+  };
+  const fullBtn = el('button', { class: 'btn small fullbtn', title: 'fill the whole window with the space view (Tab hides or shows the controls, Esc leaves)', onclick: () => goFull(!card.classList.contains('full')) }, '⤢ Full Window');
+  card.querySelector('h3').append(fullBtn);
   setTimeout(async () => {
     if (MIS.space) { try { MIS.space.dispose(); } catch (e) { } MIS.space = null; }
     let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(host, sp, { sky: SET.sky || 'milkyway', model: SET.model, hires: texHires(), theme: effTheme() }); } catch (e) { host.replaceChildren(el('div', { class: 'empty' }, 'the space view needs WebGL: ' + e)); return; }

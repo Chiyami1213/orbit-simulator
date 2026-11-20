@@ -598,3 +598,12 @@ body.busy,body.busy *{cursor:progress!important}
 .trash:hover{color:var(--red)}
 /* sliders inside labeled form cells (.mf) must not pick up the text-input box: no padding or border, so the fill ends exactly under the handle */
 .mf input[type=range]{flex:none;padding:0;border:0;border-radius:99px;height:4px;margin:8px 0 6px;background:linear-gradient(90deg,var(--orange) 0,var(--orange) calc(8px + (100% - 16px) * var(--f,.5)),var(--track) calc(8px + (100% - 16px) * var(--f,.5)),var(--track) 100%)}
+
+/* ----- Design header: keep the tabs and the Run Mission button on one row (the tabs shrink, then wrap among themselves) ----- */
+.mrow1{flex-wrap:nowrap}.mrow1>.tabs{flex:1 1 0}.mrow1>.msolve,.mrow1>.meph{flex:none}
+@media (max-width:1800px){.mrow1>.tabs .tab{padding:0 8px;font-size:14px}.mrow1>.mname,.mrow1>.preset{width:150px}.mrow1{gap:8px}}
+@media (max-width:1500px){.mrow1>.tabs .tab{padding:0 6px;font-size:13.5px}.mrow1>.mname,.mrow1>.preset{width:120px}}
+/* ----- space view, full window ----- */
+.spacecard>h3{display:flex;align-items:center;gap:8px}.spacecard .fullbtn{margin-left:auto;flex:none}
+.spacecard.full{position:fixed;inset:0;z-index:80;margin:0;border-radius:0;border:0;background:var(--bg);padding:12px 16px;overflow:auto;height:auto!important}
+.spacecard.full .spaceview{flex:1;height:auto;min-height:240px}.spacecard.full.nobar .spacebar{display:none}
