@@ -60,7 +60,7 @@ function appMenu(pin) {
     el('div', { class: 'mhead' }, el('span', { class: 'mlogo' }, ico('orbit')), el('div', {}, el('b', {}, 'OrbSim'), el('span', {}, modeName + ' · version ' + (META.version || ''))), el('button', { class: 'xib', title: 'close the menu (esc)', onclick: appMenuClose }, ico('close'))),
     el('div', { class: 'mtiles' },
       el('div', { class: 'mcol' }, ...MODE_TILES[mode]().map(t => tile(...t))),
-      el('div', { class: 'mcol small' }, tile('savef', 'Save and Share', saveHint(mode), () => appShare(mode)), tile('gear', 'Settings', 'appearance, textures, keys', () => goto('settings')),
+      el('div', { class: 'mcol small' }, tile('savef', 'Save and Share', saveHint(mode), () => appShare(mode)), tile('gear', 'Preferences', 'appearance, textures, keys', () => goto('settings')),
         ...otherModes(mode).map(([id, name, icon, sub]) => tile(icon, name + ' Mode', sub, () => setMode(id))))),
     el('div', { class: 'mlist' },
       item('news', "What's New", () => infoModal("What's New", el('ul', { class: 'mnews' }, ...WHATS_NEW.map(t => el('li', {}, t))))),

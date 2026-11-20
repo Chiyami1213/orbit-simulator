@@ -249,3 +249,14 @@ def test_solve_3d_view_spins_the_textured_body():
     r = api.solve(dict(mid='12', vals=None, theme='light', opts=dict(textures=True, frames=60)))
     html = next((s.get('html3d') for s in r['scenes'] if s.get('html3d')), '')
     assert '"spin": {"idx"' in html and '"name": "Earth"' in html
+
+
+def test_menu_order_and_unique_default_shortcuts():
+    import re
+    js = (ROOT / 'mathkit' / 'ui' / 'web' / 'app.js').read_text(encoding='utf-8')
+    assert "['File', 'Edit', 'View', 'Design', 'Analysis', 'Help']" in js
+    keys = re.search(r"const KEYS_DEFAULT = \{(.*?)\};", js).group(1)
+    vals = re.findall(r":\s*'([^']+)'", keys)
+    assert len(vals) == len(set(vals)) and {'F9', 'F10', 'F12', 'Ctrl+R'} <= set(vals), vals
+    for a in re.findall(r"(\w+):", keys): assert re.search(r"\n  %s: \[" % a, js), a            # every binding has a description row
+    assert '…' not in re.search(r"function menuDefs\(\).*?\nlet openMenu", js, re.S).group(0)    # no trailing ellipsis on menu items

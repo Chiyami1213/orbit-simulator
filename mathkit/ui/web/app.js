@@ -62,12 +62,13 @@ const BODY_SYM = { Sun: '☉', Moon: '☽', Mercury: '☿', Venus: '♀', Earth:
 const UTIL = [['jd', 'Julian Date', 'cal'], ['const', 'Body Constants', 'orbit'], ['tests', 'Test Cases', 'check']];
 const OPT = { tof: 'TOF', radec: 'RA / Dec', ths: 'θ*', xy: 'x, y', polar: 'r, v_r, v_θ', h_eps: 'h, ε', rp_ra: 'r_p, r_a', a_e: 'a, e', p_e: 'p, e', ccw: 'counter-clockwise', cw: 'clockwise' };
 const optText = o => OPT[o] || o;
-const KEYS_DEFAULT = { refresh: 'F5', screenshot: 'F2', fullscreen: 'F11', settings: 'S', menu: 'M', focus: 'F12', reset: 'F8', tour: 'F1', theme: 'F10' };
+const KEYS_DEFAULT = { refresh: 'F5', screenshot: 'F2', fullscreen: 'F11', settings: 'F9', menu: 'M', focus: 'F8', reset: 'F12', tour: 'F1', theme: 'F10', solve: 'Ctrl+R' };
 const KEY_INFO = {
   refresh: ['Refresh Screen', 're-renders the current page and solves it again, keeping your inputs'],
   screenshot: ['Screenshot', 'saves a png of the app window to the screenshots folder in the app data folder'],
   fullscreen: ['Full Screen', 'switches between full screen and the normal window'],
-  settings: ['Settings Page', 'opens the settings page, or goes back to where you were'],
+  settings: ['Preferences', 'opens the preferences page (appearance, key bindings and more), or goes back to where you were'],
+  solve: ['Solve and Draw', 'solves the current module and redraws the 3d and 2d views'],
   menu: ['Menu Bar', 'hides or shows the whole left menu bar'],
   theme: ['Color Theme', 'opens the color theme picker (Graphite, Ocean, Forest, Plum, Light)'],
   tour: ['Tutorial', 'starts the guided tour of the window; you can run it again whenever you need it'],
@@ -162,18 +163,18 @@ function menuDefs() {
   return {
     'File': [
       { label: 'Save Screenshot', key: K.screenshot, run: ACTIONS.screenshot },
-      { label: 'Export Figure…', dis: !res, run: () => { S.tab = 'Export Figure'; renderMain(); } },
+      { label: 'Export Figure', dis: !res, run: () => { S.tab = 'Export Figure'; renderMain(); } },
       { sep: 1 },
       { label: 'Create Backup', run: async () => { const r = await api('backup_create', {}); toast(r.ok ? 'backup created' : r.error, r.ok ? 'ok' : 'err'); S.backups = null; } },
       { label: 'Open Data Folder', run: async () => { const r = await api('open_folder', {}); if (!r.ok) toast(r.error, 'err'); } },
-      { sep: 1 },
-      { label: 'Settings', key: K.settings, run: ACTIONS.settings }],
+      ],
     'Edit': [
-      { label: 'Solve & Draw', dis: !M, run: () => solveNow(false, true) },
       { label: 'Reset Inputs', dis: !M, run: () => { const m = mod(); delete S.canon[m.id]; renderPanel(); solveNow(); } },
       { sep: 1 },
       { label: 'Copy Results as Text', dis: !res, run: () => copyText(res.groups.map(g => g.name + '\n' + g.rows.map(r => `  ${r[0]} = ${r[2]}${r[3] ? ' ' + r[3] : ''}`).join('\n')).join('\n\n')) },
-      { label: 'Copy Inputs', dis: !M, run: () => copyText(JSON.stringify(S.canon[S.page], null, 1)) }],
+      { label: 'Copy Inputs', dis: !M, run: () => copyText(JSON.stringify(S.canon[S.page], null, 1)) },
+      { sep: 1 },
+      { label: 'Preferences', key: K.settings, run: ACTIONS.settings }],
     'View': [
       { label: 'Menu Bar', key: K.menu, check: () => !LAY.hidden, run: ACTIONS.menu },
       { label: 'Maximize Plot', key: K.focus, dis: !res, run: ACTIONS.focus },
@@ -183,8 +184,9 @@ function menuDefs() {
       { sep: 1 }, { head: 'Color Theme' },
       ...PALETTES.map(([id, name]) => ({ label: name, check: () => themeKey() === id, run: () => setPalette(id) })),
       { sep: 1 }, { label: 'Refresh', key: K.refresh, run: ACTIONS.refresh }],
-    'Go': [{ label: 'Design (Missions)', check: () => S.page === 'mission', run: () => go('mission') }, { label: 'Sandbox', check: () => S.page === 'explore', run: () => go('explore') }, { sep: 1 }, { head: 'Solve: Modules' }, ...META.modules.map(m => ({ label: m.short, check: () => S.page === m.id, run: () => go(m.id) })),
-      { sep: 1 }, { head: 'Solve: Reference' }, ...UTIL.map(([id, name]) => ({ label: name, check: () => S.page === id, run: () => go(id) }))],
+    'Design': [{ label: 'Mission Design', check: () => S.page === 'mission', run: () => go('mission') }, { label: 'Sandbox', check: () => S.page === 'explore', run: () => go('explore') }],
+    'Analysis': [{ label: 'Solve and Draw', key: K.solve, dis: !M, run: () => solveNow(false, true) }, { sep: 1 }, { head: 'Modules' }, ...META.modules.map(m => ({ label: m.short, check: () => S.page === m.id, run: () => go(m.id) })),
+      { sep: 1 }, { head: 'Reference' }, ...UTIL.map(([id, name]) => ({ label: name, check: () => S.page === id, run: () => go(id) }))],
     'Help': [
       { label: 'Start Tutorial', key: K.tour, run: () => startTour() },
       { sep: 1 },
@@ -208,8 +210,8 @@ function showMenu(name, btn) {
 }
 function syncSettingsBtn() { const b = $('#setBtn'); if (b) b.classList.toggle('on', S.page === 'settings'); }
 function buildMenubar() {
-  const sb = $('#setBtn'); sb.replaceChildren(ico('gear'), el('span', {}, 'Settings')); sb.onclick = () => ACTIONS.settings(); syncSettingsBtn();
-  const bar = $('#menubar'); bar.replaceChildren(...['File', 'Edit', 'View', 'Go', 'Help'].map(n => el('button', { role: 'menuitem',
+  const sb = $('#setBtn'); sb.replaceChildren(ico('gear'), el('span', {}, 'Preferences')); sb.onclick = () => ACTIONS.settings(); syncSettingsBtn();
+  const bar = $('#menubar'); bar.replaceChildren(...['File', 'Edit', 'View', 'Design', 'Analysis', 'Help'].map(n => el('button', { role: 'menuitem',
     onclick: e => { e.stopPropagation(); if (openMenu === n) closeMenu(); else showMenu(n, e.currentTarget); }, onmouseenter: e => { if (openMenu && openMenu !== n) showMenu(n, e.currentTarget); } }, n)));
   document.addEventListener('click', e => { if (openMenu && !e.target.closest('.mdrop')) closeMenu(); });
   window.addEventListener('blur', closeMenu);
@@ -856,7 +858,7 @@ function settingsPage(main) {
     'Help': helpPage,
     'About': () => aboutPage()
   };
-  main.append(el('div', { class: 'setp' }, el('div', { class: 'sh1' }, 'Settings'),
+  main.append(el('div', { class: 'setp' }, el('div', { class: 'sh1' }, 'Preferences'),
     el('div', { class: 'stabs' }, ...SET_TABS.map(t => el('button', { class: 'stab' + (t === tab ? ' on' : ''), onclick: () => { S.setTab = t; if (t === 'Backup') S.backups = null; renderUtil(); } }, t))),
     el('div', { class: 'sh2' }, tab), pages[tab]()));
 }
@@ -881,6 +883,7 @@ const ACTIONS = {
   menu: () => { LAY.hidden = !LAY.hidden; applyLayout(); saveSet(); },
   reset: () => resetPanels(),
   theme: () => goto('settings', 'Appearance'),
+  solve: () => { if (isMod()) solveNow(false, true); },
   tour: () => startTour(),
   focus: () => { if (S.focus) setFocus(null); else if (isMod() && S.res && !S.res.error) { S.tab = 'Plots'; setFocus(SET.view === '2d' ? 'v2d' : 'v3d'); } }
 };

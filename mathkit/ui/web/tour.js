@@ -13,7 +13,7 @@ const TOUR_STEPS = () => [
   { sel: '.tabs', title: 'Steps and Export', text: 'step-by-step lists every intermediate value with its equation and the quadrant checks. export figure saves png, pdf, a 3d page, python or matlab plotting scripts, and a GMAT script.' },
   { sel: '#modesw button[data-mode="design"]', title: 'Design Mode', text: 'build a mission with resources and a command sequence, run it with real numerical propagation (Moon, Sun, planets, three-body, patched conics), compare with the course answer and with GMAT, and import or export GMAT scripts.' },
   { sel: '#modesw button[data-mode="explore"]', title: 'Sandbox Mode', text: 'the sandbox: the real Solar System from the ephemeris, a library to add bodies and spacecraft, a side panel to edit mass, orbit and motion, and time warp in both directions.' },
-  { sel: '#setBtn', title: 'Settings', text: 'appearance and colour themes, plot options, key bindings, constants, conventions, ephemeris and GMAT folder, backups, and licences. the tutorial can be started again from here, from the help menu, or with F1.' },
+  { sel: '#setBtn', title: 'Preferences', text: 'appearance and color themes, plot options, key bindings, constants, conventions, ephemeris and GMAT folder, backups, and licences. the tutorial can be started again from here, from the help menu, or with F1.' },
   { title: 'You are ready', text: 'that is the tour. try loading a homework problem from the inputs drop-down and press solve & draw. good luck!' }
 ];
 async function showPlots() { if (!isMod()) await go(META.modules.some(m => m.id === SET.lastPage) ? SET.lastPage : '12'); S.tab = 'Plots'; if (S.focus) setFocus(null); if (!$('#tile-inputs')) renderMain(); }
