@@ -205,5 +205,12 @@ def test_design_header_stays_on_one_row_space_view_has_full_window_and_menu_has_
 def test_earth_and_venus_have_a_cloud_layer_toggle_in_the_space_view():
     r = api.ROUTES['solar_view']({'jd0': JD0, 'days': 30, 'center': 'Sun'})['space']; by = {b['name']: b for b in r['bodies']}
     assert by['Earth']['clouds'] == '2k_earth_clouds.jpg' and by['Earth']['cloud_kind'] == 'alpha' and by['Mars']['clouds'] is None
+    assert by['Mars']['dust'] is True and by['Earth']['dust'] is False and 'function dustTexture' in (ROOT / 'mathkit' / 'ui' / 'web' / 'space.js').read_text(encoding='utf-8') and "chk('dust', 'Dust Storms'" in (ROOT / 'mathkit' / 'ui' / 'web' / 'mission.js').read_text(encoding='utf-8')
     assert by['Venus']['clouds'] == '2k_venus_atmosphere.jpg' and by['Venus']['cloud_kind'] == 'opaque' and by['Venus']['texture'] == '2k_venus_surface.jpg'
     web = ROOT / 'mathkit' / 'ui' / 'web'; assert "chk('clouds', 'Clouds'" in (web / 'mission.js').read_text(encoding='utf-8') and 'mesh.userData.cloud = cl' in (web / 'space.js').read_text(encoding='utf-8')
+
+
+def test_preferences_have_search_and_layer_defaults():
+    js = (ROOT / 'mathkit' / 'ui' / 'web' / 'app.js').read_text(encoding='utf-8')
+    assert "id: 'setsearch'" in js and 'Search Preferences' in js and 'const SEARCHED' in js and 'Mars Dust Storms' in js and 'Clouds on Earth and Venus' in js
+    assert 'input[type=search].setsearch' in (ROOT / 'mathkit' / 'ui' / 'web' / 'style.css').read_text(encoding='utf-8')

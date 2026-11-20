@@ -863,6 +863,8 @@ function settingsPage(main) {
       setRow('Confirm Before Quitting', 'ask before the window closes (Ctrl+Q and the close button)', el('input', { type: 'checkbox', checked: SET.confirmQuit !== false, onchange: e => { SET.confirmQuit = e.target.checked; saveSet(); } }))),
     'Figures and Animation': () => el('div', { class: 'sheet' },
       setRow('Plot Layout', 'show the 3d view, the 2d figure, or both side by side', seg([['3d', '3D'], ['2d', '2D'], ['both', '3D + 2D']], SET.view, v => { SET.view = v; saveSet(); })),
+      setRow('Clouds on Earth and Venus', 'show the cloud layers in the space view (also the Clouds box in the space view controls)', el('input', { type: 'checkbox', checked: SET.clouds !== false, onchange: e => { SET.clouds = e.target.checked; saveSet(); if (typeof MIS !== 'undefined' && MIS.space) MIS.space.set('clouds', SET.clouds); } })),
+      setRow('Mars Dust Storms', 'show a stylized dust haze with patchy storms on Mars in the space view (also the Dust Storms box in the space view controls)', el('input', { type: 'checkbox', checked: !!SET.dust, onchange: e => { SET.dust = e.target.checked; saveSet(); if (typeof MIS !== 'undefined' && MIS.space) MIS.space.set('dust', SET.dust); } })),
       setRow('Body Notation', 'celestial bodies in labels: astronomical symbols (r⊕) or name subscripts (r_earth)', seg([['symbol', 'Symbols'], ['name', 'Name Subscripts']], SET.bodyNotation, v => { SET.bodyNotation = v; saveSet(); reRender(); })),
       setRow('Animation Resolution', 'frames per animation: higher is smoother but heavier on the graphics card', seg([...FRAME_PRESETS.map(([n, l]) => [n, l]), ['custom', 'Custom']], custom ? 'custom' : frames, v => { if (v !== 'custom') { SET.frames = v; saveSet(); reRender(); renderUtil(); } else renderUtil(); }),
         el('input', { type: 'number', min: 60, max: 6000, step: 60, value: frames, style: 'width:90px', title: 'frames (60 to 6000)', onchange: e => { SET.frames = clamp(Math.round(+e.target.value || 480), 60, 6000); saveSet(); reRender(); renderUtil(); } })),
@@ -903,9 +905,30 @@ function settingsPage(main) {
     'Help': helpPage,
     'About': () => aboutPage()
   };
-  main.append(el('div', { class: 'setp' }, el('div', { class: 'sh1' }, 'Preferences'),
-    el('div', { class: 'stabs' }, ...SET_TABS.map(t => el('button', { class: 'stab' + (t === tab ? ' on' : ''), onclick: () => { S.setTab = t; if (t === 'Backup') S.backups = null; renderUtil(); } }, t))),
-    el('div', { class: 'sh2' }, tab), pages[tab]()));
+  /* search: type in the box to list every matching preference from all tabs (rows, and the sections they belong to), each still live; clear the box to go back to the tabs */
+  const SEARCHED = SET_TABS.filter(x => !['Backup', 'Help', 'About'].includes(x)), body = el('div', { id: 'setbody' });
+  const hay = c => (c.textContent + ' ' + [...c.querySelectorAll('[title]')].map(e => e.title).join(' ')).toLowerCase();
+  const fill = () => {
+    const terms = (S.setQuery || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!terms.length) { body.replaceChildren(el('div', { class: 'sh2' }, tab), pages[tab]()); return; }
+    const ok = s => terms.every(w => s.includes(w)), out = [];
+    SET_TABS.filter(t => ok(t.toLowerCase())).forEach(t => out.push(el('div', { class: 'setrow' }, el('div', { class: 'lt' }, el('div', { class: 't' }, t), el('div', { class: 'dim' }, 'preferences tab')), el('div', { class: 'ctl' }, el('button', { class: 'btn', onclick: () => { S.setQuery = ''; S.setTab = t; if (t === 'Backup') S.backups = null; renderUtil(); } }, 'Open')))));
+    for (const t of SEARCHED) {
+      let root = pages[t](); while (root.children.length === 1) root = root.firstElementChild;
+      const hits = []; let head = null, headPushed = false, secAll = false;
+      for (const c of root.children) {
+        if (c.classList.contains('sh3')) { head = c; headPushed = false; secAll = ok(hay(c)); if (secAll) { hits.push(c); headPushed = true; } continue; }
+        if (secAll || ok(hay(c))) { if (head && !headPushed) { hits.push(head); headPushed = true; } hits.push(c); }
+      }
+      if (hits.length) out.push(el('div', { class: 'sh2 srh' }, el('button', { class: 'linkbtn', title: 'open this tab', onclick: () => { S.setQuery = ''; S.setTab = t; renderUtil(); } }, t)), ...hits);
+    }
+    body.replaceChildren(...(out.length ? out : [el('div', { class: 'dim', style: 'margin-top:16px' }, 'no preferences match “' + S.setQuery.trim() + '”')]));
+  };
+  const box = el('input', { type: 'search', class: 'setsearch', id: 'setsearch', placeholder: 'Search Preferences', value: S.setQuery || '', 'aria-label': 'search preferences',
+    oninput: debounce(() => { S.setQuery = box.value; fill(); document.querySelector('.stabs')?.classList.toggle('dimmed', !!box.value.trim()); }, 140), onkeydown: e => { if (e.key === 'Escape' && box.value) { e.stopPropagation(); box.value = ''; S.setQuery = ''; fill(); document.querySelector('.stabs')?.classList.remove('dimmed'); } } });
+  fill();
+  main.append(el('div', { class: 'setp' }, el('div', { class: 'shead' }, el('div', { class: 'sh1' }, 'Preferences'), box),
+    el('div', { class: 'stabs' + ((S.setQuery || '').trim() ? ' dimmed' : '') }, ...SET_TABS.map(t => el('button', { class: 'stab' + (t === tab ? ' on' : ''), onclick: () => { S.setQuery = ''; S.setTab = t; if (t === 'Backup') S.backups = null; renderUtil(); } }, t))), body));
 }
 
 /* ---------- key bindings (rebindable in settings) ---------- */

@@ -607,3 +607,10 @@ body.busy,body.busy *{cursor:progress!important}
 .spacecard>h3{display:flex;align-items:center;gap:8px}.spacecard .fullbtn{margin-left:auto;flex:none}
 .spacecard.full{position:fixed;inset:0;z-index:80;margin:0;border-radius:0;border:0;background:var(--bg);padding:12px 16px;overflow:auto;height:auto!important}
 .spacecard.full .spaceview{flex:1;height:auto;min-height:240px}.spacecard.full.nobar .spacebar{display:none}
+
+/* ----- search in Preferences ----- */
+.shead{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}.shead .sh1{margin:0}
+.setsearch{width:320px;max-width:100%}.stabs.dimmed{opacity:.45}
+.srh{margin-top:22px}.linkbtn{background:none;border:0;color:var(--orange);font:inherit;font-weight:700;cursor:pointer;padding:0}.linkbtn:hover{text-decoration:underline}
+input[type=search].setsearch{background:var(--inset);color:var(--text);border:1px solid var(--line);border-radius:5px;padding:8px 11px;outline:none;color-scheme:dark}body[data-theme=light] input[type=search].setsearch{color-scheme:light}
+input[type=search].setsearch:focus{border-color:var(--orange)}.srh{font-size:15px;margin:22px 0 0}
