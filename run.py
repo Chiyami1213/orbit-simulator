@@ -89,7 +89,10 @@ def main(argv):
                 time.sleep(3600)
         except KeyboardInterrupt:
             pass
-    httpd.shutdown()
+    import threading
+    threading.Thread(target=httpd.shutdown, daemon=True).start()
+    logging.shutdown()
+    os._exit(0)                                     # the window is gone: end the process even if a request thread or the server is still winding down (otherwise a hidden python.exe stays behind)
 
 
 if __name__ == '__main__':

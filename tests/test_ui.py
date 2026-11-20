@@ -152,7 +152,8 @@ def test_quit_confirmation_busy_bar_and_quit_route():
     assert "quit: 'Ctrl+Q'" in js and 'confirmQuit: true' in js and 'async function askQuit' in js and 'async function busy(' in js
     assert 'Confirm Before Quitting' in js and "busy('exporting'" in js and "busy('creating backup'" in js
     assert 'id="busybar"' in (web / 'index.html').read_text(encoding='utf-8') and '.busybar.on' in (web / 'style.css').read_text(encoding='utf-8')
-    assert 'events.closing' in (ROOT / 'run.py').read_text(encoding='utf-8')
+    run_py = (ROOT / 'run.py').read_text(encoding='utf-8')
+    assert 'events.closing' in run_py and 'os._exit(0)' in run_py                           # quitting must end the process, not leave a hidden python.exe behind
     assert shell.WINDOW is None and api.ROUTES['quit']({}) == dict(ok=True, mode='browser')       # no window in the tests: the page closes itself, nothing is destroyed
 
 
