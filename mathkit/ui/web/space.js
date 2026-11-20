@@ -169,7 +169,7 @@ export function createSpace(host, data, opts = {}) {
     else { mesh = buildShape(shape, b.color, data.models, loader); const ball = mesh.userData.ball; if (ball) { ball.material = mat; ball.material.needsUpdate = true; } }
     const shells = [];
     if (shape === 'sphere') {
-      if (b.clouds) { const cm = new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, depthWrite: false, roughness: 1, metalness: 0 }); loadSlot(slots, cm, 'alphaMap', b.clouds, null, false); const cl = new THREE.Mesh(new THREE.SphereGeometry(1.012, 48, 32), cm); cl.visible = state.clouds !== false; mesh.userData.cloud = cl; mesh.add(cl); }
+      if (b.clouds) { const opq = b.cloud_kind === 'opaque', cm = new THREE.MeshStandardMaterial(opq ? { color: '#ffffff', roughness: 1, metalness: 0 } : { color: '#ffffff', transparent: true, depthWrite: false, roughness: 1, metalness: 0 }); loadSlot(slots, cm, opq ? 'map' : 'alphaMap', b.clouds, null, opq); const cl = new THREE.Mesh(new THREE.SphereGeometry(1.012, 48, 32), cm); cl.visible = state.clouds !== false; mesh.userData.cloud = cl; mesh.add(cl); }
       const am = ATMO[b.name]; if (am) { const sh = new THREE.Mesh(new THREE.SphereGeometry(1.045, 48, 32), atmoMat(am[0], am[1])); mesh.add(sh); shells.push(sh); }
       if (isStar(b)) mesh.add(glowSprite('#ffd27a', 4.5));
     }

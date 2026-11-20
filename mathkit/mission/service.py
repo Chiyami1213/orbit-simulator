@@ -318,7 +318,7 @@ def space_payload(m: Mission, res: RunResult, eph, refs: list | None = None, cap
     bodies = []; jds = np.linspace(jd0, max(jd1, jd0 + 1e-6), 160)
     patched = any(p.dynamics == 'patched' for p in m.propagators)
     for n in names:
-        b = dict(name=n, R=consts.R(n), texture=TEXTURES.get(n), clouds=cloud_map(n), color=BODY_COLOR.get(n, '#8aa0c8'), spin=spin_for(n))
+        b = dict(name=n, R=consts.R(n), texture=TEXTURES.get(n), clouds=cloud_map(n), cloud_kind='opaque' if n in CLOUD_OPAQUE else 'alpha', color=BODY_COLOR.get(n, '#8aa0c8'), spin=spin_for(n))
         if n != center:
             if eph is None or n not in getattr(eph, 'bodies', ()): continue
             B = np.array([eph.state(n, TU.utc_to_tdb(j), center)[0] for j in jds]); b['path'] = dict(jd=jds.tolist(), r=B.tolist())
@@ -340,10 +340,14 @@ def space_payload(m: Mission, res: RunResult, eph, refs: list | None = None, cap
                 refs=[dict(name=r_['name'], r=[x for x in np.array(r_['r'])[_thin(len(r_['r']), cap)].tolist()]) for r_ in (refs or []) if r_.get('center') == center])
 
 
+CLOUD_FILES = {'Earth': '2k_earth_clouds.jpg', 'Venus': '2k_venus_atmosphere.jpg'}
+CLOUD_OPAQUE = {'Venus'}                    # Venus's cloud deck hides the whole surface: an opaque shell over the radar map, not a see-through cloud mask like the Earth's
+
+
 def cloud_map(name: str):
-    """The cloud layer texture of a body (only the Earth has one), or None when the image is not installed."""
+    """The cloud layer texture of a body (the Earth's cloud mask and Venus's opaque cloud deck), or None when the image is not installed."""
     from ..view3d.models import assets_dir
-    f = {'Earth': '2k_earth_clouds.jpg'}.get(name); return f if f and (assets_dir() / f).exists() else None
+    f = CLOUD_FILES.get(name); return f if f and (assets_dir() / f).exists() else None
 
 
 PERIOD_DAYS = {'Mercury': 87.97, 'Venus': 224.70, 'Earth': 365.256, 'Mars': 686.98, 'Jupiter': 4332.59, 'Saturn': 10759.2, 'Uranus': 30688.5, 'Neptune': 60182.0, 'Pluto': 90560.0}
@@ -359,7 +363,7 @@ def solar_payload(eph, jd0: float, days: float, center: str = 'Sun', ring_points
     n = int(min(5000, max(400, days / 0.5))); jds = np.linspace(jd0, jd0 + days, n); tdb = [TU.utc_to_tdb(j) for j in jds]
     names = [center] + [b for b in avail if b != center]; bodies = []; ext = 1.0
     for nm in names:
-        b = dict(name=nm, R=consts.R(nm), mu=consts.mu(nm), texture=TEXTURES.get(nm), clouds=cloud_map(nm), color=BODY_COLOR.get(nm, '#8aa0c8'), spin=spin_for(nm), kind='star' if nm == 'Sun' else 'moon' if nm == 'Moon' else 'planet')
+        b = dict(name=nm, R=consts.R(nm), mu=consts.mu(nm), texture=TEXTURES.get(nm), clouds=cloud_map(nm), cloud_kind='opaque' if nm in CLOUD_OPAQUE else 'alpha', color=BODY_COLOR.get(nm, '#8aa0c8'), spin=spin_for(nm), kind='star' if nm == 'Sun' else 'moon' if nm == 'Moon' else 'planet')
         if nm != center:
             B = np.array([eph.state(nm, t, center)[0] for t in tdb]); b['path'] = dict(jd=jds.tolist(), r=B.tolist()); ext = max(ext, float(np.max(np.linalg.norm(B, axis=1))))
             if nm == 'Moon' and center != 'Moon' and 'Earth' in avail: b['parent'] = 'Earth'

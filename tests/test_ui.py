@@ -202,7 +202,8 @@ def test_design_header_stays_on_one_row_space_view_has_full_window_and_menu_has_
     assert 'Leave Full Window' in mis and "e.key === 'Tab'" in mis and "item('exit', 'Quit'" in am
 
 
-def test_earth_has_a_cloud_layer_toggle_in_the_space_view():
+def test_earth_and_venus_have_a_cloud_layer_toggle_in_the_space_view():
     r = api.ROUTES['solar_view']({'jd0': JD0, 'days': 30, 'center': 'Sun'})['space']; by = {b['name']: b for b in r['bodies']}
-    assert by['Earth']['clouds'] == '2k_earth_clouds.jpg' and by['Mars']['clouds'] is None
+    assert by['Earth']['clouds'] == '2k_earth_clouds.jpg' and by['Earth']['cloud_kind'] == 'alpha' and by['Mars']['clouds'] is None
+    assert by['Venus']['clouds'] == '2k_venus_atmosphere.jpg' and by['Venus']['cloud_kind'] == 'opaque' and by['Venus']['texture'] == '2k_venus_surface.jpg'
     web = ROOT / 'mathkit' / 'ui' / 'web'; assert "chk('clouds', 'Clouds'" in (web / 'mission.js').read_text(encoding='utf-8') and 'mesh.userData.cloud = cl' in (web / 'space.js').read_text(encoding='utf-8')
