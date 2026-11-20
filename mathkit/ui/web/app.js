@@ -79,12 +79,13 @@ const BODY_SYM = { Sun: '☉', Moon: '☽', Mercury: '☿', Venus: '♀', Earth:
 const UTIL = [['jd', 'Julian Date', 'cal'], ['const', 'Body Constants', 'orbit'], ['tests', 'Test Cases', 'check']];
 const OPT = { tof: 'TOF', radec: 'RA / Dec', ths: 'θ*', xy: 'x, y', polar: 'r, v_r, v_θ', h_eps: 'h, ε', rp_ra: 'r_p, r_a', a_e: 'a, e', p_e: 'p, e', ccw: 'counter-clockwise', cw: 'clockwise' };
 const optText = o => OPT[o] || o;
-const KEYS_DEFAULT = { refresh: 'F5', screenshot: 'F2', fullscreen: 'F11', settings: 'F9', menu: 'M', focus: 'F8', reset: 'F12', tour: 'F1', theme: 'F10', solve: 'Ctrl+R', quit: 'Ctrl+Q' };
+const KEYS_DEFAULT = { refresh: 'F5', screenshot: 'F2', fullscreen: 'F11', settings: 'F9', menu: 'M', focus: 'F8', reset: 'F12', tour: 'F1', theme: 'F10', solve: 'Ctrl+R', quit: 'Ctrl+Q', spacefull: 'F6' };
 const KEY_INFO = {
   refresh: ['Refresh Screen', 're-renders the current page and solves it again, keeping your inputs'],
   screenshot: ['Screenshot', 'saves a png of the app window to the screenshots folder in the app data folder'],
   fullscreen: ['Full Screen', 'switches between full screen and the normal window'],
   settings: ['Preferences', 'opens the preferences page (appearance, key bindings and more), or goes back to where you were'],
+  spacefull: ['Space View Full Window', 'makes the space view fill the whole window and back (inside it: tab hides or shows the controls, esc leaves)'],
   quit: ['Quit', 'closes OrbSim; asks first unless confirm before quitting is turned off in the preferences'],
   solve: ['Solve and Draw', 'solves the current module and redraws the 3d and 2d views'],
   menu: ['Menu Bar', 'hides or shows the whole left menu bar'],
@@ -198,6 +199,7 @@ function menuDefs() {
       { label: 'Menu Bar', key: K.menu, check: () => !LAY.hidden, run: ACTIONS.menu },
       { label: 'Maximize Plot', key: K.focus, dis: !res, run: ACTIONS.focus },
       { label: 'Full Screen', key: K.fullscreen, run: ACTIONS.fullscreen },
+      { label: 'Space View Full Window', key: K.spacefull, run: ACTIONS.spacefull },
       { sep: 1 }, { head: 'Panels' }, tile('inputs'), tile('v3d'), tile('v2d'), tile('results'),
       { label: 'Reset Panel Layout', key: K.reset, run: resetPanels },
       { sep: 1 }, { head: 'Color Theme' },
@@ -928,6 +930,7 @@ const ACTIONS = {
   theme: () => goto('settings', 'Appearance'),
   solve: () => { if (isMod()) solveNow(false, true); },
   quit: () => askQuit(),
+  spacefull: () => { if (window.spaceFullToggle && window.spaceFullToggle()) return; toast('open a space view first (design mode: plots or solar system)'); },
   tour: () => startTour(),
   focus: () => { if (S.focus) setFocus(null); else if (isMod() && S.res && !S.res.error) { S.tab = 'Plots'; setFocus(SET.view === '2d' ? 'v2d' : 'v3d'); } }
 };

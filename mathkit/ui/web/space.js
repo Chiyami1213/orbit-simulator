@@ -92,7 +92,7 @@ export function createSpace(host, data, opts = {}) {
   const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.zoomSpeed = 1.2;
   const world = new THREE.Group(); scene.add(world);
   controls.addEventListener('start', () => { flyTo = null; });                        // the moment you drag or scroll, the fly-to stops and the mouse is in charge again (zoom in and out freely)
-  const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 1.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1, light: 'even', atmo: true, spin: true, equ: false };
+  const state = { warp: 3, playing: false, sky: opts.sky || 'milkyway', bright: 1.0, markers: false, exag: 1, labels: true, soi: true, lag: true, axes: false, ecl: false, paths: true, focus: data.center, t: 0, dir: 1, light: 'even', atmo: true, clouds: true, spin: true, equ: false };
   const loader = new THREE.TextureLoader(), t0 = data.jd0, t1 = data.jd1, span = Math.max(1e-9, t1 - t0);
   let jd = t0, raf = 0, last = 0, flyTo = null; let disposed = false;
   let ghostGrp = null, ghostMk = null;                                                  // the placement preview of the sandbox (marker, orbit ring, aim arrow)
@@ -169,7 +169,7 @@ export function createSpace(host, data, opts = {}) {
     else { mesh = buildShape(shape, b.color, data.models, loader); const ball = mesh.userData.ball; if (ball) { ball.material = mat; ball.material.needsUpdate = true; } }
     const shells = [];
     if (shape === 'sphere') {
-      if (b.clouds) { const cm = new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, depthWrite: false, roughness: 1, metalness: 0 }); loadSlot(slots, cm, 'alphaMap', b.clouds, null, false); mesh.add(new THREE.Mesh(new THREE.SphereGeometry(1.012, 48, 32), cm)); }
+      if (b.clouds) { const cm = new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, depthWrite: false, roughness: 1, metalness: 0 }); loadSlot(slots, cm, 'alphaMap', b.clouds, null, false); const cl = new THREE.Mesh(new THREE.SphereGeometry(1.012, 48, 32), cm); cl.visible = state.clouds !== false; mesh.userData.cloud = cl; mesh.add(cl); }
       const am = ATMO[b.name]; if (am) { const sh = new THREE.Mesh(new THREE.SphereGeometry(1.045, 48, 32), atmoMat(am[0], am[1])); mesh.add(sh); shells.push(sh); }
       if (isStar(b)) mesh.add(glowSprite('#ffd27a', 4.5));
     }
@@ -380,7 +380,7 @@ export function createSpace(host, data, opts = {}) {
     orbitPoints(name) { const o = bodies[name]; if (!o || !o.orb) return null; const a = o.orb.geometry.attributes.position, c = o.orb.position, out = []; for (let k = 0; k < a.count; k++) out.push([a.getX(k) + c.x, a.getY(k) + c.y, a.getZ(k) + c.z]); return out; },
     perf() { return { pixelRatio: pr, baseRatio: prBase, fps: Math.round(1000 / emaMs), bodies: Object.keys(bodies).length, width: renderer.domElement.width, height: renderer.domElement.height }; },
     zoomBy(f) { flyTo = null; const t = controls.target, v = camera.position.clone().sub(t), d = v.length(); if (d <= 0) return; camera.position.copy(t).addScaledVector(v.normalize(), Math.max(controls.minDistance || d * 1e-6, d * f)); controls.update(); },
-    setSky(k) { setSky(k); refreshTheme(); }, setTheme(t) { lightUI = t === 'light'; refreshTheme(); }, set(k, v) { state[k] = v; }, nextEvent() { const ts = (data.events || []).map(e => e.jd).filter(t => t > jd + 1e-9).sort((a, b) => a - b); if (ts.length) { jd = ts[0]; host.dispatchEvent(new CustomEvent('space-time')); return true; } return false; },
+    setSky(k) { setSky(k); refreshTheme(); }, setTheme(t) { lightUI = t === 'light'; refreshTheme(); }, set(k, v) { state[k] = v; if (k === 'clouds') for (const n in bodies) { const c = bodies[n].mesh.userData.cloud; if (c) c.visible = !!v; } }, nextEvent() { const ts = (data.events || []).map(e => e.jd).filter(t => t > jd + 1e-9).sort((a, b) => a - b); if (ts.length) { jd = ts[0]; host.dispatchEvent(new CustomEvent('space-time')); return true; } return false; },
     png() { return renderer.domElement.toDataURL('image/png'); },
     record(on, done) {
       if (on) { const stream = renderer.domElement.captureStream(30); const chunks = []; const rec = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm', videoBitsPerSecond: 8e6 });

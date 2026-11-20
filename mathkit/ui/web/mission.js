@@ -324,8 +324,9 @@ function spaceCard(r) {
       card.classList.remove('full', 'nobar'); fullBtn.textContent = '⤢ Full Window'; document.removeEventListener('keydown', onKey, true); if (home && home.p && home.p.isConnected) home.p.insertBefore(card, home.n && home.n.parentNode === home.p ? home.n : null);
     }
   };
-  const fullBtn = el('button', { class: 'btn small fullbtn', title: 'fill the whole window with the space view (Tab hides or shows the controls, Esc leaves)', onclick: () => goFull(!card.classList.contains('full')) }, '⤢ Full Window');
+  const fullBtn = el('button', { class: 'btn small fullbtn', title: 'fill the whole window with the space view (F6; tab hides or shows the controls, esc leaves)', onclick: () => goFull(!card.classList.contains('full')) }, '⤢ Full Window');
   card.querySelector('h3').append(fullBtn);
+  window.spaceFullToggle = () => { if (!card.isConnected) return false; goFull(!card.classList.contains('full')); return true; };
   setTimeout(async () => {
     if (MIS.space) { try { MIS.space.dispose(); } catch (e) { } MIS.space = null; }
     let S3; try { const mod = await import('/space.js'); S3 = mod.createSpace(host, sp, { sky: SET.sky || 'milkyway', model: SET.model, hires: texHires(), theme: effTheme() }); } catch (e) { host.replaceChildren(el('div', { class: 'empty' }, 'the space view needs WebGL: ' + e)); return; }
@@ -345,7 +346,7 @@ function spaceCard(r) {
     bar.append(el('div', { class: 'srow' }, play, rev, btn('Next Event', () => { if (!S3.nextEvent()) toast('there are no more burns or stops after this time'); }, 'jump to the next burn or stop'), el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Time Warp'), warp), wl, date),
       el('div', { class: 'srow' }, slider),
       el('div', { class: 'srow' }, el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Focus'), focus), btn('Top', () => S3.view('top')), btn('Isometric', () => S3.view('iso')), btn('Side', () => S3.view('side')),
-        chk('labels', 'Labels'), chk('paths', 'Orbits'), chk('soi', 'SOI'), chk('lag', 'Lagrange'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic'), chk('equ', 'Equatorial Plane', 'the equator of the body in focus (the Earth by default); the focus menu changes the body'),
+        chk('labels', 'Labels'), chk('clouds', 'Clouds', 'show or hide the Earth’s cloud layer'), chk('paths', 'Orbits'), chk('soi', 'SOI'), chk('lag', 'Lagrange'), chk('axes', 'Axes'), chk('ecl', 'Ecliptic'), chk('equ', 'Equatorial Plane', 'the equator of the body in focus (the Earth by default); the focus menu changes the body'),
         el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Background'), skysel),
         el('label', { class: 'mf', title: 'draw bodies larger than life' }, el('span', { class: 'ml' }, 'Body Size'), el('input', { type: 'range', min: 1, max: 100, value: 1, 'data-default': 1, oninput: e => S3.set('exag', +e.target.value) })),
         el('label', { class: 'mf' }, el('span', { class: 'ml' }, 'Sky Brightness'), el('input', { type: 'range', min: 0, max: 40, value: 10, 'data-default': 10, oninput: e => S3.set('bright', e.target.value / 10) })),

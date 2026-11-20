@@ -113,7 +113,7 @@ def test_menu_order_and_unique_default_shortcuts():
     assert "['File', 'Edit', 'View', 'Design', 'Analysis', 'Help']" in js
     keys = re.search(r"const KEYS_DEFAULT = \{(.*?)\};", js).group(1)
     vals = re.findall(r":\s*'([^']+)'", keys)
-    assert len(vals) == len(set(vals)) and {'F9', 'F10', 'F12', 'Ctrl+R'} <= set(vals), vals
+    assert len(vals) == len(set(vals)) and {'F9', 'F10', 'F12', 'Ctrl+R', 'F6'} <= set(vals), vals
     for a in re.findall(r"(\w+):", keys): assert re.search(r"\n  %s: \[" % a, js), a            # every binding has a description row
     assert '…' not in re.search(r"function menuDefs\(\).*?\nlet openMenu", js, re.S).group(0)    # no trailing ellipsis on menu items
 
@@ -200,3 +200,9 @@ def test_design_header_stays_on_one_row_space_view_has_full_window_and_menu_has_
     web = ROOT / 'mathkit' / 'ui' / 'web'; css = (web / 'style.css').read_text(encoding='utf-8'); mis = (web / 'mission.js').read_text(encoding='utf-8'); am = (web / 'appmenu.js').read_text(encoding='utf-8')
     assert '.mrow1{flex-wrap:nowrap}' in css and '.spacecard.full{position:fixed;inset:0' in css                # no second header row holding the Run button; the full-window card covers the page
     assert 'Leave Full Window' in mis and "e.key === 'Tab'" in mis and "item('exit', 'Quit'" in am
+
+
+def test_earth_has_a_cloud_layer_toggle_in_the_space_view():
+    r = api.ROUTES['solar_view']({'jd0': JD0, 'days': 30, 'center': 'Sun'})['space']; by = {b['name']: b for b in r['bodies']}
+    assert by['Earth']['clouds'] == '2k_earth_clouds.jpg' and by['Mars']['clouds'] is None
+    web = ROOT / 'mathkit' / 'ui' / 'web'; assert "chk('clouds', 'Clouds'" in (web / 'mission.js').read_text(encoding='utf-8') and 'mesh.userData.cloud = cl' in (web / 'space.js').read_text(encoding='utf-8')
